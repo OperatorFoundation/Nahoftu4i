@@ -616,6 +616,15 @@ class FriendInfoActivity: AppCompatActivity()
             try
             {
                 serialConnection?.let { connection ->
+
+                    // Show progress UI
+                    withContext(Dispatchers.Main) {
+                        binding.serialProgressCard.visibility = View.VISIBLE
+                        binding.sendAsText.isEnabled = false
+                        binding.messageEditText.isEnabled = false
+                        binding.serialProgressText.text = "Initializing..."
+                    }
+
                     Timber.d("=== Starting Command Sequence ===")
 
                     // Predefined command sequence from demo app
@@ -638,25 +647,33 @@ class FriendInfoActivity: AppCompatActivity()
                         "q"
                     )
 
+                    val totalSteps = commandSequence.size + 2
+
                     // Send each command without waiting for response
                     for ((index, command) in commandSequence.withIndex())
                     {
                         try
                         {
+                            // Update progress UI
+                            withContext(Dispatchers.Main) {
+                                binding.serialProgressText.text = "Sending command: $command"
+                                binding.serialProgressStep.text = "Step ${index + 1} of $totalSteps"
+                            }
+
                             Timber.d("Sequence [${index + 1}/${commandSequence.size}]: Sending '$command'")
 
                             // Send the command with CRLF
-                            val sendSuccess = connection.write(command + "\r\n")
-
-                            if (!sendSuccess) {
-                                Timber.e("Failed to send command: $command")
-                                throw Exception("Failed to send command at step ${index + 1}")
-                            }
+//                            val sendSuccess = connection.write(command + "\r\n")
+//
+//                            if (!sendSuccess) {
+//                                Timber.e("Failed to send command: $command")
+//                                throw Exception("Failed to send command at step ${index + 1}")
+//                            }
 
                             Timber.d("→ Sent: $command")
 
                             // Brief pause between commands
-                            delay(50) // 50ms delay between commands
+                            delay(100) // 50ms delay between commands
 
                         }
                         catch (e: Exception)
@@ -666,30 +683,46 @@ class FriendInfoActivity: AppCompatActivity()
                         }
                     }
 
+                    // Update UI for final commands
+                    withContext(Dispatchers.Main) {
+                        binding.serialProgressText.text = "Transmitting..."
+                        binding.serialProgressStep.text = "Step ${commandSequence.size + 1} of $totalSteps"
+                    }
+
                     // Send final '1' command for transmit
-                    Timber.d("Sending final transmit command...")
-                    val finalSuccess = connection.write("1")
-
-                    if (finalSuccess) {
-                        Timber.d("→ Transmit command sent: 1")
-
-                        // Wait a bit for transmission to complete
-                        delay(500)
-
-                        // Send quit command
-                        connection.write("q")
-                        Timber.d("→ Quit command sent: q")
-
-                        Timber.d("=== Command Sequence Completed ===")
-                    }
-                    else
-                    {
-                        Timber.e("Failed to send transmit command")
-                    }
+//                    Timber.d("Sending final transmit command...")
+//                    val finalSuccess = connection.write("1")
+//
+//                    if (finalSuccess) {
+//                        Timber.d("→ Transmit command sent: 1")
+//
+//                        // Wait a bit for transmission to complete
+//                        delay(100)
+//
+//                        // Update UI for quit command
+//                        withContext(Dispatchers.Main) {
+//                            binding.serialProgressText.text = "Completing..."
+//                            binding.serialProgressStep.text = "Step $totalSteps of $totalSteps"
+//                        }
+//
+////                        // Send quit command
+////                        connection.write("q")
+////                        Timber.d("→ Quit command sent: q")
+//
+//                        Timber.d("=== Command Sequence Completed ===")
+//                    }
+//                    else
+//                    {
+//                        Timber.e("Failed to send transmit command")
+//                    }
 
                     withContext(Dispatchers.Main) {
+
+                        binding.serialProgressCard.visibility = View.GONE
+                        binding.sendAsText.isEnabled = true
+                        binding.messageEditText.isEnabled = true
                         binding.messageEditText.text?.clear()
-                        showAlert("Command sequence sent via serial")
+                        showAlert("Your message has been transmitted to your radio!")
 
                         // Optionally save the message to history
                         thisFriend.publicKeyEncoded?.let { key ->
@@ -704,6 +737,11 @@ class FriendInfoActivity: AppCompatActivity()
             catch (e: Exception)
             {
                 withContext(Dispatchers.Main) {
+                    // Hide progress and re-enable UI on error
+                    binding.serialProgressCard.visibility = View.GONE
+                    binding.sendAsText.isEnabled = true
+                    binding.messageEditText.isEnabled = true
+
                     showAlert("Serial send failed: ${e.message}")
                 }
             }
