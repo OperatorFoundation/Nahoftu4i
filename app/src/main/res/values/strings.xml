@@ -48,6 +48,7 @@
     <string name="alert_text_secondary_passcode_field_empty">The destruction code field is empty.</string>
     <string name="alert_text_verify_secondary_passcode_empty">Please verify your destruction code.</string>
     <string name="alert_text_secondary_passcode_entries_do_not_match">Destruction code entries do not match.</string>
+    <string name="alert_text_serial_not_connected">No serial device connected</string>
     <string name="alert_text_passcode_required_for_destruction_code">You cannot create a destruction code until you create a passcode.</string>
     <string name="alert_text_secondary_passcode_and_passcode_may_not_match">You cannot have a destruction code that is the same as your passcode.</string>
     <string name="alert_text_received_invitation">Received an invitation from %1$s. Send them an invitation to start communicating.</string>

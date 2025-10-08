@@ -42,7 +42,6 @@ import org.nahoft.util.showAlert
 import org.operatorfoundation.transmission.SerialConnectionFactory
 import org.operatorfoundation.transmission.SerialConnection
 import com.hoho.android.usbserial.driver.UsbSerialDriver
-import kotlinx.coroutines.flow.collect
 import timber.log.Timber
 
 class FriendInfoActivity: AppCompatActivity()
@@ -435,6 +434,7 @@ class FriendInfoActivity: AppCompatActivity()
         // Get user's public key to send to contact
         val userPublicKey = Encryption().ensureKeysExist().publicKey
         val keyBytes = userPublicKey.toBytes()
+        ShareUtil.shareKey(this, keyBytes)
 
         // Share the key
 //        if (Persist.loadBooleanKey(Persist.sharedPrefUseSmsAsDefaultKey)) { // && (thisFriend.phone?.isNotEmpty() == true)) {
@@ -459,7 +459,7 @@ class FriendInfoActivity: AppCompatActivity()
 //                return
 //            }
 //        } else {
-        ShareUtil.shareKey(this, keyBytes)
+//          ShareUtil.shareKey(this, keyBytes)
 //        }
 
         if (thisFriend.status == FriendStatus.Requested)
@@ -555,48 +555,6 @@ class FriendInfoActivity: AppCompatActivity()
             if (thisFriend.publicKeyEncoded != null)
             {
                 val encryptedMessage = Encryption().encrypt(thisFriend.publicKeyEncoded!!, message)
-//                if (Persist.loadBooleanKey(Persist.sharedPrefUseSmsAsDefaultKey) && (thisFriend.phone?.isNotEmpty() == true)) {
-//                    val permissionCheck = ContextCompat.checkSelfPermission(
-//                        this, Manifest.permission.SEND_SMS
-//                    )
-//                    if (permissionCheck != PackageManager.PERMISSION_GRANTED) {
-//                        ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.SEND_SMS), RequestCodes.requestPermissionCode)
-//                        showAlert(getString(R.string.sms_permission_needed))
-//                        return
-//                    } else {
-//                        val codex = Codex()
-//                        try {
-//                            val encodedMessage = codex.encodeEncryptedMessage(encryptedMessage)
-//                            try {
-//                                val smsManager: SmsManager = if (Build.VERSION.SDK_INT >= 31) {
-//                                    this.getSystemService(SmsManager::class.java)
-//                                } else {
-//                                    SmsManager.getDefault()
-//                                }
-//                                val parts = smsManager.divideMessage(encodedMessage)
-//                                smsManager.sendMultipartTextMessage(
-//                                    thisFriend.phone,
-//                                    null,
-//                                    parts,
-//                                    null,
-//                                    null
-//                                )
-//                                saveMessage(encryptedMessage, thisFriend, true)
-//                            } catch (e: Exception) {
-//                                this.showAlert(getString(R.string.unable_to_send_sms))
-//                                return
-//                            }
-//
-//                        } catch (exception: SecurityException) {
-//                            this.showAlert(getString(R.string.alert_text_unable_to_process_request))
-//                            return
-//                        }
-//                    }
-//                } else {
-//                    ShareUtil.shareText(this, message, thisFriend.publicKeyEncoded!!)
-//                    saveMessage(encryptedMessage, thisFriend, true)
-//                }
-
                 ShareUtil.shareText(this, message, thisFriend.publicKeyEncoded!!)
                 saveMessage(encryptedMessage, thisFriend, true)
 
@@ -612,139 +570,84 @@ class FriendInfoActivity: AppCompatActivity()
 
     private fun sendViaSerial(message: String)
     {
-        coroutineScope.launch(Dispatchers.IO) {
-            try
-            {
-                serialConnection?.let { connection ->
+        val codex = Codex()
 
-                    // Show progress UI
-                    withContext(Dispatchers.Main) {
-                        binding.serialProgressCard.visibility = View.VISIBLE
-                        binding.sendAsText.isEnabled = false
-                        binding.messageEditText.isEnabled = false
-                        binding.serialProgressText.text = "Initializing..."
-                    }
+        try
+        {
+            val encryptedMessage = Encryption().encrypt(thisFriend.publicKeyEncoded!!, message)
+            val encodedMessage = codex.encodeEncryptedMessage(encryptedMessage)
 
-                    Timber.d("=== Starting Command Sequence ===")
+            // TODO: Send message to serial device
+            coroutineScope.launch(Dispatchers.IO) {
+                val connection = serialConnection
 
-                    // Predefined command sequence from demo app
-                    val commandSequence = listOf(
-                        "2",
-                        "#",
-                        "2",
-                        "8",
-                        "53200",
-                        "q",
-                        "3",
-                        "QA0DEF",
-                        "7",
-                        "BK8600",
-                        "6",
-                        "11",
-                        "2",
-                        "4",
-                        "14097157",
-                        "q"
-                    )
-
-                    val totalSteps = commandSequence.size + 2
-
-                    // Send each command without waiting for response
-                    for ((index, command) in commandSequence.withIndex())
+                if (connection == null)
+                {
+                    withContext(Dispatchers.Main)
                     {
-                        try
-                        {
-                            // Update progress UI
-                            withContext(Dispatchers.Main) {
-                                binding.serialProgressText.text = "Sending command: $command"
-                                binding.serialProgressStep.text = "Step ${index + 1} of $totalSteps"
-                            }
-
-                            Timber.d("Sequence [${index + 1}/${commandSequence.size}]: Sending '$command'")
-
-                            // Send the command with CRLF
-//                            val sendSuccess = connection.write(command + "\r\n")
-//
-//                            if (!sendSuccess) {
-//                                Timber.e("Failed to send command: $command")
-//                                throw Exception("Failed to send command at step ${index + 1}")
-//                            }
-
-                            Timber.d("→ Sent: $command")
-
-                            // Brief pause between commands
-                            delay(100) // 50ms delay between commands
-
-                        }
-                        catch (e: Exception)
-                        {
-                            Timber.e("Error during command sequence at step ${index + 1}: $command")
-                            throw e
-                        }
+                        showAlert(getString(R.string.alert_text_serial_not_connected))
                     }
 
-                    // Update UI for final commands
-                    withContext(Dispatchers.Main) {
-                        binding.serialProgressText.text = "Transmitting..."
-                        binding.serialProgressStep.text = "Step ${commandSequence.size + 1} of $totalSteps"
+                    return@launch
+                }
+
+                try
+                {
+                    // Send the message
+                    val success = connection.write(encodedMessage + "\r\n")
+
+                    if (!success)
+                    {
+                        withContext(Dispatchers.Main) {
+                            // TODO: Localized alert
+                            showAlert("Failed to write to Serial device.")
+                        }
+
+                        return@launch
                     }
 
-                    // Send final '1' command for transmit
-//                    Timber.d("Sending final transmit command...")
-//                    val finalSuccess = connection.write("1")
-//
-//                    if (finalSuccess) {
-//                        Timber.d("→ Transmit command sent: 1")
-//
-//                        // Wait a bit for transmission to complete
-//                        delay(100)
-//
-//                        // Update UI for quit command
-//                        withContext(Dispatchers.Main) {
-//                            binding.serialProgressText.text = "Completing..."
-//                            binding.serialProgressStep.text = "Step $totalSteps of $totalSteps"
-//                        }
-//
-////                        // Send quit command
-////                        connection.write("q")
-////                        Timber.d("→ Quit command sent: q")
-//
-//                        Timber.d("=== Command Sequence Completed ===")
-//                    }
-//                    else
-//                    {
-//                        Timber.e("Failed to send transmit command")
-//                    }
+                    // Wait for response
+                    val timeoutMs: Long = 2000
+                    val response = withTimeoutOrNull(timeoutMs) {
+                        connection.readLine(timeoutMs)
+                    }
 
                     withContext(Dispatchers.Main) {
-
-                        binding.serialProgressCard.visibility = View.GONE
-                        binding.sendAsText.isEnabled = true
-                        binding.messageEditText.isEnabled = true
+                        // Save the message and clear input
+                        saveMessage(encryptedMessage, thisFriend, true)
                         binding.messageEditText.text?.clear()
-                        showAlert("Your message has been transmitted to your radio!")
 
-                        // Optionally save the message to history
-                        thisFriend.publicKeyEncoded?.let { key ->
-                            val encryptedMessage = Encryption().encrypt(key, message)
-                            saveMessage(encryptedMessage, thisFriend, true)
+                        // Update status based on response
+                        if (response != null)
+                        {
+                            binding.serialStatusText.text = "Response: $response"
+                            Timber.d("Message sent to serial device. response: \n$response")
                         }
+                        else
+                        {
+                            binding.serialStatusText.text = "Message sent to serial device (no response)"
+                            Timber.d("Message sent to serial device (no response)")
+                        }
+
+                        // Reset status after delay
+                        delay(2000)
+                        binding.serialStatusText.text = "✓ Serial Connected"
                     }
-                } ?:
-                throw Exception("Serial connection is null")
-
-            }
-            catch (e: Exception)
-            {
-                withContext(Dispatchers.Main) {
-                    // Hide progress and re-enable UI on error
-                    binding.serialProgressCard.visibility = View.GONE
-                    binding.sendAsText.isEnabled = true
-                    binding.messageEditText.isEnabled = true
-
-                    showAlert("Serial send failed: ${e.message}")
+                }
+                catch (e: Exception)
+                {
+                    Timber.e(e, "Error sending message via serial")
+                    withContext(Dispatchers.Main) {
+                        showAlert("Serial transmission error: ${e.message}")
+                    }
                 }
             }
+        }
+        catch (error: Exception)
+        {
+            showAlert(getString(R.string.alert_text_unable_to_process_request))
+            print("We were unable to encrypt the message for broadcast: ${error.message}")
+            return
         }
     }
 
