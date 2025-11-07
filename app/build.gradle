@@ -55,7 +55,14 @@ android {
 dependencies {
     implementation fileTree(dir: "libs", include: ["*.jar"])
 
-    implementation 'com.github.OperatorFoundation:TransmissionAndroid:919f0656df' // Serial communications
+    // Operator Libraries
+    implementation("com.github.OperatorFoundation:AudioCoderAndroid:2fe9da73f9") // Radio codec (WSPR) Library
+    implementation("com.github.OperatorFoundation:TransmissionAndroid:v1.3.5") // Serial communications
+    implementation("com.github.OperatorFoundation:ion-android:1.0.7") // Communication protocol
+    implementation("com.github.OperatorFoundation:iota-android:1.0.5") // Arduino Communication
+    implementation("com.github.OperatorFoundation:CodexKotlin:main-SNAPSHOT") // Message Encoding
+
+    // 3rd party
     implementation 'com.github.mik3y:usb-serial-for-android:3.9.0'
     implementation 'com.jakewharton.timber:timber:5.0.1'
 
