@@ -3,7 +3,7 @@ apply plugin: 'kotlin-android'
 apply plugin: 'com.google.gms.google-services'
 
 android {
-    compileSdkVersion 35
+    compileSdk 36
     buildToolsVersion "35.0.0"
 
     compileOptions {
@@ -56,11 +56,11 @@ dependencies {
     implementation fileTree(dir: "libs", include: ["*.jar"])
 
     // Operator Libraries
-    implementation("com.github.OperatorFoundation:AudioCoderAndroid:2fe9da73f9") // Radio codec (WSPR) Library
+    implementation("com.github.OperatorFoundation:AudioCoderAndroid:v0.0.2") // Radio codec (WSPR) Library
     implementation("com.github.OperatorFoundation:TransmissionAndroid:v1.3.5") // Serial communications
     implementation("com.github.OperatorFoundation:ion-android:1.0.7") // Communication protocol
-    implementation("com.github.OperatorFoundation:iota-android:1.0.5") // Arduino Communication
-    implementation("com.github.OperatorFoundation:CodexKotlin:main-SNAPSHOT") // Message Encoding
+    implementation("com.github.OperatorFoundation:iota-android:1.0.7")
+    implementation("com.github.OperatorFoundation:CodexKotlin:v0.0.1") // Message Encoding
 
     // 3rd party
     implementation 'com.github.mik3y:usb-serial-for-android:3.9.0'

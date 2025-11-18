@@ -42,6 +42,10 @@ import org.nahoft.util.showAlert
 import org.operatorfoundation.transmission.SerialConnectionFactory
 import org.operatorfoundation.transmission.SerialConnection
 import com.hoho.android.usbserial.driver.UsbSerialDriver
+import org.operatorfoundation.audiocoder.WSPREncoder
+import org.operatorfoundation.iota.IotaObject
+import org.operatorfoundation.iota.nouns.Noun
+import org.operatorfoundation.iota.toIotaValue
 import timber.log.Timber
 
 class FriendInfoActivity: AppCompatActivity()
@@ -57,6 +61,7 @@ class FriendInfoActivity: AppCompatActivity()
     private var isShareImageButtonShow: Boolean = false
 
     // Serial connection properties
+    private var deviceDiscoveryJob: Job? = null
     private lateinit var connectionFactory: SerialConnectionFactory
     private var serialConnection: SerialConnection? = null
 
@@ -97,22 +102,12 @@ class FriendInfoActivity: AppCompatActivity()
         setupViewByStatus()
     }
 
-    // Add this new method
-    private fun setupSerialConnection() {
+    private fun setupSerialConnection()
+    {
         connectionFactory = SerialConnectionFactory(this)
 
-        val devices = connectionFactory.findAvailableDevices()
-
-        if (devices.isNotEmpty()) {
-            // Show serial option in UI
-            binding.serialStatusContainer.visibility = View.VISIBLE
-            binding.serialStatusText.text = "Connecting..."
-
-            // Connect to first available device
-            connectToDevice(devices.first())
-        } else {
-            Log.d(TAG, "No serial devices found")
-        }
+        // Start continuous device discovery
+        startSerialDeviceDiscovery()
     }
 
     private fun connectToDevice(driver: UsbSerialDriver)
@@ -149,6 +144,46 @@ class FriendInfoActivity: AppCompatActivity()
                         binding.useSerialCheckbox.isEnabled = false
                         Log.e(TAG, "Serial connection error: ${state.message}")
                     }
+                }
+            }
+        }
+    }
+
+    private fun startSerialDeviceDiscovery()
+    {
+        deviceDiscoveryJob = coroutineScope.launch {
+            while (isActive)
+            {
+                try
+                {
+                    val devices = withContext(Dispatchers.IO) {
+                        connectionFactory.findAvailableDevices()
+                    }
+
+                    if (devices.isNotEmpty() && serialConnection == null)
+                    {
+                        // Found devices and not already connected
+                        withContext(Dispatchers.Main) {
+                            binding.serialStatusContainer.visibility = View.VISIBLE
+                            binding.serialStatusText.text = "Device detected, connecting..."
+                            connectToDevice(devices.first())
+                        }
+                    }
+                    else if (devices.isEmpty() && serialConnection == null)
+                    {
+                        // No devices found
+                        withContext(Dispatchers.Main) {
+                            binding.serialStatusContainer.visibility = View.GONE
+                        }
+                    }
+
+                    // Poll every 2 seconds
+                    delay(2000)
+                }
+                catch (e: Exception)
+                {
+                    Timber.e(e, "Error during serial device discovery")
+                    delay(5000) // Longer delay on error
                 }
             }
         }
@@ -326,7 +361,9 @@ class FriendInfoActivity: AppCompatActivity()
         val friendCode =
             if (thisFriend.status == FriendStatus.Approved || thisFriend.status == FriendStatus.Verified) {
                 codex.encodeKey(PublicKey(thisFriend.publicKeyEncoded).toBytes())
-            } else { "" }
+            }
+            else ""
+
         val userCode = codex.encodeKey(Encryption().ensureKeysExist().publicKey.toBytes())
         ft.replace(
             R.id.frame_placeholder,
@@ -570,16 +607,13 @@ class FriendInfoActivity: AppCompatActivity()
 
     private fun sendViaSerial(message: String)
     {
-        val codex = Codex()
-
         try
         {
             val encryptedMessage = Encryption().encrypt(thisFriend.publicKeyEncoded!!, message)
-            val encodedMessage = codex.encodeEncryptedMessage(encryptedMessage)
 
             // TODO: Send message to serial device
             coroutineScope.launch(Dispatchers.IO) {
-                val connection = serialConnection
+                val connection: SerialConnection? = serialConnection
 
                 if (connection == null)
                 {
@@ -593,10 +627,50 @@ class FriendInfoActivity: AppCompatActivity()
 
                 try
                 {
-                    // Send the message
-                    val success = connection.write(encodedMessage + "\r\n")
+                    // FIXME: Test parameters - standard WSPR message (replace with CodexKotlin encoding of the encrypted message)
+                    val testCallsign = "Q000"
+                    val testGridSquare = "FN31"
+                    val testPower = 30 // 30 dBm = 1 watt
 
-                    if (!success)
+                    // Generate frequency array using AudioCoder
+                    val frequencyArray: LongArray = WSPREncoder.encodeToFrequencies(
+                        WSPREncoder.WSPRMessage(
+                            testCallsign,
+                            testGridSquare,
+                            testPower,
+                            0,
+                            false
+                        )
+                    )
+
+                    if (frequencyArray.isEmpty())
+                    {
+                        showAlert("Failed to encode frequencies")
+                        return@launch
+                    }
+
+                    // Create data structure to instruct radio what to do
+                    val delayTime = 0 // FIXME - put the actual delay time
+                    val messages = listOf(frequencyArray.toList()) // FIXME - replace with real list of lists rather than making a literal list of one item
+                    val payload = listOf(delayTime, messages)
+                    val iotaList = IotaObject.fromKotlin(payload.toIotaValue())
+
+                    // Serialize and send using IotaList
+                    val sent = withContext(Dispatchers.IO)
+                    {
+                        try
+                        {
+                            Noun.to_conn(connection, iotaList)
+                            true
+                        }
+                        catch (e: Exception)
+                        {
+                            Timber.e(e, "IotaList serialization failed")
+                            false
+                        }
+                    }
+
+                    if (!sent)
                     {
                         withContext(Dispatchers.Main) {
                             // TODO: Localized alert
@@ -607,10 +681,7 @@ class FriendInfoActivity: AppCompatActivity()
                     }
 
                     // Wait for response
-                    val timeoutMs: Long = 2000
-                    val response = withTimeoutOrNull(timeoutMs) {
-                        connection.readLine(timeoutMs)
-                    }
+                    val response = waitForAnyResponse(connection, timeoutMs = 3000)
 
                     withContext(Dispatchers.Main) {
                         // Save the message and clear input
@@ -888,6 +959,60 @@ class FriendInfoActivity: AppCompatActivity()
         }
     }
 
+    private suspend fun waitForAnyResponse(connection: SerialConnection, timeoutMs: Long): String?
+    {
+        return withContext(Dispatchers.IO) {
+            withTimeoutOrNull(timeoutMs) {
+                val buffer = StringBuilder()
+                val startTime = System.currentTimeMillis()
+                var lastDataTime = startTime
+
+                while (System.currentTimeMillis() - startTime < timeoutMs)
+                {
+                    try
+                    {
+                        val data = connection.readAvailable()
+
+                        if (data != null && data.isNotEmpty())
+                        {
+                            lastDataTime = System.currentTimeMillis()
+
+                            for (byte in data)
+                            {
+                                val char = byte.toInt().toChar()
+                                if (char.isISOControl().not() && char != '\u0000')
+                                {
+                                    buffer.append(char)
+                                }
+                            }
+                        }
+                        else
+                        {
+                            // If we have data and haven't received more for 200ms, consider it complete
+                            if (buffer.isNotEmpty() &&
+                                System.currentTimeMillis() - lastDataTime > 200)
+                            {
+                                return@withTimeoutOrNull buffer.toString().trim()
+                            }
+
+                            delay(50)
+                        }
+
+                    }
+                    catch (e: Exception)
+                    {
+                        Timber.w("Error while waiting for any response: ${e.message}")
+                        delay(100)
+                    }
+                }
+
+                // Return whatever we got
+                if (buffer.isNotEmpty()) buffer.toString().trim()
+                else null
+            }
+        }
+    }
+
     fun approveVerifyFriend() {
         Persist.updateFriend(this, thisFriend, newStatus = FriendStatus.Verified,
             encodedPublicKey = thisFriend.publicKeyEncoded)
@@ -936,6 +1061,7 @@ class FriendInfoActivity: AppCompatActivity()
         super.onDestroy()
 
         // Clean up serial connection
+        deviceDiscoveryJob?.cancel()
         serialConnection?.close()
         connectionFactory.disconnect()
 
