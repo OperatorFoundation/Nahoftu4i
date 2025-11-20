@@ -235,7 +235,7 @@
             android:id="@+id/sendViaSerial"
             android:layout_width="60dp"
             android:layout_height="60dp"
-            android:background="@drawable/btn_bkgd_send_message"
+            android:background="@drawable/btn_bkgd_send_message_stateful"
             android:contentDescription="@string/send_via_radio"
             android:padding="18dp"
             android:src="@drawable/ic_nahoft_radio_transmit"
@@ -248,7 +248,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_margin="8dp"
-            android:background="@drawable/btn_bkgd_send_message"
+            android:background="@drawable/btn_bkgd_send_message_stateful"
             android:contentDescription="@string/send_message"
             android:padding="18dp"
             android:src="@drawable/ic_nahoft_icons_send_message" />

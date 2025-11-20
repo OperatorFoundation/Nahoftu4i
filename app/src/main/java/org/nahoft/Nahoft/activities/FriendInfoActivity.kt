@@ -367,10 +367,51 @@ class FriendInfoActivity: AppCompatActivity()
                 {
                     val decodeResult = Codex().decode(binding.messageEditText.text.toString())
 
-                    if (decodeResult != null) showConfirmationForImport()
-                    else sendViaSerial(binding.messageEditText.text.toString())
+                    if (decodeResult != null)
+                    {
+                        showConfirmationForImport()
+                    }
+                    else
+                    {
+                        // Disable button immediately for visual feedback
+                        binding.sendViaSerial.isEnabled = false
+
+                        // Pulsing animation
+                        val pulseAnimator = android.animation.ObjectAnimator.ofFloat(
+                            binding.sendViaSerial,
+                            "alpha",
+                            1f, 0.5f, 1f
+                        ).apply {
+                            duration = 800
+                            repeatCount = android.animation.ObjectAnimator.INFINITE
+                            repeatMode = android.animation.ObjectAnimator.REVERSE
+                            start()
+                        }
+
+                        coroutineScope.launch {
+                            try
+                            {
+                                val success = sendViaSerial(binding.messageEditText.text.toString())
+                                if (success)
+                                {
+                                    // Only clear on successful send
+                                    binding.messageEditText.text?.clear()
+                                }
+                            }
+                            finally
+                            {
+                                pulseAnimator.cancel()
+                                binding.sendViaSerial.alpha = 1f
+
+                                // Always re-enable button
+                                binding.sendViaSerial.isEnabled = true
+
+                            }
+                        }
+                    }
                 }
             }
+
             else showAlert(getString(R.string.alert_text_write_a_message_to_send))
         }
 
@@ -732,120 +773,125 @@ class FriendInfoActivity: AppCompatActivity()
         }
     }
 
-    private fun sendViaSerial(message: String)
+    private suspend fun sendViaSerial(message: String): Boolean
     {
-        try
+        // Encryption must happen outside the IO coroutine since we're already being called from a coroutine in the click listener
+        val encryptedMessage = try
         {
-            val encryptedMessage = Encryption().encrypt(thisFriend.publicKeyEncoded!!, message)
-
-            // TODO: Send message to serial device
-            coroutineScope.launch(Dispatchers.IO) {
-                val connection: SerialConnection? = serialConnection
-
-                if (connection == null)
-                {
-                    withContext(Dispatchers.Main)
-                    {
-                        showAlert(getString(R.string.alert_text_serial_not_connected))
-                    }
-
-                    return@launch
-                }
-
-                try
-                {
-                    // FIXME: Test parameters - standard WSPR message (replace with CodexKotlin encoding of the encrypted message)
-                    val testCallsign = "Q000"
-                    val testGridSquare = "FN31"
-                    val testPower = 30 // 30 dBm = 1 watt
-
-                    // Generate frequency array using AudioCoder
-                    val frequencyArray: LongArray = WSPREncoder.encodeToFrequencies(
-                        WSPREncoder.WSPRMessage(
-                            testCallsign,
-                            testGridSquare,
-                            testPower,
-                            0,
-                            false
-                        )
-                    )
-
-                    if (frequencyArray.isEmpty())
-                    {
-                        showAlert("Failed to encode frequencies")
-                        return@launch
-                    }
-
-                    // Create data structure to instruct radio what to do
-                    val delayTime = 0 // FIXME - put the actual delay time
-                    val messages = listOf(frequencyArray.toList()) // FIXME - replace with real list of lists rather than making a literal list of one item
-                    val payload = listOf(delayTime, messages)
-                    val iotaList = IotaObject.fromKotlin(payload.toIotaValue())
-
-                    // Serialize and send using IotaList
-                    val sent = withContext(Dispatchers.IO)
-                    {
-                        try
-                        {
-                            Noun.to_conn(connection, iotaList)
-                            true
-                        }
-                        catch (e: Exception)
-                        {
-                            Timber.e(e, "IotaList serialization failed")
-                            false
-                        }
-                    }
-
-                    if (!sent)
-                    {
-                        withContext(Dispatchers.Main) {
-                            // TODO: Localized alert
-                            showAlert("Failed to write to Serial device.")
-                        }
-
-                        return@launch
-                    }
-
-                    // Wait for response
-                    val response = waitForAnyResponse(connection, timeoutMs = 3000)
-
-                    withContext(Dispatchers.Main) {
-                        // Save the message and clear input
-                        saveMessage(encryptedMessage, thisFriend, true)
-                        binding.messageEditText.text?.clear()
-
-                        // Update status based on response
-                        if (response != null)
-                        {
-                            binding.serialStatusText.text = "Response: $response"
-                            Timber.d("Message sent to serial device. response: \n$response")
-                        }
-                        else
-                        {
-                            binding.serialStatusText.text = "Message sent to serial device (no response)"
-                            Timber.d("Message sent to serial device (no response)")
-                        }
-
-                        // Reset status after delay
-                        delay(2000)
-                        binding.serialStatusText.text = "✓ Serial Connected"
-                    }
-                }
-                catch (e: Exception)
-                {
-                    Timber.e(e, "Error sending message via serial")
-                    withContext(Dispatchers.Main) {
-                        showAlert("Serial transmission error: ${e.message}")
-                    }
-                }
-            }
+            Encryption().encrypt(thisFriend.publicKeyEncoded!!, message)
         }
         catch (error: Exception)
         {
-            showAlert(getString(R.string.alert_text_unable_to_process_request))
-            print("We were unable to encrypt the message for broadcast: ${error.message}")
-            return
+            withContext(Dispatchers.Main) {
+                showAlert(getString(R.string.alert_text_unable_to_process_request))
+            }
+
+            Timber.e(error, "Failed to encrypt message for broadcast")
+            return false
+        }
+
+        // Switch to IO thread for serial communication
+        return withContext(Dispatchers.IO) {
+            val connection: SerialConnection? = serialConnection
+
+            if (connection == null)
+            {
+                withContext(Dispatchers.Main) {
+                    showAlert(getString(R.string.alert_text_serial_not_connected))
+                }
+                return@withContext false  // No connection, keep message
+            }
+
+            try
+            {
+                // FIXME: Test parameters - standard WSPR message (replace with CodexKotlin encoding of the encrypted message)
+                val testCallsign = "Q000"
+                val testGridSquare = "FN31"
+                val testPower = 30 // 30 dBm = 1 watt
+
+                // Generate frequency array using AudioCoder
+                val frequencyArray: LongArray = WSPREncoder.encodeToFrequencies(
+                    WSPREncoder.WSPRMessage(
+                        testCallsign,
+                        testGridSquare,
+                        testPower,
+                        0,
+                        false
+                    )
+                )
+
+                if (frequencyArray.isEmpty())
+                {
+                    withContext(Dispatchers.Main) {
+                        showAlert("Failed to encode frequencies")
+                    }
+
+                    return@withContext false
+                }
+
+                // Create data structure to instruct radio what to do
+                val delayTime = 0 // FIXME - put the actual delay time
+                val messages = listOf(frequencyArray.toList()) // FIXME - replace with real list of lists rather than making a literal list of one item
+                val payload = listOf(delayTime, messages)
+                val iotaList = IotaObject.fromKotlin(payload.toIotaValue())
+
+                // Serialize and send using IotaList
+                val sent = try
+                {
+                    Noun.to_conn(connection, iotaList)
+                    true
+                }
+                catch (e: Exception)
+                {
+                    Timber.e(e, "IotaList serialization failed")
+                    false
+                }
+
+                if (!sent)
+                {
+                    withContext(Dispatchers.Main) {
+                        showAlert("Failed to write to Serial device.")
+                    }
+
+                    return@withContext false
+                }
+
+                // Wait for response
+                val response = waitForAnyResponse(connection, timeoutMs = 3000)
+
+                withContext(Dispatchers.Main)
+                {
+                    saveMessage(encryptedMessage, thisFriend, true)
+
+                    // Update status based on response
+                    if (response != null)
+                    {
+                        binding.serialStatusText.text = "Response: $response"
+                        Timber.d("Message sent to serial device. response: \n$response")
+                    }
+                    else
+                    {
+                        binding.serialStatusText.text = "Message sent to serial device (no response)"
+                        Timber.d("Message sent to serial device (no response)")
+                    }
+
+                    // Reset status after delay
+                    delay(3000)
+                    binding.serialStatusText.text = "✓ Serial Connected"
+                }
+
+                true  // SUCCESS - message sent
+            }
+            catch (e: Exception)
+            {
+                Timber.e(e, "Error sending message via serial")
+
+                withContext(Dispatchers.Main) {
+                    showAlert("Serial transmission error: ${e.message}")
+                }
+
+                false
+            }
         }
     }
 
