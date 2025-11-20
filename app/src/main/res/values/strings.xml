@@ -601,4 +601,5 @@ After pressing this (+) sign, you must first enter your friend\'s name. You can 
     <string name="biometrics_pin_password_pattern">(Biometrics, PIN, Password, Pattern)</string>
     <string name="two_step_login_description">By setting a password for Nahoft, the app automatically enables two-step login. In the first step, you need to enter the password you provided in the above field, and in the second step, you need to provide phone\'s password or face recognition sensor, or fingerprint sensor.</string>
     <string name="click_to_set">Click to set</string>
+    <string name="send_via_radio">Button for sending the message via radio.</string>
 </resources>

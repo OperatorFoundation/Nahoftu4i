@@ -231,16 +231,17 @@
             android:background="@drawable/transparent_overlay_send_message"
             android:hint="@string/type_your_message" />
 
-        <Button
+        <ImageButton
             android:id="@+id/sendViaSerial"
-            android:layout_width="wrap_content"
+            android:layout_width="60dp"
             android:layout_height="60dp"
-            android:text="RADIO"
-            android:textSize="12sp"
             android:background="@drawable/btn_bkgd_send_message"
-            android:textColor="@android:color/white"
+            android:contentDescription="@string/send_via_radio"
+            android:padding="18dp"
+            android:src="@drawable/ic_nahoft_radio_transmit"
             android:visibility="gone"
-            android:layout_marginStart="8dp" />
+            android:layout_marginStart="8dp"
+            app:tint="@color/white" />
 
         <ImageButton
             android:id="@+id/send_as_text"
