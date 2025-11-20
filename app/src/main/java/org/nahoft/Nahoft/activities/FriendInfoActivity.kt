@@ -3,7 +3,10 @@ package org.nahoft.nahoft.activities
 import android.Manifest
 import android.app.Activity
 import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
+import android.hardware.usb.UsbManager
 import android.net.Uri
 import android.os.Bundle
 import android.os.Parcelable
@@ -54,17 +57,55 @@ class FriendInfoActivity: AppCompatActivity()
     private lateinit var binding: ActivityFriendInfoBinding
     private var decodePayload: ByteArray? = null
     private lateinit var thisFriend: Friend
+
     private val parentJob = Job()
     private val coroutineScope = CoroutineScope(Dispatchers.Main + parentJob)
-
     private val TAG = "FriendInfoActivity"
     private val menuFragmentTag = "MenuFragment"
+
+    private val usbReceiver = object : BroadcastReceiver()
+    {
+        override fun onReceive(context: Context, intent: Intent)
+        {
+            when (intent.action)
+            {
+                UsbManager.ACTION_USB_DEVICE_ATTACHED -> {
+                    Timber.d("USB device attached")
+                    // Only check if not already connected or connecting
+                    if (serialConnection == null && !isConnecting)
+                    {
+                        // Delay slightly to let USB stabilize
+                        coroutineScope.launch {
+                            delay(500)
+                            checkForSerialDevices()
+                        }
+                    }
+                }
+
+                UsbManager.ACTION_USB_DEVICE_DETACHED -> {
+                    Timber.d("USB device detached")
+                    if (serialConnection != null)
+                    {
+                        coroutineScope.launch {
+                            handleDeviceDisconnected()
+                        }
+                    }
+
+                    isConnecting = false  // Clear flag on disconnect
+                }
+            }
+        }
+    }
+
     private var isShareImageButtonShow: Boolean = false
 
     // Serial connection properties
-    private var deviceDiscoveryJob: Job? = null
+    private var connectionStateJob: Job? = null
     private lateinit var connectionFactory: SerialConnectionFactory
     private var serialConnection: SerialConnection? = null
+    private var isConnecting = false
+
+
 
     override fun onCreate(savedInstanceState: Bundle?)
     {
@@ -94,6 +135,14 @@ class FriendInfoActivity: AppCompatActivity()
         setClickListeners()
         setupViewByStatus()
         receivedSharedMessage()
+
+        // Register USB receiver
+        val filter = IntentFilter().apply {
+            addAction(UsbManager.ACTION_USB_DEVICE_ATTACHED)
+            addAction(UsbManager.ACTION_USB_DEVICE_DETACHED)
+        }
+        registerReceiver(usbReceiver, filter)
+
         setupSerialConnection()
     }
 
@@ -106,18 +155,27 @@ class FriendInfoActivity: AppCompatActivity()
     private fun setupSerialConnection()
     {
         connectionFactory = SerialConnectionFactory(this)
-
-        // Start continuous device discovery
-        startSerialDeviceDiscovery()
+        observeConnectionState()
+        checkForSerialDevices()
     }
 
-    private fun connectToDevice(driver: UsbSerialDriver)
+    /**
+     * Observes the connection factory's state flow and updates UI accordingly.
+     */
+    private fun observeConnectionState()
     {
-        coroutineScope.launch {
-            connectionFactory.createConnection(driver.device).collect { state ->
+        connectionStateJob = coroutineScope.launch {
+            connectionFactory.connectionState.collect { state ->
+
+                Timber.d("Connection state changed: $state")
+
                 when (state)
                 {
                     is SerialConnectionFactory.ConnectionState.Connected -> {
+
+                        Timber.d("🔔 FriendInfoActivity received state: $state")
+
+                        isConnecting = false
                         serialConnection = state.connection
 
                         // Only show button if friend status allows sending
@@ -126,11 +184,12 @@ class FriendInfoActivity: AppCompatActivity()
                             binding.sendViaSerial.visibility = View.VISIBLE
                         }
 
+                        binding.serialStatusContainer.visibility = View.VISIBLE
                         binding.serialStatusText.text = "✓ Serial Connected"
                         Timber.d("Serial connected successfully")
 
                         // Auto-hide status after 3 seconds
-                        coroutineScope.launch {
+                        launch {
                             delay(3000)
                             binding.serialStatusContainer.animate()
                                 .alpha(0f)
@@ -143,90 +202,95 @@ class FriendInfoActivity: AppCompatActivity()
                     }
 
                     is SerialConnectionFactory.ConnectionState.Disconnected -> {
+                        isConnecting = false
                         serialConnection = null
                         binding.sendViaSerial.visibility = View.GONE
-                        binding.serialStatusText.text = "✗ Disconnected"
-                        binding.serialStatusContainer.visibility = View.GONE
-                    }
 
-                    is SerialConnectionFactory.ConnectionState.RequestingPermission -> {
-                        binding.serialStatusContainer.visibility = View.VISIBLE
-                        binding.serialStatusText.text = "Requesting permission..."
-                    }
-
-                    is SerialConnectionFactory.ConnectionState.Connecting -> {
-                        binding.serialStatusContainer.visibility = View.VISIBLE
-                        binding.serialStatusText.text = "Connecting..."
-                    }
-
-                    is SerialConnectionFactory.ConnectionState.Error -> {
-                        binding.serialStatusContainer.visibility = View.VISIBLE
-                        binding.serialStatusText.text = "✗ Error"
-                        Timber.e("Serial connection error: ${state.message}")
-                    }
-                }
-            }
-        }
-    }
-
-    private fun startSerialDeviceDiscovery()
-    {
-        deviceDiscoveryJob = coroutineScope.launch {
-            var lastConnectedDeviceId: Int? = null
-
-            while (isActive) {
-                try {
-                    val devices = withContext(Dispatchers.IO) {
-                        connectionFactory.findAvailableDevices()
-                    }
-
-                    // Check if our connected device is still in the list
-                    val currentDeviceId = lastConnectedDeviceId
-                    if (serialConnection != null && currentDeviceId != null) {
-                        val stillConnected = devices.any { device ->
-                            device.device.deviceId == currentDeviceId
-                        }
-
-                        if (!stillConnected) {
-                            // Device was unplugged
-                            withContext(Dispatchers.Main) {
-                                Timber.d("Serial device disconnected")
-                                serialConnection?.close()
-                                serialConnection = null
-                                lastConnectedDeviceId = null
-                                binding.sendViaSerial.visibility = View.GONE
-                                binding.serialStatusContainer.visibility = View.VISIBLE
-                                binding.serialStatusText.text = "✗ Device Disconnected"
-
-                                // Hide status after 2 seconds
+                        // Only show disconnected message if we were previously connected
+                        if (binding.serialStatusContainer.visibility == View.VISIBLE) {
+                            binding.serialStatusText.text = "✗ Disconnected"
+                            launch {
                                 delay(2000)
                                 binding.serialStatusContainer.visibility = View.GONE
                             }
                         }
                     }
 
-                    // Check for new devices
-                    if (devices.isNotEmpty() && serialConnection == null) {
-                        withContext(Dispatchers.Main) {
-                            binding.serialStatusContainer.visibility = View.VISIBLE
-                            binding.serialStatusText.text = "Device detected, connecting..."
-                            val device = devices.first()
-                            lastConnectedDeviceId = device.device.deviceId
-                            connectToDevice(device)
-                        }
-                    } else if (devices.isEmpty() && serialConnection == null) {
-                        withContext(Dispatchers.Main) {
+                    is SerialConnectionFactory.ConnectionState.RequestingPermission -> {
+                        binding.serialStatusContainer.visibility = View.VISIBLE
+                        binding.serialStatusText.text = "Requesting USB permission..."
+                        Timber.d("Waiting for USB permission...")
+                    }
+
+                    is SerialConnectionFactory.ConnectionState.Connecting -> {
+                        binding.serialStatusContainer.visibility = View.VISIBLE
+                        binding.serialStatusText.text = "Connecting to device..."
+                        Timber.d("Establishing serial connection...")
+                    }
+
+                    is SerialConnectionFactory.ConnectionState.Error -> {
+                        isConnecting = false
+                        val errorMessage = "✗ Error: ${state.message}"
+                        binding.serialStatusContainer.visibility = View.VISIBLE
+                        binding.serialStatusText.text = errorMessage
+                        Timber.e("Serial connection error: ${state.message}")
+
+                        launch {
+                            delay(5000)
                             binding.serialStatusContainer.visibility = View.GONE
                         }
                     }
-
-                    delay(1000)
-                } catch (e: Exception) {
-                    Timber.e(e, "Error during serial device discovery")
-                    delay(5000)
                 }
             }
         }
+    }
+
+    private fun checkForSerialDevices()
+    {
+        if (isConnecting)
+        {
+            Timber.d("Connection already in progress, skipping check")
+            return
+        }
+
+        coroutineScope.launch {
+            val devices = withContext(Dispatchers.IO)
+            {
+                connectionFactory.findAvailableDevices()
+            }
+
+            if (devices.isNotEmpty() && serialConnection == null && !isConnecting)
+            {
+                Timber.d("Found ${devices.size} device(s), initiating connection...")
+                isConnecting = true
+                connectToDevice(devices.first())
+            }
+        }
+    }
+
+    // Handle disconnection
+    private suspend fun handleDeviceDisconnected() {
+        serialConnection?.close()
+        serialConnection = null
+
+        withContext(Dispatchers.Main) {
+            binding.sendViaSerial.visibility = View.GONE
+            binding.serialStatusContainer.visibility = View.VISIBLE
+            binding.serialStatusText.text = "✗ Device Disconnected"
+
+            // Hide after 2 seconds
+            delay(2000)
+            binding.serialStatusContainer.visibility = View.GONE
+        }
+    }
+
+    /**
+     * Initiates connection to a device.
+     * State changes are observed by observeConnectionState().
+     */
+    private fun connectToDevice(driver: UsbSerialDriver)
+    {
+        connectionFactory.createConnection(driver.device)
     }
 
     @ExperimentalUnsignedTypes
@@ -1123,11 +1187,20 @@ class FriendInfoActivity: AppCompatActivity()
     {
         super.onDestroy()
 
-        // Clean up serial connection
-        deviceDiscoveryJob?.cancel()
+        try
+        {
+            unregisterReceiver(usbReceiver)
+        }
+        catch (e: Exception)
+        {
+            // Receiver wasn't registered
+        }
+
+        // Cancel the state observer
+        connectionStateJob?.cancel()
+
         serialConnection?.close()
         connectionFactory.disconnect()
-
         parentJob.cancel()
     }
 }
