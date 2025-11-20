@@ -373,8 +373,12 @@ class FriendInfoActivity: AppCompatActivity()
                     }
                     else
                     {
-                        // Disable button immediately for visual feedback
+                        // Disable button and text field immediately for visual feedback
                         binding.sendViaSerial.isEnabled = false
+                        binding.messageEditText.isEnabled = false
+
+                        // Hide keyboard while sending
+                        hideSoftKeyboard(binding.messageEditText)
 
                         // Pulsing animation
                         val pulseAnimator = android.animation.ObjectAnimator.ofFloat(
@@ -403,9 +407,9 @@ class FriendInfoActivity: AppCompatActivity()
                                 pulseAnimator.cancel()
                                 binding.sendViaSerial.alpha = 1f
 
-                                // Always re-enable button
+                                // Always re-enable button and text field
                                 binding.sendViaSerial.isEnabled = true
-
+                                binding.messageEditText.isEnabled = true
                             }
                         }
                     }
@@ -861,26 +865,30 @@ class FriendInfoActivity: AppCompatActivity()
 
                 withContext(Dispatchers.Main)
                 {
-                    saveMessage(encryptedMessage, thisFriend, true)
-
                     // Update status based on response
                     if (response != null)
                     {
+                        // Only save if we got a response
+                        saveMessage(encryptedMessage, thisFriend, true)
+
                         binding.serialStatusText.text = "Response: $response"
                         Timber.d("Message sent to serial device. response: \n$response")
                     }
                     else
                     {
+                        // Show alert so user clearly knows the send failed
+                        showAlert("No response from radio device. Message not sent.")
+
                         binding.serialStatusText.text = "Message sent to serial device (no response)"
                         Timber.d("Message sent to serial device (no response)")
                     }
 
                     // Reset status after delay
                     delay(3000)
-                    binding.serialStatusText.text = "✓ Serial Connected"
+                    binding.serialStatusContainer.visibility = View.GONE
                 }
 
-                true  // SUCCESS - message sent
+                response != null
             }
             catch (e: Exception)
             {
