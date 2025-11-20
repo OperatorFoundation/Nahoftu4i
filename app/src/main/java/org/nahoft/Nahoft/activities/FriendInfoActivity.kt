@@ -922,15 +922,12 @@ class FriendInfoActivity: AppCompatActivity()
     {
         Timber.d("=== Starting WSPR encoding ===")
         Timber.d("Input data size: ${data.size} bytes")
-        Timber.d("Input data (hex): ${data.joinToString("") { "%02x".format(it) }}")
 
         // Convert data to BigInteger for encoding
         val dataAsInteger = BigInteger(1, data)
-        Timber.d("Data as BigInteger: $dataAsInteger")
-        Timber.d("BigInteger bit length: ${dataAsInteger.bitLength()}")
+        Timber.d("Data as BigInteger bit length: ${dataAsInteger.bitLength()}")
 
         // Start with minimum estimate: 1 message per 6 bytes (optimistic)
-        // This is based on theoretical ~49 bits capacity per WSPR message ≈ 6 bytes
         var messageCount = maxOf(1, (data.size + 5) / 6)
         Timber.d("Initial message count estimate: $messageCount")
 
@@ -945,51 +942,44 @@ class FriendInfoActivity: AppCompatActivity()
 
                 // Create a sequence of WSPR messages
                 val sequence = WSPRMessageSequence(messageCount)
-                Timber.d("Created WSPRMessageSequence($messageCount)")
-
                 val encodedBytes = sequence.encode(dataAsInteger)
+
                 Timber.d("Encoding succeeded! Encoded to ${encodedBytes.size} bytes")
 
-                // Validate that we got the expected number of bytes
-                val expectedBytes = messageCount * 12
-                if (encodedBytes.size != expectedBytes)
-                {
-                    Timber.e("Size mismatch: expected $expectedBytes bytes, got ${encodedBytes.size}")
-                    messageCount++
-                    continue
-                }
+                // Determine bytes per message from actual encoded data
+                val bytesPerMessage = encodedBytes.size / messageCount
+                Timber.d("Bytes per message: $bytesPerMessage")
 
                 // Parse the encoded bytes into individual WSPR messages
-                // Each WSPR message is exactly 12 bytes: Q + callsign(6) + grid(4) + power(1)
-                val wsprMessages = encodedBytes.toList().chunked(12).mapIndexed { index, chunk ->
+                val wsprMessages = encodedBytes.toList().chunked(bytesPerMessage).mapIndexed { index, chunk ->
                     val bytes = chunk.toByteArray()
 
-                    // Validate size
-                    if (bytes.size != 12)
+                    // Find the 'Q' prefix - it should be the first byte
+                    val qIndex = bytes.indexOfFirst { it == 'Q'.code.toByte() }
+                    if (qIndex == -1)
                     {
-                        throw IllegalStateException("Invalid WSPR message size: ${bytes.size}")
+                        throw IllegalStateException("WSPR message $index missing 'Q' prefix")
                     }
 
-                    // Validate that first byte is 'Q'
-                    if (bytes[0] != 'Q'.code.toByte())
+                    // Parse WSPR message components starting from Q
+                    // Q + callsign(6) + grid(4) + power(1) = 12 bytes total after Q
+                    val messageStart = qIndex
+
+                    if (bytes.size - messageStart < 12)
                     {
-                        Timber.w("Message $index doesn't start with 'Q': ${bytes[0].toInt().toChar()}")
+                        throw IllegalStateException("WSPR message $index too short: ${bytes.size - messageStart} bytes after Q")
                     }
 
-                    // Parse WSPR message components
-                    // Byte 0: Required 'Q' prefix (ignored in output)
-                    // Bytes 1-6: Callsign (6 characters)
-                    val callsign = (1..6).map { bytes[it].toInt().toChar() }.joinToString("")
+                    // Bytes after Q:
+                    // 0-5: Callsign (6 characters)
+                    val callsign = (1..6).map { bytes[messageStart + it].toInt().toChar() }.joinToString("")
 
-                    // Bytes 7-10: Grid square (4 characters)
-                    val gridSquare = (7..10).map { bytes[it].toInt().toChar() }.joinToString("")
+                    // 6-9: Grid square (4 characters)
+                    val gridSquare = (7..10).map { bytes[messageStart + it].toInt().toChar() }.joinToString("")
 
-                    // Byte 11: Power level (as character, then parse to int)
-                    val powerChar = bytes[11].toInt().toChar()
-                    val powerDbm = powerChar.toString().toIntOrNull() ?: run {
-                        Timber.w("Invalid power character: '$powerChar' (${bytes[11]})")
-                        0
-                    }
+                    // 10: Power level
+                    val powerChar = bytes[messageStart + 11].toInt().toChar()
+                    val powerDbm = powerChar.toString().toIntOrNull() ?: 0
 
                     Timber.d("WSPR Message $index: $callsign $gridSquare $powerDbm")
 
@@ -1004,7 +994,6 @@ class FriendInfoActivity: AppCompatActivity()
             {
                 // Encoding failed - need more messages
                 Timber.w("Encoding failed with $messageCount message(s): ${e.javaClass.simpleName}: ${e.message}")
-                Timber.w("Stack trace: ${e.stackTraceToString()}")
                 messageCount++
             }
         }
