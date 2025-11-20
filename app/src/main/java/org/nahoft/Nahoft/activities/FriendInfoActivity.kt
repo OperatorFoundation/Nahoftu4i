@@ -47,10 +47,12 @@ import org.operatorfoundation.transmission.SerialConnectionFactory
 import org.operatorfoundation.transmission.SerialConnection
 import com.hoho.android.usbserial.driver.UsbSerialDriver
 import org.operatorfoundation.audiocoder.WSPREncoder
+import org.operatorfoundation.codex.symbols.WSPRMessageSequence
 import org.operatorfoundation.iota.IotaObject
 import org.operatorfoundation.iota.nouns.Noun
 import org.operatorfoundation.iota.toIotaValue
 import timber.log.Timber
+import java.math.BigInteger
 
 class FriendInfoActivity: AppCompatActivity()
 {
@@ -779,7 +781,7 @@ class FriendInfoActivity: AppCompatActivity()
 
     private suspend fun sendViaSerial(message: String): Boolean
     {
-        // Encryption must happen outside the IO coroutine since we're already being called from a coroutine in the click listener
+        // Encryption must happen outside the IO coroutine
         val encryptedMessage = try
         {
             Encryption().encrypt(thisFriend.publicKeyEncoded!!, message)
@@ -789,7 +791,6 @@ class FriendInfoActivity: AppCompatActivity()
             withContext(Dispatchers.Main) {
                 showAlert(getString(R.string.alert_text_unable_to_process_request))
             }
-
             Timber.e(error, "Failed to encrypt message for broadcast")
             return false
         }
@@ -803,40 +804,48 @@ class FriendInfoActivity: AppCompatActivity()
                 withContext(Dispatchers.Main) {
                     showAlert(getString(R.string.alert_text_serial_not_connected))
                 }
-                return@withContext false  // No connection, keep message
+                return@withContext false
             }
 
             try
             {
-                // FIXME: Test parameters - standard WSPR message (replace with CodexKotlin encoding of the encrypted message)
-                val testCallsign = "Q000"
-                val testGridSquare = "FN31"
-                val testPower = 30 // 30 dBm = 1 watt
+                // Encode encrypted message to WSPR messages
+                val wsprMessages = encodeDataToWSPRMessages(encryptedMessage)
 
-                // Generate frequency array using AudioCoder
-                val frequencyArray: LongArray = WSPREncoder.encodeToFrequencies(
-                    WSPREncoder.WSPRMessage(
-                        testCallsign,
-                        testGridSquare,
-                        testPower,
-                        0,
-                        false
-                    )
-                )
+                if (wsprMessages == null)
+                {
+                    withContext(Dispatchers.Main) {
+                        showAlert("Failed to encode message - data too large")
+                    }
+                    return@withContext false
+                }
 
-                if (frequencyArray.isEmpty())
+                Timber.d("Successfully encoded ${encryptedMessage.size} bytes to ${wsprMessages.size} WSPR message(s)")
+
+                // Convert WSPR messages to frequency arrays
+                val frequencyArrays = wsprMessages.map { (callsign, gridSquare, powerDbm) ->
+                    WSPREncoder.encodeToFrequencies(
+                        WSPREncoder.WSPRMessage(
+                            callsign,
+                            gridSquare,
+                            powerDbm,
+                            0,      // mode
+                            false   // includeSync
+                        )
+                    ).toList()
+                }
+
+                if (frequencyArrays.any { it.isEmpty() })
                 {
                     withContext(Dispatchers.Main) {
                         showAlert("Failed to encode frequencies")
                     }
-
                     return@withContext false
                 }
 
                 // Create data structure to instruct radio what to do
-                val delayTime = 0 // FIXME - put the actual delay time
-                val messages = listOf(frequencyArray.toList()) // FIXME - replace with real list of lists rather than making a literal list of one item
-                val payload = listOf(delayTime, messages)
+                val delayTime = 0 // Delay between transmissions
+                val payload = listOf(delayTime, frequencyArrays)
                 val iotaList = IotaObject.fromKotlin(payload.toIotaValue())
 
                 // Serialize and send using IotaList
@@ -856,7 +865,6 @@ class FriendInfoActivity: AppCompatActivity()
                     withContext(Dispatchers.Main) {
                         showAlert("Failed to write to Serial device.")
                     }
-
                     return@withContext false
                 }
 
@@ -865,21 +873,17 @@ class FriendInfoActivity: AppCompatActivity()
 
                 withContext(Dispatchers.Main)
                 {
-                    // Update status based on response
                     if (response != null)
                     {
                         // Only save if we got a response
                         saveMessage(encryptedMessage, thisFriend, true)
-
-                        binding.serialStatusText.text = "Response: $response"
-                        Timber.d("Message sent to serial device. response: \n$response")
+                        binding.serialStatusText.text = "✓ Sent ${wsprMessages.size} WSPR message(s)"
+                        Timber.d("Sent ${wsprMessages.size} WSPR message(s), response: \n$response")
                     }
                     else
                     {
-                        // Show alert so user clearly knows the send failed
                         showAlert("No response from radio device. Message not sent.")
-
-                        binding.serialStatusText.text = "Message sent to serial device (no response)"
+                        binding.serialStatusText.text = "Message sent (no response)"
                         Timber.d("Message sent to serial device (no response)")
                     }
 
@@ -901,6 +905,112 @@ class FriendInfoActivity: AppCompatActivity()
                 false
             }
         }
+    }
+
+    // FIXME: Move to CodexKotlin once tested
+    /**
+     * Encodes binary data into WSPR message format with automatic message count detection.
+     * This function will eventually be moved to the CodexKotlin library.
+     *
+     * Finds the minimum number of WSPR messages needed to encode the data by starting
+     * with a low estimate and incrementing until encoding succeeds.
+     *
+     * @param data Binary data to encode (typically encrypted message bytes)
+     * @return List of WSPR messages (callsign, gridSquare, powerDbm), or null if encoding fails
+     */
+    private fun encodeDataToWSPRMessages(data: ByteArray): List<Triple<String, String, Int>>?
+    {
+        Timber.d("=== Starting WSPR encoding ===")
+        Timber.d("Input data size: ${data.size} bytes")
+        Timber.d("Input data (hex): ${data.joinToString("") { "%02x".format(it) }}")
+
+        // Convert data to BigInteger for encoding
+        val dataAsInteger = BigInteger(1, data)
+        Timber.d("Data as BigInteger: $dataAsInteger")
+        Timber.d("BigInteger bit length: ${dataAsInteger.bitLength()}")
+
+        // Start with minimum estimate: 1 message per 6 bytes (optimistic)
+        // This is based on theoretical ~49 bits capacity per WSPR message ≈ 6 bytes
+        var messageCount = maxOf(1, (data.size + 5) / 6)
+        Timber.d("Initial message count estimate: $messageCount")
+
+        // Maximum reasonable message count (safety limit)
+        val maxMessageCount = 100
+
+        while (messageCount <= maxMessageCount)
+        {
+            try
+            {
+                Timber.d("--- Attempt: $messageCount WSPR message(s) ---")
+
+                // Create a sequence of WSPR messages
+                val sequence = WSPRMessageSequence(messageCount)
+                Timber.d("Created WSPRMessageSequence($messageCount)")
+
+                val encodedBytes = sequence.encode(dataAsInteger)
+                Timber.d("Encoding succeeded! Encoded to ${encodedBytes.size} bytes")
+
+                // Validate that we got the expected number of bytes
+                val expectedBytes = messageCount * 12
+                if (encodedBytes.size != expectedBytes)
+                {
+                    Timber.e("Size mismatch: expected $expectedBytes bytes, got ${encodedBytes.size}")
+                    messageCount++
+                    continue
+                }
+
+                // Parse the encoded bytes into individual WSPR messages
+                // Each WSPR message is exactly 12 bytes: Q + callsign(6) + grid(4) + power(1)
+                val wsprMessages = encodedBytes.toList().chunked(12).mapIndexed { index, chunk ->
+                    val bytes = chunk.toByteArray()
+
+                    // Validate size
+                    if (bytes.size != 12)
+                    {
+                        throw IllegalStateException("Invalid WSPR message size: ${bytes.size}")
+                    }
+
+                    // Validate that first byte is 'Q'
+                    if (bytes[0] != 'Q'.code.toByte())
+                    {
+                        Timber.w("Message $index doesn't start with 'Q': ${bytes[0].toInt().toChar()}")
+                    }
+
+                    // Parse WSPR message components
+                    // Byte 0: Required 'Q' prefix (ignored in output)
+                    // Bytes 1-6: Callsign (6 characters)
+                    val callsign = (1..6).map { bytes[it].toInt().toChar() }.joinToString("")
+
+                    // Bytes 7-10: Grid square (4 characters)
+                    val gridSquare = (7..10).map { bytes[it].toInt().toChar() }.joinToString("")
+
+                    // Byte 11: Power level (as character, then parse to int)
+                    val powerChar = bytes[11].toInt().toChar()
+                    val powerDbm = powerChar.toString().toIntOrNull() ?: run {
+                        Timber.w("Invalid power character: '$powerChar' (${bytes[11]})")
+                        0
+                    }
+
+                    Timber.d("WSPR Message $index: $callsign $gridSquare $powerDbm")
+
+                    Triple(callsign, gridSquare, powerDbm)
+                }
+
+                // Success! Found the minimum number of messages needed
+                Timber.d("=== Successfully encoded ${data.size} bytes into $messageCount WSPR message(s) ===")
+                return wsprMessages
+            }
+            catch (e: Exception)
+            {
+                // Encoding failed - need more messages
+                Timber.w("Encoding failed with $messageCount message(s): ${e.javaClass.simpleName}: ${e.message}")
+                Timber.w("Stack trace: ${e.stackTraceToString()}")
+                messageCount++
+            }
+        }
+
+        Timber.e("=== FAILED: Could not encode after trying up to $maxMessageCount messages ===")
+        return null
     }
 
     private fun pickImageFromGallery(saveImage: Boolean)
