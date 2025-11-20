@@ -2,6 +2,7 @@ package org.nahoft.nahoft.activities
 
 import android.Manifest
 import android.app.Activity
+import android.content.BroadcastReceiver
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -118,31 +119,50 @@ class FriendInfoActivity: AppCompatActivity()
                 {
                     is SerialConnectionFactory.ConnectionState.Connected -> {
                         serialConnection = state.connection
+
+                        // Only show button if friend status allows sending
+                        if (thisFriend.status == FriendStatus.Verified ||
+                            thisFriend.status == FriendStatus.Approved) {
+                            binding.sendViaSerial.visibility = View.VISIBLE
+                        }
+
                         binding.serialStatusText.text = "✓ Serial Connected"
-                        binding.useSerialCheckbox.isEnabled = true
-                        binding.useSerialCheckbox.isChecked = true
-                        Log.d(TAG, "Serial connected successfully")
+                        Timber.d("Serial connected successfully")
+
+                        // Auto-hide status after 3 seconds
+                        coroutineScope.launch {
+                            delay(3000)
+                            binding.serialStatusContainer.animate()
+                                .alpha(0f)
+                                .setDuration(500)
+                                .withEndAction {
+                                    binding.serialStatusContainer.visibility = View.GONE
+                                    binding.serialStatusContainer.alpha = 1f
+                                }
+                        }
                     }
 
                     is SerialConnectionFactory.ConnectionState.Disconnected -> {
                         serialConnection = null
+                        binding.sendViaSerial.visibility = View.GONE
                         binding.serialStatusText.text = "✗ Disconnected"
-                        binding.useSerialCheckbox.isEnabled = false
-                        binding.useSerialCheckbox.isChecked = false
+                        binding.serialStatusContainer.visibility = View.GONE
                     }
 
                     is SerialConnectionFactory.ConnectionState.RequestingPermission -> {
+                        binding.serialStatusContainer.visibility = View.VISIBLE
                         binding.serialStatusText.text = "Requesting permission..."
                     }
 
                     is SerialConnectionFactory.ConnectionState.Connecting -> {
+                        binding.serialStatusContainer.visibility = View.VISIBLE
                         binding.serialStatusText.text = "Connecting..."
                     }
 
                     is SerialConnectionFactory.ConnectionState.Error -> {
+                        binding.serialStatusContainer.visibility = View.VISIBLE
                         binding.serialStatusText.text = "✗ Error"
-                        binding.useSerialCheckbox.isEnabled = false
-                        Log.e(TAG, "Serial connection error: ${state.message}")
+                        Timber.e("Serial connection error: ${state.message}")
                     }
                 }
             }
@@ -152,38 +172,58 @@ class FriendInfoActivity: AppCompatActivity()
     private fun startSerialDeviceDiscovery()
     {
         deviceDiscoveryJob = coroutineScope.launch {
-            while (isActive)
-            {
-                try
-                {
+            var lastConnectedDeviceId: Int? = null
+
+            while (isActive) {
+                try {
                     val devices = withContext(Dispatchers.IO) {
                         connectionFactory.findAvailableDevices()
                     }
 
-                    if (devices.isNotEmpty() && serialConnection == null)
-                    {
-                        // Found devices and not already connected
+                    // Check if our connected device is still in the list
+                    val currentDeviceId = lastConnectedDeviceId
+                    if (serialConnection != null && currentDeviceId != null) {
+                        val stillConnected = devices.any { device ->
+                            device.device.deviceId == currentDeviceId
+                        }
+
+                        if (!stillConnected) {
+                            // Device was unplugged
+                            withContext(Dispatchers.Main) {
+                                Timber.d("Serial device disconnected")
+                                serialConnection?.close()
+                                serialConnection = null
+                                lastConnectedDeviceId = null
+                                binding.sendViaSerial.visibility = View.GONE
+                                binding.serialStatusContainer.visibility = View.VISIBLE
+                                binding.serialStatusText.text = "✗ Device Disconnected"
+
+                                // Hide status after 2 seconds
+                                delay(2000)
+                                binding.serialStatusContainer.visibility = View.GONE
+                            }
+                        }
+                    }
+
+                    // Check for new devices
+                    if (devices.isNotEmpty() && serialConnection == null) {
                         withContext(Dispatchers.Main) {
                             binding.serialStatusContainer.visibility = View.VISIBLE
                             binding.serialStatusText.text = "Device detected, connecting..."
-                            connectToDevice(devices.first())
+                            val device = devices.first()
+                            lastConnectedDeviceId = device.device.deviceId
+                            connectToDevice(device)
                         }
-                    }
-                    else if (devices.isEmpty() && serialConnection == null)
-                    {
-                        // No devices found
+                    } else if (devices.isEmpty() && serialConnection == null) {
                         withContext(Dispatchers.Main) {
                             binding.serialStatusContainer.visibility = View.GONE
                         }
                     }
 
-                    // Poll every 2 seconds
-                    delay(2000)
-                }
-                catch (e: Exception)
-                {
+                    delay(1000)
+                } catch (e: Exception) {
                     Timber.e(e, "Error during serial device discovery")
-                    delay(5000) // Longer delay on error
+                    delay(5000)
                 }
             }
         }
@@ -215,6 +255,7 @@ class FriendInfoActivity: AppCompatActivity()
             }
         }
     }
+
 
     override fun onBackPressed() {
         returnButtonPressed()
@@ -249,6 +290,24 @@ class FriendInfoActivity: AppCompatActivity()
             {
                 showAlert(getString(R.string.alert_text_write_a_message_to_send))
             }
+        }
+
+        binding.sendViaSerial.setOnClickListener {
+            if (binding.messageEditText.text.isNotEmpty())
+            {
+                if (binding.messageEditText.text.length > 5000)
+                {
+                    showAlert(getString(R.string.alert_text_message_too_long))
+                }
+                else
+                {
+                    val decodeResult = Codex().decode(binding.messageEditText.text.toString())
+
+                    if (decodeResult != null) showConfirmationForImport()
+                    else sendViaSerial(binding.messageEditText.text.toString())
+                }
+            }
+            else showAlert(getString(R.string.alert_text_write_a_message_to_send))
         }
 
         binding.sendAsImage.setOnClickListener {
@@ -399,9 +458,18 @@ class FriendInfoActivity: AppCompatActivity()
 
     private fun setupViewByStatus()
     {
-        binding.tvFriendName.text = if (thisFriend.name.length <= 10) thisFriend.name else thisFriend.name.substring(0, 8) + "..."
+        binding.tvFriendName.text =
+            if (thisFriend.name.length <= 10) thisFriend.name
+            else thisFriend.name.substring(0, 8) + "..."
+
         binding.profilePicture.text = thisFriend.name.substring(0, 1)
+
+        binding.sendViaSerial.visibility =
+            if ((thisFriend.status == FriendStatus.Verified || thisFriend.status == FriendStatus.Approved) && serialConnection != null) View.VISIBLE
+            else View.GONE
+
         val ft = supportFragmentManager.beginTransaction()
+
         when (thisFriend.status)
         {
             FriendStatus.Default -> {
@@ -571,13 +639,8 @@ class FriendInfoActivity: AppCompatActivity()
             return
         }
 
-        // Check if serial is selected and available
-        if (binding.useSerialCheckbox.isChecked && serialConnection != null) {
-            sendViaSerial(message)
-            return
-        }
-
-        if (isImage) {
+        if (isImage)
+        {
             // If the message is sent as an image
             ActivityCompat.requestPermissions(
                 this@FriendInfoActivity,
