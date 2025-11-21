@@ -47,6 +47,7 @@ import org.operatorfoundation.transmission.SerialConnectionFactory
 import org.operatorfoundation.transmission.SerialConnection
 import com.hoho.android.usbserial.driver.UsbSerialDriver
 import org.operatorfoundation.audiocoder.WSPREncoder
+import org.operatorfoundation.codex.symbols.WSPRMessage
 import org.operatorfoundation.codex.symbols.WSPRMessageSequence
 import org.operatorfoundation.iota.IotaObject
 import org.operatorfoundation.iota.nouns.Noun
@@ -910,7 +911,6 @@ class FriendInfoActivity: AppCompatActivity()
     // FIXME: Move to CodexKotlin once tested
     /**
      * Encodes binary data into WSPR message format with automatic message count detection.
-     * This function will eventually be moved to the CodexKotlin library.
      *
      * Finds the minimum number of WSPR messages needed to encode the data by starting
      * with a low estimate and incrementing until encoding succeeds.
@@ -920,86 +920,118 @@ class FriendInfoActivity: AppCompatActivity()
      */
     private fun encodeDataToWSPRMessages(data: ByteArray): List<Triple<String, String, Int>>?
     {
-        Timber.d("=== Starting WSPR encoding ===")
-        Timber.d("Input data size: ${data.size} bytes")
-
-        // Convert data to BigInteger for encoding
-        val dataAsInteger = BigInteger(1, data)
-        Timber.d("Data as BigInteger bit length: ${dataAsInteger.bitLength()}")
-
-        // Start with minimum estimate: 1 message per 6 bytes (optimistic)
-        var messageCount = maxOf(1, (data.size + 5) / 6)
-        Timber.d("Initial message count estimate: $messageCount")
-
-        // Maximum reasonable message count (safety limit)
-        val maxMessageCount = 100
-
-        while (messageCount <= maxMessageCount)
+        try
         {
-            try
+            Timber.d("=== WSPR Encoding Debug ===")
+            Timber.d("Input data: ${data.size} bytes")
+            Timber.d("Input hex: ${data.joinToString("") { "%02x".format(it) }}")
+
+            // Convert encrypted bytes to BigInteger (unsigned)
+            val numericValue = BigInteger(1, data)
+
+            Timber.d("BigInteger value: $numericValue")
+            Timber.d("BigInteger bits: ${numericValue.bitLength()}")
+
+            // Calculate bits needed
+            val bitsNeeded = numericValue.bitLength()
+
+            // Each WSPR message provides ~50 bits of capacity (rough estimate)
+            // Start with a reasonable minimum based on data size
+            val estimatedMessages = maxOf(1, (bitsNeeded / 50) + 1)
+
+            Timber.d("Data: ${data.size} bytes, ${bitsNeeded} bits → estimated ${estimatedMessages} WSPR messages")
+
+            // Try encoding with increasing message counts until successful
+            val maxAttempts = 20 // Reasonable upper limit
+            var messageCount = estimatedMessages
+
+            while (messageCount <= maxAttempts)
             {
-                Timber.d("--- Attempt: $messageCount WSPR message(s) ---")
+                try
+                {
+                    val sequence = WSPRMessageSequence(messageCount)
+                    val encoded = sequence.encode(numericValue)
 
-                // Create a sequence of WSPR messages
-                val sequence = WSPRMessageSequence(messageCount)
-                val encodedBytes = sequence.encode(dataAsInteger)
+                    // Encoding succeeded! Now parse into individual WSPR messages
+                    val wsprMessages = mutableListOf<Triple<String, String, Int>>()
+                    val singleMessageSize = 12 // WSPRMessage is always 12 bytes
 
-                Timber.d("Encoding succeeded! Encoded to ${encodedBytes.size} bytes")
-
-                // Determine bytes per message from actual encoded data
-                val bytesPerMessage = encodedBytes.size / messageCount
-                Timber.d("Bytes per message: $bytesPerMessage")
-
-                // Parse the encoded bytes into individual WSPR messages
-                val wsprMessages = encodedBytes.toList().chunked(bytesPerMessage).mapIndexed { index, chunk ->
-                    val bytes = chunk.toByteArray()
-
-                    // Find the 'Q' prefix - it should be the first byte
-                    val qIndex = bytes.indexOfFirst { it == 'Q'.code.toByte() }
-                    if (qIndex == -1)
+                    for (i in 0 until messageCount)
                     {
-                        throw IllegalStateException("WSPR message $index missing 'Q' prefix")
+                        val offset = i * singleMessageSize
+                        val messageBytes = encoded.sliceArray(offset until offset + singleMessageSize)
+
+                        Timber.d("Message $i raw bytes: ${messageBytes.joinToString(" ") { "%02x".format(it) }}")
+                        Timber.d("Message $i ASCII: ${messageBytes.map { it.toInt().toChar() }.joinToString("")}")
+
+                        // Extract WSPR parameters from encoded bytes
+                        // Format: Q + 6-char callsign + 4-char grid + power
+                        val callsign = String(
+                            messageBytes.sliceArray(1..6),
+                            Charsets.US_ASCII
+                        ).trim()
+
+                        val gridSquare = String(
+                            messageBytes.sliceArray(7..10),
+                            Charsets.US_ASCII
+                        )
+
+                        // Power byte needs to be decoded to actual dBm value
+                        // WSPR uses 19 power levels: 0, 3, 7, 10, 13, ..., 60 dBm
+                        val powerDbm = decodePowerByte(messageBytes[11])
+
+                        wsprMessages.add(Triple(callsign, gridSquare, powerDbm))
+
+                        Timber.d("WSPR msg $i: callsign='$callsign' grid='$gridSquare' power=${powerDbm}dBm")
                     }
 
-                    // Parse WSPR message components starting from Q
-                    // Q + callsign(6) + grid(4) + power(1) = 12 bytes total after Q
-                    val messageStart = qIndex
-
-                    if (bytes.size - messageStart < 12)
-                    {
-                        throw IllegalStateException("WSPR message $index too short: ${bytes.size - messageStart} bytes after Q")
-                    }
-
-                    // Bytes after Q:
-                    // 0-5: Callsign (6 characters)
-                    val callsign = (1..6).map { bytes[messageStart + it].toInt().toChar() }.joinToString("")
-
-                    // 6-9: Grid square (4 characters)
-                    val gridSquare = (7..10).map { bytes[messageStart + it].toInt().toChar() }.joinToString("")
-
-                    // 10: Power level
-                    val powerChar = bytes[messageStart + 11].toInt().toChar()
-                    val powerDbm = powerChar.toString().toIntOrNull() ?: 0
-
-                    Timber.d("WSPR Message $index: $callsign $gridSquare $powerDbm")
-
-                    Triple(callsign, gridSquare, powerDbm)
+                    return wsprMessages
                 }
-
-                // Success! Found the minimum number of messages needed
-                Timber.d("=== Successfully encoded ${data.size} bytes into $messageCount WSPR message(s) ===")
-                return wsprMessages
+                catch (e: Exception)
+                {
+                    // Encoding failed, try more messages
+                    Timber.d("Failed with $messageCount messages: ${e.message}")
+                    messageCount++
+                }
             }
-            catch (e: Exception)
-            {
-                // Encoding failed - need more messages
-                Timber.w("Encoding failed with $messageCount message(s): ${e.javaClass.simpleName}: ${e.message}")
-                messageCount++
+
+            Timber.e("Could not encode data even with $maxAttempts WSPR messages")
+            return null
+        }
+        catch (e: Exception)
+        {
+            Timber.e(e, "Error encoding data to WSPR messages")
+            return null
+        }
+    }
+
+    /**
+     * Decodes a power byte back to dBm value.
+     * WSPR standard power levels: 0, 3, 7, 10, 13, 17, 20, 23, 27, 30,
+     *                              33, 37, 40, 43, 47, 50, 53, 57, 60 dBm
+     */
+    private fun decodePowerByte(powerByte: Byte): Int
+    {
+        val powerLevels = listOf(
+            0, 3, 7, 10, 13, 17, 20, 23, 27, 30,
+            33, 37, 40, 43, 47, 50, 53, 57, 60
+        )
+
+        // The Power symbol likely encodes 0-18 as an index
+        val index = powerByte.toInt() and 0xFF
+
+        return if (index in powerLevels.indices) {
+            powerLevels[index]
+        } else {
+            // Fallback: treat as ASCII digit if possible
+            val char = powerByte.toInt().toChar()
+            if (char.isDigit()) {
+                powerLevels[char.digitToInt()]
+            } else {
+                Timber.w("Unknown power byte: $powerByte, defaulting to 30dBm")
+                30 // Safe default
             }
         }
-
-        Timber.e("=== FAILED: Could not encode after trying up to $maxMessageCount messages ===")
-        return null
     }
 
     private fun pickImageFromGallery(saveImage: Boolean)
