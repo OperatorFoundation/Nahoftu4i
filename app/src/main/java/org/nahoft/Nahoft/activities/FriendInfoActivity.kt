@@ -949,8 +949,7 @@ class FriendInfoActivity: AppCompatActivity()
             {
                 try
                 {
-                    val sequence = WSPRMessageSequence(messageCount)
-                    val encoded = sequence.encode(numericValue)
+                    val encoded = WSPRMessageSequence.encode(numericValue)
 
                     // Encoding succeeded! Now parse into individual WSPR messages
                     val wsprMessages = mutableListOf<Triple<String, String, Int>>()
