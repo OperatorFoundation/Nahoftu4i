@@ -950,39 +950,8 @@ class FriendInfoActivity: AppCompatActivity()
                 try
                 {
                     val encoded = WSPRMessageSequence.encode(numericValue)
-
                     // Encoding succeeded! Now parse into individual WSPR messages
-                    val wsprMessages = mutableListOf<Triple<String, String, Int>>()
-                    val singleMessageSize = 12 // WSPRMessage is always 12 bytes
-
-                    for (i in 0 until messageCount)
-                    {
-                        val offset = i * singleMessageSize
-                        val messageBytes = encoded.sliceArray(offset until offset + singleMessageSize)
-
-                        Timber.d("Message $i raw bytes: ${messageBytes.joinToString(" ") { "%02x".format(it) }}")
-                        Timber.d("Message $i ASCII: ${messageBytes.map { it.toInt().toChar() }.joinToString("")}")
-
-                        // Extract WSPR parameters from encoded bytes
-                        // Format: Q + 6-char callsign + 4-char grid + power
-                        val callsign = String(
-                            messageBytes.sliceArray(1..6),
-                            Charsets.US_ASCII
-                        ).trim()
-
-                        val gridSquare = String(
-                            messageBytes.sliceArray(7..10),
-                            Charsets.US_ASCII
-                        )
-
-                        // Power byte needs to be decoded to actual dBm value
-                        // WSPR uses 19 power levels: 0, 3, 7, 10, 13, ..., 60 dBm
-                        val powerDbm = decodePowerByte(messageBytes[11])
-
-                        wsprMessages.add(Triple(callsign, gridSquare, powerDbm))
-
-                        Timber.d("WSPR msg $i: callsign='$callsign' grid='$gridSquare' power=${powerDbm}dBm")
-                    }
+                    val wsprMessages = encoded.extractValues()
 
                     return wsprMessages
                 }
