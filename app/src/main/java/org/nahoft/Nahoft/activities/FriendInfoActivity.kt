@@ -3,10 +3,7 @@ package org.nahoft.nahoft.activities
 import android.Manifest
 import android.app.Activity
 import android.content.BroadcastReceiver
-import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
-import android.hardware.usb.UsbManager
 import android.net.Uri
 import android.os.Bundle
 import android.os.Parcelable
@@ -47,68 +44,27 @@ import org.operatorfoundation.transmission.SerialConnectionFactory
 import org.operatorfoundation.transmission.SerialConnection
 import com.hoho.android.usbserial.driver.UsbSerialDriver
 import org.operatorfoundation.audiocoder.WSPREncoder
-import org.operatorfoundation.codex.symbols.WSPRMessage
-import org.operatorfoundation.codex.symbols.WSPRMessageSequence
 import org.operatorfoundation.iota.IotaObject
 import org.operatorfoundation.iota.nouns.Noun
 import org.operatorfoundation.iota.toIotaValue
 import timber.log.Timber
-import java.math.BigInteger
 
 class FriendInfoActivity: AppCompatActivity()
 {
     private lateinit var binding: ActivityFriendInfoBinding
     private var decodePayload: ByteArray? = null
     private lateinit var thisFriend: Friend
-
     private val parentJob = Job()
     private val coroutineScope = CoroutineScope(Dispatchers.Main + parentJob)
+
     private val TAG = "FriendInfoActivity"
     private val menuFragmentTag = "MenuFragment"
-
-    private val usbReceiver = object : BroadcastReceiver()
-    {
-        override fun onReceive(context: Context, intent: Intent)
-        {
-            when (intent.action)
-            {
-                UsbManager.ACTION_USB_DEVICE_ATTACHED -> {
-                    Timber.d("USB device attached")
-                    // Only check if not already connected or connecting
-                    if (serialConnection == null && !isConnecting)
-                    {
-                        // Delay slightly to let USB stabilize
-                        coroutineScope.launch {
-                            delay(500)
-                            checkForSerialDevices()
-                        }
-                    }
-                }
-
-                UsbManager.ACTION_USB_DEVICE_DETACHED -> {
-                    Timber.d("USB device detached")
-                    if (serialConnection != null)
-                    {
-                        coroutineScope.launch {
-                            handleDeviceDisconnected()
-                        }
-                    }
-
-                    isConnecting = false  // Clear flag on disconnect
-                }
-            }
-        }
-    }
-
     private var isShareImageButtonShow: Boolean = false
 
     // Serial connection properties
-    private var connectionStateJob: Job? = null
+    private var deviceDiscoveryJob: Job? = null
     private lateinit var connectionFactory: SerialConnectionFactory
     private var serialConnection: SerialConnection? = null
-    private var isConnecting = false
-
-
 
     override fun onCreate(savedInstanceState: Bundle?)
     {
@@ -138,14 +94,6 @@ class FriendInfoActivity: AppCompatActivity()
         setClickListeners()
         setupViewByStatus()
         receivedSharedMessage()
-
-        // Register USB receiver
-        val filter = IntentFilter().apply {
-            addAction(UsbManager.ACTION_USB_DEVICE_ATTACHED)
-            addAction(UsbManager.ACTION_USB_DEVICE_DETACHED)
-        }
-        registerReceiver(usbReceiver, filter)
-
         setupSerialConnection()
     }
 
@@ -158,142 +106,74 @@ class FriendInfoActivity: AppCompatActivity()
     private fun setupSerialConnection()
     {
         connectionFactory = SerialConnectionFactory(this)
-        observeConnectionState()
-        checkForSerialDevices()
+
+        // Start continuous device discovery
+        startSerialDeviceDiscovery()
     }
 
-    /**
-     * Observes the connection factory's state flow and updates UI accordingly.
-     */
-    private fun observeConnectionState()
+    private fun connectToDevice(driver: UsbSerialDriver)
     {
-        connectionStateJob = coroutineScope.launch {
-            connectionFactory.connectionState.collect { state ->
+        connectionFactory.createConnection(driver.device, 9600, 8, 0, 1)
+    }
 
-                Timber.d("Connection state changed: $state")
+    private fun startSerialDeviceDiscovery()
+    {
+        deviceDiscoveryJob = coroutineScope.launch {
+            var lastConnectedDeviceId: Int? = null
 
-                when (state)
-                {
-                    is SerialConnectionFactory.ConnectionState.Connected -> {
-
-                        Timber.d("🔔 FriendInfoActivity received state: $state")
-
-                        isConnecting = false
-                        serialConnection = state.connection
-
-                        // Only show button if friend status allows sending
-                        if (thisFriend.status == FriendStatus.Verified ||
-                            thisFriend.status == FriendStatus.Approved) {
-                            binding.sendViaSerial.visibility = View.VISIBLE
-                        }
-
-                        binding.serialStatusContainer.visibility = View.VISIBLE
-                        binding.serialStatusText.text = "✓ Serial Connected"
-                        Timber.d("Serial connected successfully")
-
-                        // Auto-hide status after 3 seconds
-                        launch {
-                            delay(3000)
-                            binding.serialStatusContainer.animate()
-                                .alpha(0f)
-                                .setDuration(500)
-                                .withEndAction {
-                                    binding.serialStatusContainer.visibility = View.GONE
-                                    binding.serialStatusContainer.alpha = 1f
-                                }
-                        }
+            while (isActive) {
+                try {
+                    val devices = withContext(Dispatchers.IO) {
+                        connectionFactory.findAvailableDevices()
                     }
 
-                    is SerialConnectionFactory.ConnectionState.Disconnected -> {
-                        isConnecting = false
-                        serialConnection = null
-                        binding.sendViaSerial.visibility = View.GONE
+                    // Check if our connected device is still in the list
+                    val currentDeviceId = lastConnectedDeviceId
+                    if (serialConnection != null && currentDeviceId != null) {
+                        val stillConnected = devices.any { device ->
+                            device.device.deviceId == currentDeviceId
+                        }
 
-                        // Only show disconnected message if we were previously connected
-                        if (binding.serialStatusContainer.visibility == View.VISIBLE) {
-                            binding.serialStatusText.text = "✗ Disconnected"
-                            launch {
+                        if (!stillConnected) {
+                            // Device was unplugged
+                            withContext(Dispatchers.Main) {
+                                Timber.d("Serial device disconnected")
+                                serialConnection?.close()
+                                serialConnection = null
+                                lastConnectedDeviceId = null
+                                binding.sendViaSerial.visibility = View.GONE
+                                binding.serialStatusContainer.visibility = View.VISIBLE
+                                binding.serialStatusText.text = "✗ Device Disconnected"
+
+                                // Hide status after 2 seconds
                                 delay(2000)
                                 binding.serialStatusContainer.visibility = View.GONE
                             }
                         }
                     }
 
-                    is SerialConnectionFactory.ConnectionState.RequestingPermission -> {
-                        binding.serialStatusContainer.visibility = View.VISIBLE
-                        binding.serialStatusText.text = "Requesting USB permission..."
-                        Timber.d("Waiting for USB permission...")
-                    }
-
-                    is SerialConnectionFactory.ConnectionState.Connecting -> {
-                        binding.serialStatusContainer.visibility = View.VISIBLE
-                        binding.serialStatusText.text = "Connecting to device..."
-                        Timber.d("Establishing serial connection...")
-                    }
-
-                    is SerialConnectionFactory.ConnectionState.Error -> {
-                        isConnecting = false
-                        val errorMessage = "✗ Error: ${state.message}"
-                        binding.serialStatusContainer.visibility = View.VISIBLE
-                        binding.serialStatusText.text = errorMessage
-                        Timber.e("Serial connection error: ${state.message}")
-
-                        launch {
-                            delay(5000)
+                    // Check for new devices
+                    if (devices.isNotEmpty() && serialConnection == null) {
+                        withContext(Dispatchers.Main) {
+                            binding.serialStatusContainer.visibility = View.VISIBLE
+                            binding.serialStatusText.text = "Device detected, connecting..."
+                            val device = devices.first()
+                            lastConnectedDeviceId = device.device.deviceId
+                            connectToDevice(device)
+                        }
+                    } else if (devices.isEmpty() && serialConnection == null) {
+                        withContext(Dispatchers.Main) {
                             binding.serialStatusContainer.visibility = View.GONE
                         }
                     }
+
+                    delay(1000)
+                } catch (e: Exception) {
+                    Timber.e(e, "Error during serial device discovery")
+                    delay(5000)
                 }
             }
         }
-    }
-
-    private fun checkForSerialDevices()
-    {
-        if (isConnecting)
-        {
-            Timber.d("Connection already in progress, skipping check")
-            return
-        }
-
-        coroutineScope.launch {
-            val devices = withContext(Dispatchers.IO)
-            {
-                connectionFactory.findAvailableDevices()
-            }
-
-            if (devices.isNotEmpty() && serialConnection == null && !isConnecting)
-            {
-                Timber.d("Found ${devices.size} device(s), initiating connection...")
-                isConnecting = true
-                connectToDevice(devices.first())
-            }
-        }
-    }
-
-    // Handle disconnection
-    private suspend fun handleDeviceDisconnected() {
-        serialConnection?.close()
-        serialConnection = null
-
-        withContext(Dispatchers.Main) {
-            binding.sendViaSerial.visibility = View.GONE
-            binding.serialStatusContainer.visibility = View.VISIBLE
-            binding.serialStatusText.text = "✗ Device Disconnected"
-
-            // Hide after 2 seconds
-            delay(2000)
-            binding.serialStatusContainer.visibility = View.GONE
-        }
-    }
-
-    /**
-     * Initiates connection to a device.
-     * State changes are observed by observeConnectionState().
-     */
-    private fun connectToDevice(driver: UsbSerialDriver)
-    {
-        connectionFactory.createConnection(driver.device)
     }
 
     @ExperimentalUnsignedTypes
@@ -370,55 +250,10 @@ class FriendInfoActivity: AppCompatActivity()
                 {
                     val decodeResult = Codex().decode(binding.messageEditText.text.toString())
 
-                    if (decodeResult != null)
-                    {
-                        showConfirmationForImport()
-                    }
-                    else
-                    {
-                        // Disable button and text field immediately for visual feedback
-                        binding.sendViaSerial.isEnabled = false
-                        binding.messageEditText.isEnabled = false
-
-                        // Hide keyboard while sending
-                        hideSoftKeyboard(binding.messageEditText)
-
-                        // Pulsing animation
-                        val pulseAnimator = android.animation.ObjectAnimator.ofFloat(
-                            binding.sendViaSerial,
-                            "alpha",
-                            1f, 0.5f, 1f
-                        ).apply {
-                            duration = 800
-                            repeatCount = android.animation.ObjectAnimator.INFINITE
-                            repeatMode = android.animation.ObjectAnimator.REVERSE
-                            start()
-                        }
-
-                        coroutineScope.launch {
-                            try
-                            {
-                                val success = sendViaSerial(binding.messageEditText.text.toString())
-                                if (success)
-                                {
-                                    // Only clear on successful send
-                                    binding.messageEditText.text?.clear()
-                                }
-                            }
-                            finally
-                            {
-                                pulseAnimator.cancel()
-                                binding.sendViaSerial.alpha = 1f
-
-                                // Always re-enable button and text field
-                                binding.sendViaSerial.isEnabled = true
-                                binding.messageEditText.isEnabled = true
-                            }
-                        }
-                    }
+                    if (decodeResult != null) showConfirmationForImport()
+                    else sendViaSerial(binding.messageEditText.text.toString())
                 }
             }
-
             else showAlert(getString(R.string.alert_text_write_a_message_to_send))
         }
 
@@ -780,257 +615,125 @@ class FriendInfoActivity: AppCompatActivity()
         }
     }
 
-    private suspend fun sendViaSerial(message: String): Boolean
-    {
-        // Encryption must happen outside the IO coroutine
-        val encryptedMessage = try
-        {
-            Encryption().encrypt(thisFriend.publicKeyEncoded!!, message)
-        }
-        catch (error: Exception)
-        {
-            withContext(Dispatchers.Main) {
-                showAlert(getString(R.string.alert_text_unable_to_process_request))
-            }
-            Timber.e(error, "Failed to encrypt message for broadcast")
-            return false
-        }
-
-        // Switch to IO thread for serial communication
-        return withContext(Dispatchers.IO) {
-            val connection: SerialConnection? = serialConnection
-
-            if (connection == null)
-            {
-                withContext(Dispatchers.Main) {
-                    showAlert(getString(R.string.alert_text_serial_not_connected))
-                }
-                return@withContext false
-            }
-
-            try
-            {
-                // Encode encrypted message to WSPR messages
-                val wsprMessages = encodeDataToWSPRMessages(encryptedMessage)
-
-                if (wsprMessages == null)
-                {
-                    withContext(Dispatchers.Main) {
-                        showAlert("Failed to encode message - data too large")
-                    }
-                    return@withContext false
-                }
-
-                Timber.d("Successfully encoded ${encryptedMessage.size} bytes to ${wsprMessages.size} WSPR message(s)")
-
-                // Convert WSPR messages to frequency arrays
-                val frequencyArrays = wsprMessages.map { (callsign, gridSquare, powerDbm) ->
-                    WSPREncoder.encodeToFrequencies(
-                        WSPREncoder.WSPRMessage(
-                            callsign,
-                            gridSquare,
-                            powerDbm,
-                            0,      // mode
-                            false   // includeSync
-                        )
-                    ).toList()
-                }
-
-                if (frequencyArrays.any { it.isEmpty() })
-                {
-                    withContext(Dispatchers.Main) {
-                        showAlert("Failed to encode frequencies")
-                    }
-                    return@withContext false
-                }
-
-                // Create data structure to instruct radio what to do
-                val delayTime = 0 // Delay between transmissions
-                val payload = listOf(delayTime, frequencyArrays)
-                val iotaList = IotaObject.fromKotlin(payload.toIotaValue())
-
-                // Serialize and send using IotaList
-                val sent = try
-                {
-                    Noun.to_conn(connection, iotaList)
-                    true
-                }
-                catch (e: Exception)
-                {
-                    Timber.e(e, "IotaList serialization failed")
-                    false
-                }
-
-                if (!sent)
-                {
-                    withContext(Dispatchers.Main) {
-                        showAlert("Failed to write to Serial device.")
-                    }
-                    return@withContext false
-                }
-
-                // Wait for response
-                val response = waitForAnyResponse(connection, timeoutMs = 3000)
-
-                withContext(Dispatchers.Main)
-                {
-                    if (response != null)
-                    {
-                        // Only save if we got a response
-                        saveMessage(encryptedMessage, thisFriend, true)
-                        binding.serialStatusText.text = "✓ Sent ${wsprMessages.size} WSPR message(s)"
-                        Timber.d("Sent ${wsprMessages.size} WSPR message(s), response: \n$response")
-                    }
-                    else
-                    {
-                        showAlert("No response from radio device. Message not sent.")
-                        binding.serialStatusText.text = "Message sent (no response)"
-                        Timber.d("Message sent to serial device (no response)")
-                    }
-
-                    // Reset status after delay
-                    delay(3000)
-                    binding.serialStatusContainer.visibility = View.GONE
-                }
-
-                response != null
-            }
-            catch (e: Exception)
-            {
-                Timber.e(e, "Error sending message via serial")
-
-                withContext(Dispatchers.Main) {
-                    showAlert("Serial transmission error: ${e.message}")
-                }
-
-                false
-            }
-        }
-    }
-
-    // FIXME: Move to CodexKotlin once tested
-    /**
-     * Encodes binary data into WSPR message format with automatic message count detection.
-     *
-     * Finds the minimum number of WSPR messages needed to encode the data by starting
-     * with a low estimate and incrementing until encoding succeeds.
-     *
-     * @param data Binary data to encode (typically encrypted message bytes)
-     * @return List of WSPR messages (callsign, gridSquare, powerDbm), or null if encoding fails
-     */
-    private fun encodeDataToWSPRMessages(data: ByteArray): List<Triple<String, String, Int>>?
+    private fun sendViaSerial(message: String)
     {
         try
         {
-            Timber.d("=== WSPR Encoding Debug ===")
-            Timber.d("Input data: ${data.size} bytes")
-            Timber.d("Input hex: ${data.joinToString("") { "%02x".format(it) }}")
+            val encryptedMessage = Encryption().encrypt(thisFriend.publicKeyEncoded!!, message)
 
-            // Convert encrypted bytes to BigInteger (unsigned)
-            val numericValue = BigInteger(1, data)
+            // TODO: Send message to serial device
+            coroutineScope.launch(Dispatchers.IO) {
+                val connection: SerialConnection? = serialConnection
 
-            Timber.d("BigInteger value: $numericValue")
-            Timber.d("BigInteger bits: ${numericValue.bitLength()}")
-
-            // Calculate bits needed
-            val bitsNeeded = numericValue.bitLength()
-
-            // Each WSPR message provides ~50 bits of capacity (rough estimate)
-            // Start with a reasonable minimum based on data size
-            val estimatedMessages = maxOf(1, (bitsNeeded / 50) + 1)
-
-            Timber.d("Data: ${data.size} bytes, ${bitsNeeded} bits → estimated ${estimatedMessages} WSPR messages")
-
-            // Try encoding with increasing message counts until successful
-            val maxAttempts = 20 // Reasonable upper limit
-            var messageCount = estimatedMessages
-
-            while (messageCount <= maxAttempts)
-            {
-                try
+                if (connection == null)
                 {
-                    val sequence = WSPRMessageSequence(messageCount)
-                    val encoded = sequence.encode(numericValue)
-
-                    // Encoding succeeded! Now parse into individual WSPR messages
-                    val wsprMessages = mutableListOf<Triple<String, String, Int>>()
-                    val singleMessageSize = 12 // WSPRMessage is always 12 bytes
-
-                    for (i in 0 until messageCount)
+                    withContext(Dispatchers.Main)
                     {
-                        val offset = i * singleMessageSize
-                        val messageBytes = encoded.sliceArray(offset until offset + singleMessageSize)
-
-                        Timber.d("Message $i raw bytes: ${messageBytes.joinToString(" ") { "%02x".format(it) }}")
-                        Timber.d("Message $i ASCII: ${messageBytes.map { it.toInt().toChar() }.joinToString("")}")
-
-                        // Extract WSPR parameters from encoded bytes
-                        // Format: Q + 6-char callsign + 4-char grid + power
-                        val callsign = String(
-                            messageBytes.sliceArray(1..6),
-                            Charsets.US_ASCII
-                        ).trim()
-
-                        val gridSquare = String(
-                            messageBytes.sliceArray(7..10),
-                            Charsets.US_ASCII
-                        )
-
-                        // Power byte needs to be decoded to actual dBm value
-                        // WSPR uses 19 power levels: 0, 3, 7, 10, 13, ..., 60 dBm
-                        val powerDbm = decodePowerByte(messageBytes[11])
-
-                        wsprMessages.add(Triple(callsign, gridSquare, powerDbm))
-
-                        Timber.d("WSPR msg $i: callsign='$callsign' grid='$gridSquare' power=${powerDbm}dBm")
+                        showAlert(getString(R.string.alert_text_serial_not_connected))
                     }
 
-                    return wsprMessages
+                    return@launch
+                }
+
+                try
+                {
+                    // FIXME: Test parameters - standard WSPR message (replace with CodexKotlin encoding of the encrypted message)
+                    val testCallsign = "Q000"
+                    val testGridSquare = "FN31"
+                    val testPower = 30 // 30 dBm = 1 watt
+
+                    // Generate frequency array using AudioCoder
+                    // FIXME - this should be a list of messages, not one message
+                    val frequencyArray: LongArray = WSPREncoder.encodeToFrequencies(
+                        WSPREncoder.WSPRMessage(
+                            testCallsign,
+                            testGridSquare,
+                            testPower,
+                            0,
+                            false
+                        )
+                    )
+
+                    if (frequencyArray.isEmpty())
+                    {
+                        showAlert("Failed to encode frequencies")
+                        return@launch
+                    }
+
+                    // Create data structure to instruct radio what to do
+                    val delayTime = 0 // FIXME - put the actual delay time
+                    var payload: List<Int> = listOf(delayTime)
+                    for(frequency in frequencyArray)
+                    {
+                        payload += frequency.toInt()
+                    }
+                    val iotaList = IotaObject.fromKotlin(payload.toIotaValue())
+
+                    // Serialize and send using IotaList
+                    val sent = withContext(Dispatchers.IO)
+                    {
+                        try
+                        {
+                            Noun.to_conn(connection, iotaList)
+                            Timber.d("Sent message: $iotaList")
+                            true
+                        }
+                        catch (e: Exception)
+                        {
+                            Timber.e(e, "IotaList serialization failed")
+                            false
+                        }
+                    }
+
+                    if (!sent)
+                    {
+                        withContext(Dispatchers.Main) {
+                            // TODO: Localized alert
+                            showAlert("Failed to write to Serial device.")
+                        }
+
+                        return@launch
+                    }
+
+                    // Wait for response
+                    val response = waitForAnyResponse(connection, timeoutMs = 3000)
+
+                    withContext(Dispatchers.Main) {
+                        // Save the message and clear input
+                        saveMessage(encryptedMessage, thisFriend, true)
+                        binding.messageEditText.text?.clear()
+
+                        // Update status based on response
+                        if (response != null)
+                        {
+                            binding.serialStatusText.text = "Response: $response"
+                            Timber.d("Message sent to serial device. response: \n$response")
+                        }
+                        else
+                        {
+                            binding.serialStatusText.text = "Message sent to serial device (no response)"
+                            Timber.d("Message sent to serial device (no response)")
+                        }
+
+                        // Reset status after delay
+                        delay(2000)
+                        binding.serialStatusText.text = "✓ Serial Connected"
+                    }
                 }
                 catch (e: Exception)
                 {
-                    // Encoding failed, try more messages
-                    Timber.d("Failed with $messageCount messages: ${e.message}")
-                    messageCount++
+                    Timber.e(e, "Error sending message via serial")
+                    withContext(Dispatchers.Main) {
+                        showAlert("Serial transmission error: ${e.message}")
+                    }
                 }
             }
-
-            Timber.e("Could not encode data even with $maxAttempts WSPR messages")
-            return null
         }
-        catch (e: Exception)
+        catch (error: Exception)
         {
-            Timber.e(e, "Error encoding data to WSPR messages")
-            return null
-        }
-    }
-
-    /**
-     * Decodes a power byte back to dBm value.
-     * WSPR standard power levels: 0, 3, 7, 10, 13, 17, 20, 23, 27, 30,
-     *                              33, 37, 40, 43, 47, 50, 53, 57, 60 dBm
-     */
-    private fun decodePowerByte(powerByte: Byte): Int
-    {
-        val powerLevels = listOf(
-            0, 3, 7, 10, 13, 17, 20, 23, 27, 30,
-            33, 37, 40, 43, 47, 50, 53, 57, 60
-        )
-
-        // The Power symbol likely encodes 0-18 as an index
-        val index = powerByte.toInt() and 0xFF
-
-        return if (index in powerLevels.indices) {
-            powerLevels[index]
-        } else {
-            // Fallback: treat as ASCII digit if possible
-            val char = powerByte.toInt().toChar()
-            if (char.isDigit()) {
-                powerLevels[char.digitToInt()]
-            } else {
-                Timber.w("Unknown power byte: $powerByte, defaulting to 30dBm")
-                30 // Safe default
-            }
+            showAlert(getString(R.string.alert_text_unable_to_process_request))
+            print("We were unable to encrypt the message for broadcast: ${error.message}")
+            return
         }
     }
 
@@ -1372,20 +1075,11 @@ class FriendInfoActivity: AppCompatActivity()
     {
         super.onDestroy()
 
-        try
-        {
-            unregisterReceiver(usbReceiver)
-        }
-        catch (e: Exception)
-        {
-            // Receiver wasn't registered
-        }
-
-        // Cancel the state observer
-        connectionStateJob?.cancel()
-
+        // Clean up serial connection
+        deviceDiscoveryJob?.cancel()
         serialConnection?.close()
         connectionFactory.disconnect()
+
         parentJob.cancel()
     }
 }
