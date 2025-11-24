@@ -293,7 +293,7 @@ class FriendInfoActivity: AppCompatActivity()
      */
     private fun connectToDevice(driver: UsbSerialDriver)
     {
-        connectionFactory.createConnection(driver.device)
+        connectionFactory.createConnection(driver.device, 9600, 8, 0, 1)
     }
 
     @ExperimentalUnsignedTypes
