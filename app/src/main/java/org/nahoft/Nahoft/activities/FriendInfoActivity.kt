@@ -49,9 +49,8 @@ import com.hoho.android.usbserial.driver.UsbSerialDriver
 import org.operatorfoundation.audiocoder.WSPREncoder
 import org.operatorfoundation.codex.symbols.WSPRMessage
 import org.operatorfoundation.codex.symbols.WSPRMessageSequence
-import org.operatorfoundation.iota.IotaObject
-import org.operatorfoundation.iota.nouns.Noun
-import org.operatorfoundation.iota.toIotaValue
+import org.operatorfoundation.ion.storage.NounType
+import org.operatorfoundation.ion.storage.Word
 import timber.log.Timber
 import java.math.BigInteger
 
@@ -845,15 +844,31 @@ class FriendInfoActivity: AppCompatActivity()
                     return@withContext false
                 }
 
-                // Create data structure to instruct radio what to do
-                val delayTime = 0 // Delay between transmissions
-                val payload = listOf(delayTime, frequencyArrays)
-                val iotaList = IotaObject.fromKotlin(payload.toIotaValue())
-
-                // Serialize and send using IotaList
+                // Serialize and send using ion
                 val sent = try
                 {
-                    Noun.to_conn(connection, iotaList)
+                    for(frequencyArray in frequencyArrays) {
+                        // FIXME - pause until 2 minute mark each time through loop
+
+                        var first = true
+                        for(frequency in frequencyArray) {
+                            val ionFrequency = Word.make(frequency.toInt(), NounType.INTEGER.value);
+                            Word.to_conn(connection, ionFrequency)
+
+                            if(first)
+                            {
+                                first = false
+
+                                // Turn on transmitter after setting initial frequency
+                                Word.to_conn(connection, Word.make(1, NounType.INTEGER.value))
+                            }
+
+                            Thread.sleep(683) // Wait for tone duration
+                        }
+
+                        // Turn off transmitter after waiting for last tone
+                        Word.to_conn(connection, Word.make(0, NounType.INTEGER.value))
+                    }
                     true
                 }
                 catch (e: Exception)
