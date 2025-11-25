@@ -59,7 +59,8 @@ dependencies {
     implementation("com.github.OperatorFoundation:AudioCoderAndroid:v0.0.2") // Radio codec (WSPR) Library
     implementation("com.github.OperatorFoundation:TransmissionAndroid:v1.3.8") // Serial communications
     implementation("com.github.OperatorFoundation:ion-android:1.0.8") // Communication protocol
-    implementation("com.github.OperatorFoundation:CodexKotlin:v1.0.0") // Message Encoding
+    implementation("com.github.OperatorFoundation:CodexKotlin:v1.0.1") // Message Encoding
+    implementation ("com.github.OperatorFoundation:SignalBridge:a99abf6ce9") // USBAudio Management
 
     // 3rd party
     implementation 'com.github.mik3y:usb-serial-for-android:3.9.0'

@@ -46,11 +46,16 @@ import org.nahoft.util.showAlert
 import org.operatorfoundation.transmission.SerialConnectionFactory
 import org.operatorfoundation.transmission.SerialConnection
 import com.hoho.android.usbserial.driver.UsbSerialDriver
+import org.nahoft.Nahoft.fragments.ReceiveRadioBottomSheetFragment
 import org.operatorfoundation.audiocoder.WSPREncoder
-import org.operatorfoundation.codex.symbols.WSPRMessage
 import org.operatorfoundation.codex.symbols.WSPRMessageSequence
 import org.operatorfoundation.ion.storage.NounType
 import org.operatorfoundation.ion.storage.Word
+import org.operatorfoundation.signalbridge.UsbAudioConnection
+import org.operatorfoundation.signalbridge.UsbAudioManager
+import org.operatorfoundation.signalbridge.models.ConnectionStatus
+import org.operatorfoundation.signalbridge.models.UsbAudioDevice
+
 import timber.log.Timber
 import java.math.BigInteger
 
@@ -107,6 +112,12 @@ class FriendInfoActivity: AppCompatActivity()
     private var serialConnection: SerialConnection? = null
     private var isConnecting = false
 
+    // USB Audio connection properties (for WSPR receive)
+    private lateinit var usbAudioManager: UsbAudioManager
+    private var usbAudioConnection: UsbAudioConnection? = null
+    private var audioDeviceDiscoveryJob: Job? = null
+    private var audioConnectionStatusJob: Job? = null
+
 
 
     override fun onCreate(savedInstanceState: Bundle?)
@@ -146,6 +157,7 @@ class FriendInfoActivity: AppCompatActivity()
         registerReceiver(usbReceiver, filter)
 
         setupSerialConnection()
+        setupUsbAudioConnection()
     }
 
     override fun onResume() {
@@ -159,6 +171,144 @@ class FriendInfoActivity: AppCompatActivity()
         connectionFactory = SerialConnectionFactory(this)
         observeConnectionState()
         checkForSerialDevices()
+    }
+
+    /**
+     * Sets up USB audio device discovery and connection management.
+     * Mirrors the pattern used for serial connections.
+     */
+    private fun setupUsbAudioConnection()
+    {
+        usbAudioManager = UsbAudioManager.create(this)
+        observeAudioConnectionStatus()
+        startAudioDeviceDiscovery()
+    }
+
+    /**
+     * Observes USB audio connection status changes.
+     */
+    private fun observeAudioConnectionStatus()
+    {
+        audioConnectionStatusJob = coroutineScope.launch {
+            usbAudioManager.getConnectionStatus().collect { status ->
+
+                Timber.d("USB Audio connection status: $status")
+
+                when (status)
+                {
+                    is ConnectionStatus.Connected -> {
+                        Timber.i("USB Audio connected")
+                        updateReceiveButtonVisibility()
+                    }
+
+                    is ConnectionStatus.Disconnected -> {
+                        Timber.d("USB Audio disconnected")
+                        usbAudioConnection = null
+                        updateReceiveButtonVisibility()
+                    }
+
+                    is ConnectionStatus.Connecting -> {
+                        Timber.d("USB Audio connecting...")
+                    }
+
+                    is ConnectionStatus.Error -> {
+                        Timber.e("USB Audio error: ${status.message}")
+                        usbAudioConnection = null
+                        updateReceiveButtonVisibility()
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Starts discovery of USB audio devices.
+     * When a device is found and we're not connected, auto-connects.
+     */
+    private fun startAudioDeviceDiscovery()
+    {
+        audioDeviceDiscoveryJob = coroutineScope.launch {
+            usbAudioManager.discoverDevices().collect { devices ->
+
+                Timber.d("Discovered ${devices.size} USB audio device(s)")
+
+                // Auto-connect to first device if not already connected
+                if (devices.isNotEmpty() && usbAudioConnection == null) connectToAudioDevice(devices.first())
+            }
+        }
+    }
+
+    /**
+     * Connects to a USB audio device.
+     */
+    private fun connectToAudioDevice(device: UsbAudioDevice)
+    {
+        coroutineScope.launch {
+            Timber.d("Attempting to connect to USB audio device: ${device.displayName}")
+
+            val result = usbAudioManager.connectToDevice(device)
+
+            if (result.isSuccess)
+            {
+                usbAudioConnection = result.getOrNull()
+                Timber.i("USB Audio connected: ${device.displayName}")
+                updateReceiveButtonVisibility()
+            }
+            else Timber.e(result.exceptionOrNull(), "Failed to connect to USB audio device")
+        }
+    }
+
+    /**
+     * Updates visibility of the receive radio button based on connection and friend status.
+     */
+    private fun updateReceiveButtonVisibility()
+    {
+        val shouldShow = usbAudioConnection != null &&
+                (thisFriend.status == FriendStatus.Verified || thisFriend.status == FriendStatus.Approved)
+
+        binding.btnReceiveRadio.visibility = if (shouldShow) View.VISIBLE else View.GONE
+    }
+
+    /**
+     * Handles the receive via radio button click.
+     * Opens the ReceiveRadioBottomSheetFragment.
+     */
+    private fun receiveViaRadioClicked()
+    {
+        val connection = usbAudioConnection
+        if (connection == null) {
+            showAlert(getString(R.string.usb_audio_not_connected))
+            return
+        }
+
+        if (thisFriend.publicKeyEncoded == null) {
+            showAlert(getString(R.string.alert_text_verified_friends_only))
+            return
+        }
+
+        val bottomSheet = ReceiveRadioBottomSheetFragment.newInstance(
+            connection = connection,
+            friend = thisFriend,
+            onMessageReceived = { encryptedBytes ->
+                // Handle received message - encryptedBytes is cipher text
+                handleReceivedRadioMessage(encryptedBytes)
+            }
+        )
+
+        bottomSheet.show(supportFragmentManager, "ReceiveRadioBottomSheet")
+    }
+
+    /**
+     * Handles a successfully received radio message.
+     * The bytes are encrypted (cipher text) - saveMessage stores them as-is.
+     * Decryption happens at display time.
+     */
+    private fun handleReceivedRadioMessage(encryptedBytes: ByteArray)
+    {
+        runOnUiThread {
+            saveMessage(encryptedBytes, thisFriend, false)
+            setupViewByStatus() // Refresh to show new message
+        }
     }
 
     /**
@@ -336,6 +486,10 @@ class FriendInfoActivity: AppCompatActivity()
 
         binding.buttonBack.setOnClickListener {
             returnButtonPressed()
+        }
+
+        binding.btnReceiveRadio.setOnClickListener {
+            receiveViaRadioClicked()
         }
 
         binding.sendAsText.setOnClickListener {
@@ -620,6 +774,7 @@ class FriendInfoActivity: AppCompatActivity()
                 ft.commit()
                 binding.btnImportImage.isVisible = true
                 binding.btnImportText.isVisible = true
+                binding.btnReceiveRadio.isVisible = usbAudioConnection != null
                 binding.btnResendInvite.isVisible = false
                 binding.sendMessageContainer.isVisible = true
                 binding.verifiedStatusIconImageView.isVisible = true
@@ -631,6 +786,7 @@ class FriendInfoActivity: AppCompatActivity()
                 ft.commit()
                 binding.btnImportImage.isVisible = true
                 binding.btnImportText.isVisible = true
+                binding.btnReceiveRadio.isVisible = usbAudioConnection != null
                 binding.btnResendInvite.isVisible = false
                 binding.sendMessageContainer.isVisible = true
 //                val codex = Codex()
@@ -644,6 +800,8 @@ class FriendInfoActivity: AppCompatActivity()
 //                send_message_container.isVisible = false
             }
         }
+
+        updateReceiveButtonVisibility()
     }
 
     fun inviteClicked()
@@ -967,7 +1125,7 @@ class FriendInfoActivity: AppCompatActivity()
                 {
                     val encoded = WSPRMessageSequence.encode(numericValue)
                     // Encoding succeeded! Now parse into individual WSPR messages
-                    val wsprMessages = encoded.extractValues()
+                    val wsprMessages = encoded.toWSPRFields()
 
                     return wsprMessages
                 }
@@ -1371,5 +1529,17 @@ class FriendInfoActivity: AppCompatActivity()
         serialConnection?.close()
         connectionFactory.disconnect()
         parentJob.cancel()
+
+        audioDeviceDiscoveryJob?.cancel()
+        audioConnectionStatusJob?.cancel()
+
+        coroutineScope.launch {
+            try {
+                usbAudioConnection?.disconnect()
+                usbAudioManager.cleanup()
+            } catch (e: Exception) {
+                Timber.w(e, "Error cleaning up USB audio")
+            }
+        }
     }
 }
