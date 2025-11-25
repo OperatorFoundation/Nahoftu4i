@@ -602,4 +602,24 @@ After pressing this (+) sign, you must first enter your friend\'s name. You can 
     <string name="two_step_login_description">By setting a password for Nahoft, the app automatically enables two-step login. In the first step, you need to enter the password you provided in the above field, and in the second step, you need to provide phone\'s password or face recognition sensor, or fingerprint sensor.</string>
     <string name="click_to_set">Click to set</string>
     <string name="send_via_radio">Button for sending the message via radio.</string>
+
+    <!-- Receive Radio Feature -->
+    <string name="receive_via_radio">Receive via Radio</string>
+    <string name="waiting_for_wspr_window">Waiting for WSPR window…</string>
+    <string name="cycle_progress">Cycle Progress</string>
+    <string name="next_decode_window_in">Next decode window in: %1$ds</string>
+    <string name="audio_level">Audio Level</string>
+    <string name="wspr_messages">WSPR Messages</string>
+    <string name="decode_attempts">Decode Attempts</string>
+    <string name="elapsed">Elapsed</string>
+    <string name="collecting_audio">Collecting audio…</string>
+    <string name="processing_decode">Processing decode…</string>
+    <string name="decode_complete">Decode complete</string>
+    <string name="listening_for_signals">Listening for WSPR signals…</string>
+    <string name="attempting_decrypt">Attempting to decrypt…</string>
+    <string name="message_received">Message received!</string>
+    <string name="usb_audio_not_connected">USB audio device not connected</string>
+    <string name="usb_audio_disconnected">USB audio disconnected</string>
+    <string name="receive_timeout">Receive timed out after %1$d minutes</string>
+    <string name="receive_cancelled">Receive cancelled</string>
 </resources>
