@@ -988,8 +988,8 @@ class FriendInfoActivity: AppCompatActivity()
                             callsign,
                             gridSquare,
                             powerDbm,
-                            0,      // mode
-                            false   // includeSync
+                            14095600, // 20m WSPR calling frequency
+                            false
                         )
                     ).toList()
                 }
