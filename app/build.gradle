@@ -56,11 +56,11 @@ dependencies {
     implementation fileTree(dir: "libs", include: ["*.jar"])
 
     // Operator Libraries
-    implementation("com.github.OperatorFoundation:AudioCoderAndroid:v0.0.2") // Radio codec (WSPR) Library
-    implementation("com.github.OperatorFoundation:TransmissionAndroid:v1.3.8") // Serial communications
-    implementation("com.github.OperatorFoundation:ion-android:1.0.8") // Communication protocol
+    implementation("com.github.OperatorFoundation:AudioCoderAndroid:v1.0.0") // Radio codec (WSPR) Library
+    implementation("com.github.OperatorFoundation:TransmissionAndroid:v1.4.0") // Serial communications
+    implementation("com.github.OperatorFoundation:ion-android:1.1.0") // Communication protocol
     implementation("com.github.OperatorFoundation:CodexKotlin:v1.0.1") // Message Encoding
-    implementation ("com.github.OperatorFoundation:SignalBridge:a99abf6ce9") // USBAudio Management
+    implementation ("com.github.OperatorFoundation:SignalBridge:v1.0.0") // USBAudio Management
 
     // 3rd party
     implementation 'com.github.mik3y:usb-serial-for-android:3.9.0'
@@ -96,6 +96,7 @@ dependencies {
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
     testImplementation 'com.github.joshjdevl.libsodiumjni:libsodium-jni-aar:2.0.2'
     androidTestImplementation 'com.github.joshjdevl.libsodiumjni:libsodium-jni-aar:2.0.2'
+    androidTestImplementation 'org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3'
 
     implementation 'com.google.firebase:firebase-analytics:21.2.2'
 }
