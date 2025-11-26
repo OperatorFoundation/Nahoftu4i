@@ -31,6 +31,10 @@ import androidx.core.view.isVisible
 import androidx.core.view.setPadding
 import kotlinx.coroutines.*
 import org.libsodium.jni.keys.PublicKey
+import androidx.activity.result.contract.ActivityResultContracts
+import android.content.pm.PackageManager
+import android.widget.Toast
+
 import org.nahoft.codex.Codex
 import org.nahoft.codex.Encryption
 import org.nahoft.codex.KeyOrMessage
@@ -71,6 +75,20 @@ class FriendInfoActivity: AppCompatActivity()
     private val coroutineScope = CoroutineScope(Dispatchers.Main + parentJob)
     private val TAG = "FriendInfoActivity"
     private val menuFragmentTag = "MenuFragment"
+
+    // Audio permission launcher (for USB audio recording)
+    private val audioPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            Timber.d("RECORD_AUDIO permission granted, retrying audio device discovery")
+            // Restart discovery now that we have permission
+            startAudioDeviceDiscovery()
+        } else {
+            Timber.w("RECORD_AUDIO permission denied")
+            Toast.makeText(this, "Microphone permission is required for USB audio", Toast.LENGTH_LONG).show()
+        }
+    }
 
     private val usbReceiver = object : BroadcastReceiver()
     {
@@ -242,9 +260,18 @@ class FriendInfoActivity: AppCompatActivity()
 
     /**
      * Connects to a USB audio device.
+     * Checks for RECORD_AUDIO permission first.
      */
     private fun connectToAudioDevice(device: UsbAudioDevice)
     {
+        // Check for RECORD_AUDIO permission first
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+            != PackageManager.PERMISSION_GRANTED) {
+            Timber.d("RECORD_AUDIO permission not granted, requesting...")
+            audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+            return
+        }
+
         coroutineScope.launch {
             Timber.d("Attempting to connect to USB audio device: ${device.displayName}")
 

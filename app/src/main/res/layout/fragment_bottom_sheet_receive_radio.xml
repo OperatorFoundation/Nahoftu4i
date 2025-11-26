@@ -3,7 +3,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:background="@drawable/btn_bkgd_light_grey_outline_8"
+    android:background="@drawable/bkgd_blue_rect"
     android:padding="20dp">
 
     <!-- Header with close button -->
@@ -13,7 +13,7 @@
         android:layout_height="40dp"
         android:background="@android:color/transparent"
         android:contentDescription="@string/cancel_button"
-        android:src="@drawable/ic_nahoft_icons_decline"
+        android:src="@drawable/btn_close_small_24"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
         app:tint="@color/white" />
@@ -51,7 +51,7 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="24dp"
         android:text="@string/cycle_progress"
-        android:textColor="@color/lightGrey"
+        android:textColor="@color/white"
         android:textSize="14sp"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/tv_status" />
@@ -63,7 +63,7 @@
         android:layout_marginTop="24dp"
         android:gravity="end"
         android:text="0s / 120s"
-        android:textColor="@color/lightGrey"
+        android:textColor="@color/white"
         android:textSize="14sp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toBottomOf="@id/tv_status" />
@@ -76,7 +76,7 @@
         android:layout_marginTop="8dp"
         android:max="120"
         android:progress="0"
-        android:progressBackgroundTint="@color/coolGrey"
+        android:progressBackgroundTint="@color/lightGrey"
         android:progressTint="@color/royalBlueDark"
         app:layout_constraintTop_toBottomOf="@id/tv_cycle_label" />
 
@@ -88,7 +88,7 @@
         android:layout_marginTop="12dp"
         android:gravity="center"
         android:text="@string/next_decode_window_in"
-        android:textColor="@color/lightGrey"
+        android:textColor="@color/white"
         android:textSize="14sp"
         app:layout_constraintTop_toBottomOf="@id/progress_cycle" />
 
@@ -99,7 +99,7 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="20dp"
         android:text="@string/audio_level"
-        android:textColor="@color/lightGrey"
+        android:textColor="@color/white"
         android:textSize="14sp"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/tv_next_window" />
@@ -111,7 +111,7 @@
         android:layout_marginTop="20dp"
         android:gravity="end"
         android:text="0%"
-        android:textColor="@color/lightGrey"
+        android:textColor="@color/white"
         android:textSize="14sp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toBottomOf="@id/tv_next_window" />
@@ -157,7 +157,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/wspr_messages"
-                android:textColor="@color/lightGrey"
+                android:textColor="@color/white"
                 android:textSize="12sp" />
         </LinearLayout>
 
@@ -181,7 +181,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/decode_attempts"
-                android:textColor="@color/lightGrey"
+                android:textColor="@color/white"
                 android:textSize="12sp" />
         </LinearLayout>
 
@@ -205,7 +205,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/elapsed"
-                android:textColor="@color/lightGrey"
+                android:textColor="@color/white"
                 android:textSize="12sp" />
         </LinearLayout>
 

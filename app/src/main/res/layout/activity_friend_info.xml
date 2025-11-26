@@ -113,8 +113,9 @@
             android:src="@drawable/ic_nahoft_radio_transmit"
             android:visibility="gone"
             app:layout_constraintBottom_toBottomOf="@+id/tv_friend_name"
-            app:layout_constraintEnd_toStartOf="@id/btn_import_text"
-            app:layout_constraintTop_toTopOf="@+id/tv_friend_name" />
+            app:layout_constraintEnd_toStartOf="@id/btn_import_image"
+            app:layout_constraintTop_toTopOf="@+id/tv_friend_name"
+            app:tint="@color/white" />
 
         <ImageButton
             android:id="@+id/btn_import_image"
@@ -137,7 +138,7 @@
             android:contentDescription="@string/import_image_hint"
             android:src="@drawable/ic_nahoft_icons_question"
             app:layout_constraintBottom_toBottomOf="@+id/tv_friend_name"
-            app:layout_constraintEnd_toStartOf="@id/btn_resend_invite"
+            app:layout_constraintEnd_toStartOf="@id/btn_receive_radio"
             app:layout_constraintTop_toTopOf="@+id/tv_friend_name" />
 
         <ImageButton
