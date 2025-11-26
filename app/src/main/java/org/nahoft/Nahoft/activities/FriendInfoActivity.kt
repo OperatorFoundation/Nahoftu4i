@@ -58,6 +58,8 @@ import org.operatorfoundation.signalbridge.models.UsbAudioDevice
 
 import timber.log.Timber
 import java.math.BigInteger
+import java.time.LocalDateTime
+import java.time.temporal.ChronoUnit
 
 class FriendInfoActivity: AppCompatActivity()
 {
@@ -1006,7 +1008,9 @@ class FriendInfoActivity: AppCompatActivity()
                 val sent = try
                 {
                     for(frequencyArray in frequencyArrays) {
-                        // FIXME - pause until 2 minute mark each time through loop
+                        Timber.d("Waiting until even minute...")
+                        Thread.sleep(millisUntilEvenMinute())
+                        Timber.d("It's go time!")
 
                         var first = true
                         for(frequency in frequencyArray) {
@@ -1080,6 +1084,16 @@ class FriendInfoActivity: AppCompatActivity()
                 false
             }
         }
+    }
+
+    fun millisUntilEvenMinute(): Long {
+        val now = LocalDateTime.now()
+        val nextEvenMinute = now
+            .plusMinutes(1)
+            .withSecond(0)
+            .withNano(0)
+
+        return ChronoUnit.MILLIS.between(now, nextEvenMinute)
     }
 
     // FIXME: Move to CodexKotlin once tested
