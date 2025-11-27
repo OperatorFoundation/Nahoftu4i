@@ -1,9 +1,14 @@
 package org.nahoft.Nahoft.fragments
 
+import android.animation.ObjectAnimator
+import android.graphics.PorterDuff
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.view.animation.LinearInterpolator
+import androidx.core.animation.ValueAnimator
+import androidx.core.content.ContextCompat
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
@@ -59,6 +64,19 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
     private val receivedMessages = mutableListOf<WSPRMessage>()
     private var decodeAttempts = 0
     private var startTimeMs = 0L
+
+    // Animation tracking
+    private var currentAnimator: ObjectAnimator? = null
+
+    /**
+     * Animation types for state icon
+     */
+    private enum class AnimationType {
+        NONE,
+        PULSE,      // For listening states
+        ROTATE,     // For processing
+        SCALE       // For success
+    }
 
     // Configuration
     companion object {
@@ -157,25 +175,136 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
     /**
      * Observes WSPR station state changes and updates UI.
      */
-    private suspend fun observeStationState() {
+    /**
+     * Observes WSPR station state changes and updates UI with icons and animations.
+     *
+     * State mappings:
+     * - Running: Green radio icon with pulse animation (listening actively)
+     * - WaitingForNextWindow: Grey clock icon, no animation (waiting for timing)
+     * - CollectingAudio: Green radio icon with pulse, shows audio level section
+     * - ProcessingAudio: Orange sync icon with rotation (working on decode)
+     * - DecodeCompleted: Green checkmark with scale animation (success!)
+     * - Error: Red error icon, no animation (something went wrong)
+     */
+    private suspend fun observeStationState()
+    {
         wsprStation?.stationState?.collect { state ->
-            val statusText = when (state) {
-                is WSPRStationState.Running -> getString(R.string.listening_for_signals)
-                is WSPRStationState.WaitingForNextWindow -> getString(R.string.waiting_for_wspr_window)
-                is WSPRStationState.CollectingAudio -> getString(R.string.collecting_audio)
-                is WSPRStationState.ProcessingAudio -> getString(R.string.processing_decode)
-                is WSPRStationState.DecodeCompleted -> getString(R.string.decode_complete)
-                is WSPRStationState.Error -> "Error: ${state.errorDescription}"
-                else -> state::class.simpleName ?: "Unknown"
+            when (state) {
+                is WSPRStationState.Running -> {
+                    updateStateIcon(R.drawable.ic_radio, R.color.caribbeanGreen, AnimationType.PULSE)
+                    updateStatus(getString(R.string.listening_for_signals))
+                }
+                is WSPRStationState.WaitingForNextWindow -> {
+                    updateStateIcon(R.drawable.ic_access_time, R.color.coolGrey, AnimationType.NONE)
+                    updateStatus(getString(R.string.waiting_for_wspr_window))
+                }
+                is WSPRStationState.CollectingAudio -> {
+                    updateStateIcon(R.drawable.ic_radio, R.color.caribbeanGreen, AnimationType.PULSE)
+                    updateStatus(getString(R.string.collecting_audio))
+                    // Show audio level section when actively collecting
+                    binding.audioLevelSection.visibility = View.VISIBLE
+                }
+                is WSPRStationState.ProcessingAudio -> {
+                    updateStateIcon(R.drawable.ic_sync, R.color.tangerine, AnimationType.ROTATE)
+                    updateStatus(getString(R.string.processing_decode))
+                }
+                is WSPRStationState.DecodeCompleted -> {
+                    updateStateIcon(R.drawable.ic_success, R.color.caribbeanGreen, AnimationType.SCALE)
+                    updateStatus(getString(R.string.decode_complete))
+                }
+                is WSPRStationState.Error -> {
+                    updateStateIcon(R.drawable.ic_error, R.color.madderLake, AnimationType.NONE)
+                    updateStatus("Error: ${state.errorDescription}")
+                }
+                else -> {
+                    updateStateIcon(R.drawable.ic_radio, R.color.coolGrey, AnimationType.NONE)
+                    updateStatus(state::class.simpleName ?: "Unknown")
+                }
             }
-            updateStatus(statusText)
         }
+    }
+
+    /**
+     * Updates the state icon with color and animation
+     */
+    private fun updateStateIcon(iconRes: Int, colorRes: Int, animationType: AnimationType)
+    {
+        if (_binding == null) return
+
+        // Cancel any existing animation
+        currentAnimator?.cancel()
+        currentAnimator = null
+
+        // Reset transformations
+        binding.ivStateIcon.rotation = 0f
+        binding.ivStateIcon.scaleX = 1f
+        binding.ivStateIcon.scaleY = 1f
+        binding.ivStateIcon.alpha = 1f
+
+        // Set icon and color
+        binding.ivStateIcon.setImageResource(iconRes)
+        binding.ivStateIcon.setColorFilter(
+            ContextCompat.getColor(requireContext(), colorRes),
+            PorterDuff.Mode.SRC_IN
+        )
+
+        // Apply animation based on type
+        when (animationType) {
+            AnimationType.PULSE -> startPulseAnimation()
+            AnimationType.ROTATE -> startRotateAnimation()
+            AnimationType.SCALE -> startScaleAnimation()
+            AnimationType.NONE -> {} // No animation
+        }
+    }
+
+    /**
+     * Pulse animation for listening states
+     */
+    private fun startPulseAnimation()
+    {
+        currentAnimator = ObjectAnimator.ofFloat(binding.ivStateIcon, "alpha", 1f, 0.4f, 1f).apply {
+            duration = 2000
+            repeatCount = ValueAnimator.INFINITE
+            repeatMode = android.animation.ValueAnimator.RESTART
+            start()
+        }
+    }
+
+    /**
+     * Rotation animation for processing state
+     */
+    private fun startRotateAnimation()
+    {
+        currentAnimator = ObjectAnimator.ofFloat(binding.ivStateIcon, "rotation", 0f, 360f).apply {
+            duration = 1500
+            repeatCount = ValueAnimator.INFINITE
+            interpolator = LinearInterpolator()
+            start()
+        }
+    }
+
+    /**
+     * Scale animation for success (plays once)
+     */
+    private fun startScaleAnimation()
+    {
+        val scaleX = ObjectAnimator.ofFloat(binding.ivStateIcon, "scaleX", 0.8f, 1.2f, 1f).apply {
+            duration = 400
+        }
+        val scaleY = ObjectAnimator.ofFloat(binding.ivStateIcon, "scaleY", 0.8f, 1.2f, 1f).apply {
+            duration = 400
+        }
+
+        scaleX.start()
+        scaleY.start()
+        currentAnimator = scaleX // Track one for cleanup
     }
 
     /**
      * Observes WSPR cycle timing information and updates progress UI.
      */
-    private suspend fun observeCycleInformation() {
+    private suspend fun observeCycleInformation()
+    {
         wsprStation?.cycleInformation?.collect { cycleInfo ->
             updateCycleProgress(cycleInfo)
         }
@@ -184,18 +313,18 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
     /**
      * Observes decode results and attempts message reconstruction/decryption.
      */
-    private suspend fun observeDecodeResults() {
+    private suspend fun observeDecodeResults()
+    {
         wsprStation?.decodeResults?.collect { results ->
-            if (results.isNotEmpty()) {
-                processDecodeResults(results)
-            }
+            if (results.isNotEmpty()) processDecodeResults(results)
         }
     }
 
     /**
      * Observes audio level from USB connection for visual feedback.
      */
-    private suspend fun observeAudioLevels() {
+    private suspend fun observeAudioLevels()
+    {
         usbAudioConnection?.getAudioLevel()?.collect { levelInfo ->
             val percent = (levelInfo.currentLevel * 100).toInt()
             binding.progressAudio.progress = percent
@@ -206,7 +335,8 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
     /**
      * Monitors for timeout condition.
      */
-    private suspend fun monitorTimeout() {
+    private suspend fun monitorTimeout()
+    {
         delay(TIMEOUT_MS)
 
         // If we get here without being cancelled, we timed out
@@ -224,7 +354,8 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
      * Filters for encoded Nahoft messages (Q prefix), accumulates them,
      * and attempts decryption.
      */
-    private fun processDecodeResults(results: List<WSPRDecodeResult>) {
+    private fun processDecodeResults(results: List<WSPRDecodeResult>)
+    {
         decodeAttempts++
         binding.tvDecodeAttempts.text = decodeAttempts.toString()
 
@@ -391,7 +522,7 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
     private fun cancelAndDismiss() {
         Timber.d("Receive operation cancelled")
         stopReceiving()
-        dismiss()
+        dismissAllowingStateLoss()
     }
 
     /**

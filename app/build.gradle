@@ -56,11 +56,11 @@ dependencies {
     implementation fileTree(dir: "libs", include: ["*.jar"])
 
     // Operator Libraries
-    implementation("com.github.OperatorFoundation:AudioCoderAndroid:84b22e4530") // Radio codec (WSPR) Library
+    implementation("com.github.OperatorFoundation:AudioCoderAndroid:v1.0.1") // Radio codec (WSPR) Library
     implementation("com.github.OperatorFoundation:TransmissionAndroid:v1.4.0") // Serial communications
     implementation("com.github.OperatorFoundation:ion-android:1.1.0") // Communication protocol
     implementation("com.github.OperatorFoundation:CodexKotlin:v1.0.1") // Message Encoding
-    implementation ("com.github.OperatorFoundation:SignalBridge:ee661b215c") // USBAudio Management
+    implementation ("com.github.OperatorFoundation:SignalBridge:v1.0.1") // USBAudio Management
 
     // 3rd party
     implementation 'com.github.mik3y:usb-serial-for-android:3.9.0'
@@ -90,6 +90,7 @@ dependencies {
 
     implementation 'androidx.lifecycle:lifecycle-extensions:2.2.0'
     implementation 'com.github.joshjdevl.libsodiumjni:libsodium-jni-aar:2.0.2'
+    implementation 'androidx.core:core-animation:1.0.0'
 
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.1.5'
