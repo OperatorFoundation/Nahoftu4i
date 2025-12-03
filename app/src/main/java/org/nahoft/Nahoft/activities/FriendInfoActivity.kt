@@ -610,7 +610,18 @@ class FriendInfoActivity: AppCompatActivity()
         }
 
         binding.saveAsImage.setOnClickListener {
-            trySendingOrSavingMessage(isImage = true, saveImage = true)
+            // Show consent dialog before proceeding with image save
+            if (hasImageSaveConsentBeenShown())
+            {
+                trySendingOrSavingMessage(isImage = true, saveImage = true)
+            }
+            else
+            {
+                // Only show if the user hasn't opted out
+                showImageSaveConsentDialog {
+                    trySendingOrSavingMessage(isImage = true, saveImage = true)
+                }
+            }
         }
 
         binding.shareAsImage.setOnClickListener {
@@ -683,6 +694,85 @@ class FriendInfoActivity: AppCompatActivity()
         }
             .create()
             .show()
+    }
+
+    /**
+     * Shows an informed consent dialog before saving an encoded image to shared storage.
+     * Explains that the image will be visible in the gallery and accessible to other apps.
+     * Includes a "Don't show again" option.
+     */
+    private fun showImageSaveConsentDialog(onConsent: () -> Unit)
+    {
+        val builder = AlertDialog.Builder(ContextThemeWrapper(this, R.style.AppTheme_AddFriendAlertDialog))
+        val title = SpannableString("Save to Gallery?")
+
+        title.setSpan(
+            AlignmentSpan.Standard(Layout.Alignment.ALIGN_CENTER),
+            0,
+            title.length,
+            0
+        )
+        builder.setTitle(title)
+
+        // Create container for message and checkbox
+        val container = LinearLayout(this)
+        container.orientation = LinearLayout.VERTICAL
+        container.setPadding(50, 40, 50, 20)
+
+        // Message text
+        val message = """
+        The encoded image will be saved to your device's Pictures folder where:
+        
+        • It will appear in your gallery app
+        • Other apps can access it
+        • It remains visible after uninstalling Nahoft
+        
+        The hidden message is encrypted and can only be decoded with your keys.
+        """.trimIndent()
+
+        val textView = TextView(this)
+        textView.text = message
+        textView.setTextColor(ContextCompat.getColor(this, R.color.royalBlueDark))
+        container.addView(textView)
+
+        // "Don't show again" checkbox
+        val checkBox = android.widget.CheckBox(this)
+        checkBox.text = "Don't show this again"
+        checkBox.setTextColor(ContextCompat.getColor(this, R.color.royalBlueDark))
+        checkBox.setPadding(0, 30, 0, 0)
+        container.addView(checkBox)
+
+        builder.setView(container)
+
+        builder.setPositiveButton("Save to Gallery") { _, _ ->
+            // Save preference if checkbox is checked
+            if (checkBox.isChecked) {
+                markImageSaveConsentShown()
+            }
+            onConsent()
+        }
+
+        builder.setNegativeButton("Cancel") { dialog, _ ->
+            dialog.cancel()
+        }
+
+        builder.create().show()
+    }
+
+    /**
+     * Checks if the user has already seen and accepted the image save consent dialog.
+     */
+    private fun hasImageSaveConsentBeenShown(): Boolean
+    {
+        return Persist.loadBooleanKey(Persist.sharedPrefImageSaveConsentShownKey)
+    }
+
+    /**
+     * Marks that the user has seen the image save consent dialog.
+     */
+    private fun markImageSaveConsentShown()
+    {
+        Persist.saveBooleanKey(Persist.sharedPrefImageSaveConsentShownKey, true)
     }
 
     private fun showHideShareImageButtons()

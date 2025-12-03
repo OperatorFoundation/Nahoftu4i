@@ -17,6 +17,8 @@ class Persist {
 
     companion object {
 
+        const val sharedPrefImageSaveConsentShownKey = "NahoftImageSaveConsentShown"
+
         val publicKeyPreferencesKey = "NahoftPublicKey"
         val sharedPrefLoginStatusKey = "NahoftLoginStatus"
         val sharedPrefPasscodeKey = "NahoftPasscode"
