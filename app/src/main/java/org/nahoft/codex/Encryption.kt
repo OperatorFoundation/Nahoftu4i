@@ -1,10 +1,10 @@
 package org.nahoft.codex
 
 import org.libsodium.jni.SodiumConstants
-import org.libsodium.jni.crypto.Random
-import org.libsodium.jni.keys.KeyPair
-import org.libsodium.jni.keys.PrivateKey
-import org.libsodium.jni.keys.PublicKey
+import org.libsodium.jni.crypto.Random as SodiumRandom
+import org.libsodium.jni.keys.KeyPair as SodiumKeyPair
+import org.libsodium.jni.keys.PrivateKey as SodiumPrivateKey
+import org.libsodium.jni.keys.PublicKey as SodiumPublicKey
 import org.nahoft.nahoft.Persist
 import org.nahoft.nahoft.Persist.Companion.publicKeyPreferencesKey
 
@@ -18,12 +18,12 @@ class Encryption {
 
     // Generate a new keypair for this device and store it in EncryptedSharedPreferences
     private fun generateKeypair(): Keys {
-        val seed = Random().randomBytes(SodiumConstants.SECRETKEY_BYTES)
+        val seed = SodiumRandom().randomBytes(SodiumConstants.SECRETKEY_BYTES)
         return generateKeypair(seed)
     }
 
     private fun generateKeypair(seed: ByteArray): Keys {
-        val keyPair = KeyPair(seed)
+        val keyPair = SodiumKeyPair(seed)
 
         // Save the keys to EncryptedSharedPreferences
         Persist.encryptedSharedPreferences
@@ -51,8 +51,8 @@ class Encryption {
             return null
         }
 
-        val publicKey = PublicKey(publicKeyHex)
-        val privateKey = PrivateKey(privateKeyHex)
+        val publicKey = SodiumPublicKey(publicKeyHex)
+        val privateKey = SodiumPrivateKey(privateKeyHex)
 
         return Keys(privateKey, publicKey)
     }
@@ -76,11 +76,11 @@ class Encryption {
     }
 
     @Throws(SecurityException::class)
-    fun encrypt(encodedPublicKey: ByteArray, privateKey: PrivateKey, plaintext: String): ByteArray
+    fun encrypt(encodedPublicKey: ByteArray, privateKey: SodiumPrivateKey, plaintext: String): ByteArray
     {
         val plaintTextBytes = plaintext.encodeToByteArray()
-        val nonce = Random().randomBytes(SodiumConstants.NONCE_BYTES)
-        val friendPublicKey = PublicKey(encodedPublicKey)
+        val nonce = SodiumRandom().randomBytes(SodiumConstants.NONCE_BYTES)
+        val friendPublicKey = SodiumPublicKey(encodedPublicKey)
 
         try {
             // Uses XSalsa20Poly1305
@@ -104,7 +104,7 @@ class Encryption {
     }
 
     @Throws(SecurityException::class)
-    fun decrypt(friendPublicKey: PublicKey, ciphertext: ByteArray): String
+    fun decrypt(friendPublicKey: SodiumPublicKey, ciphertext: ByteArray): String
     {
         if (!Persist.accessIsAllowed())
         { return "" }
@@ -129,4 +129,4 @@ class Encryption {
     }
 }
 
-class Keys(val privateKey: PrivateKey, val publicKey: PublicKey)
+class Keys(val privateKey: SodiumPrivateKey, val publicKey: SodiumPublicKey)
