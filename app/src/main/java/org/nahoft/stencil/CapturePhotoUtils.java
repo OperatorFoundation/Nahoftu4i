@@ -39,9 +39,7 @@ public class CapturePhotoUtils {
 
         // Add the date meta data to ensure the image is added at the front of the gallery
         values.put(Images.Media.DATE_ADDED, System.currentTimeMillis() / 1000);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            values.put(Images.Media.DATE_TAKEN, System.currentTimeMillis());
-        }
+        values.put(Images.Media.DATE_TAKEN, System.currentTimeMillis());
 
         try {
             File tempFile = File.createTempFile("image", ".jpg", context.getCacheDir());

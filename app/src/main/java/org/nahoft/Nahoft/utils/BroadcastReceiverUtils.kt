@@ -13,16 +13,9 @@ fun Context.registerReceiverCompat(
     exported: Boolean = false
 )
 {
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
-    {
-        registerReceiver(
-            receiver,
-            filter,
-            if (exported) Context.RECEIVER_EXPORTED else Context.RECEIVER_NOT_EXPORTED
-        )
-    }
-    else
-    {
-        registerReceiver(receiver, filter)
-    }
+    registerReceiver(
+        receiver,
+        filter,
+        if (exported) Context.RECEIVER_EXPORTED else Context.RECEIVER_NOT_EXPORTED
+    )
 }
