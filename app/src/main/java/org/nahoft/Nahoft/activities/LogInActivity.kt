@@ -1,17 +1,13 @@
 package org.nahoft.nahoft.activities
 
 import android.annotation.SuppressLint
-import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.os.Build
 import android.os.Bundle
 import android.os.Parcelable
-import android.provider.Settings
 import android.view.WindowManager
 import android.view.inputmethod.EditorInfo
 import androidx.appcompat.app.AppCompatActivity
-import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_STRONG
 import androidx.biometric.BiometricManager.Authenticators.DEVICE_CREDENTIAL
 import androidx.biometric.BiometricPrompt
@@ -23,7 +19,6 @@ import org.nahoft.nahoft.LoginStatus
 import org.nahoft.nahoft.Persist
 import org.nahoft.nahoft.Persist.Companion.clearAllData
 import org.nahoft.nahoft.Persist.Companion.sharedPrefFailedLoginAttemptsKey
-import org.nahoft.nahoft.Persist.Companion.sharedPrefFailedLoginTimeKey
 import org.nahoft.nahoft.Persist.Companion.sharedPrefPasscodeKey
 import org.nahoft.nahoft.Persist.Companion.sharedPrefSecondaryPasscodeKey
 import org.nahoft.nahoft.Persist.Companion.status
@@ -41,7 +36,6 @@ class LogInActivity : AppCompatActivity()
     private lateinit var promptInfo: BiometricPrompt.PromptInfo
 
     private var failedLoginAttempts = 0
-    private var lastFailedLoginTimeMillis: Long? = null
 
     private val receiver by lazy {
         LogoutTimerBroadcastReceiver {
@@ -112,16 +106,6 @@ class LogInActivity : AppCompatActivity()
         if (enteredPasscode.isNotBlank())
         {
             failedLoginAttempts = Persist.encryptedSharedPreferences.getInt(sharedPrefFailedLoginAttemptsKey, 0)
-            val savedTimeStamp = Persist.encryptedSharedPreferences.getLong(sharedPrefFailedLoginTimeKey, 0)
-
-            if (savedTimeStamp == 0.toLong())
-            {
-                lastFailedLoginTimeMillis = null
-            }
-            else
-            {
-                lastFailedLoginTimeMillis = savedTimeStamp
-            }
 
             biometricPrompt = BiometricPrompt(this, executor,
                 object : BiometricPrompt.AuthenticationCallback() {
@@ -247,7 +231,6 @@ class LogInActivity : AppCompatActivity()
                 maybePasscode -> {
                     status = LoginStatus.LoggedIn
                     failedLoginAttempts = 0
-                    lastFailedLoginTimeMillis = null
                     Persist.saveLoginFailure(0)
                 }
                 maybeSecondary -> {
@@ -257,7 +240,6 @@ class LogInActivity : AppCompatActivity()
                 else -> {
                     status = LoginStatus.FailedLogin
                     failedLoginAttempts += 1
-                    lastFailedLoginTimeMillis = System.currentTimeMillis()
                     Persist.saveLoginFailure(failedLoginAttempts)
                     showLoginFailureAlert()
                 }
@@ -265,21 +247,6 @@ class LogInActivity : AppCompatActivity()
 
             saveStatus()
             tryLogIn(status)
-        }
-    }
-
-    private fun getLockoutMinutes(): Int
-    {
-        if (failedLoginAttempts >= 9) {
-            return 1000
-        } else if (failedLoginAttempts == 8) {
-            return 15
-        } else if (failedLoginAttempts == 7) {
-            return 5
-        } else if (failedLoginAttempts == 6) {
-            return 1
-        } else {
-            return 0
         }
     }
 
@@ -313,52 +280,39 @@ class LogInActivity : AppCompatActivity()
         }
     }
 
-    private fun loginAllowed(): Boolean {
-        //how long is the user locked out for?
-        val minutesToWait = getLockoutMinutes()
-        val millisToWait = minutesToWait * 1000 * 60
+    private fun loginAllowed(): Boolean
+    {
+        val lockoutDuration = Persist.getLockoutDurationMillis(failedLoginAttempts)
 
-        if (minutesToWait == 0) {
-            return true
-        } else if (minutesToWait >= 100) {
-            //This should never happen all data should have already been deleted when the login failed the final time.
-            //Delete everything like you would if user had entered a secondary passcode.
+        if (lockoutDuration == 0L) return true
+
+        // Check for 9+ attempts (should already be wiped)
+        if (failedLoginAttempts >= 9)
+        {
             showAlert(getString(R.string.alert_text_ninth_login_attempt))
             clearAllData(false)
             startActivity(Intent(this, HomeActivity::class.java))
-
             return false
         }
 
-        //get the current time
-        val currentTimeMillis = System.currentTimeMillis()
+        // Check if lockout has expired
+        if (Persist.isLockoutExpired(failedLoginAttempts)) return true
 
-        //compare the current time to the last failed attempt time
-        if (lastFailedLoginTimeMillis != null) {
+        // Lockout still active — show remaining time
+        val remainingMillis = Persist.getRemainingLockoutMillis(failedLoginAttempts)
+        val remainingMinutes = TimeUnit.MILLISECONDS.toMinutes(remainingMillis)
+        val remainingSeconds = TimeUnit.MILLISECONDS.toSeconds(remainingMillis) % 60
 
-            val elapsedTimeMillis = currentTimeMillis - lastFailedLoginTimeMillis!!
-            if (elapsedTimeMillis >= millisToWait) {
-                return true
-            } else {
-                val remainingMillis = millisToWait - elapsedTimeMillis
-                val remainingMinutes = TimeUnit.MILLISECONDS.toMinutes(remainingMillis)
-                val remainingSeconds = TimeUnit.MILLISECONDS.toSeconds(remainingMillis) % 60
+        showAlert(
+            getString(
+                R.string.alert_text_minutes_to_wait_until_user_can_attempt_to_login_again,
+                remainingMinutes,
+                remainingSeconds
+            )
+        )
+        println("showAlert is from the loginAllowed function")
 
-                showAlert(
-                    getString(
-                        R.string.alert_text_minutes_to_wait_until_user_can_attempt_to_login_again,
-                        remainingMinutes,
-                        remainingSeconds
-                    )
-                )
-                println("showAlert is from the loginAllowed function")
-
-                return false
-            }
-        } else {
-            println("ERROR: Last failed login timestamp is null, but user has more than 5 failed login attempts.")
-            return false
-        }
+        return false
     }
 
     private fun cleanup()
