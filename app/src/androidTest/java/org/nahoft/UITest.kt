@@ -5,7 +5,7 @@ import androidx.test.espresso.action.ViewActions.typeText
 import androidx.test.espresso.assertion.ViewAssertions.matches
 import androidx.test.espresso.matcher.ViewMatchers.*
 import androidx.test.ext.junit.rules.ActivityScenarioRule
-import androidx.test.internal.runner.junit4.AndroidJUnit4ClassRunner
+import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -13,7 +13,7 @@ import org.junit.runner.RunWith
 import org.nahoft.nahoft.activities.LogInActivity
 
 //Ensure emulator is open to the Enter Passcode Activity Screen before pressing play for EnterPasscodeActivityTest(s)
-@RunWith(AndroidJUnit4ClassRunner::class)
+@RunWith(AndroidJUnit4::class)
 class LogInActivityTest{
 
     @Test

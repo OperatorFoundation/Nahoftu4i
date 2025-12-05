@@ -1,10 +1,9 @@
-package org.nahoft.Nahoft.utils
+package org.nahoft.nahoft.utils
 
 import android.annotation.SuppressLint
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.IntentFilter
-import android.os.Build
 
 @SuppressLint("UnspecifiedRegisterReceiverFlag")
 fun Context.registerReceiverCompat(

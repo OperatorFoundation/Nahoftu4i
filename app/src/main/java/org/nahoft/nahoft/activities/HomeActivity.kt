@@ -1,24 +1,18 @@
 package org.nahoft.nahoft.activities
 
-import android.Manifest
 import android.annotation.SuppressLint
 import android.app.KeyguardManager
-import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.content.pm.PackageManager
 import android.net.Uri
-import android.os.Build
 import android.os.Bundle
 import android.os.Parcelable
 import android.text.*
 import android.text.style.AlignmentSpan
 import android.view.View
-import android.view.ViewGroup
 import android.view.WindowManager
 import android.widget.EditText
 import android.widget.LinearLayout
-import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.view.ContextThemeWrapper
@@ -27,7 +21,7 @@ import androidx.core.view.isVisible
 import androidx.core.view.setPadding
 import androidx.core.widget.doOnTextChanged
 import androidx.recyclerview.widget.LinearLayoutManager
-import org.nahoft.Nahoft.utils.registerReceiverCompat
+import org.nahoft.nahoft.utils.registerReceiverCompat
 import org.nahoft.codex.LOGOUT_TIMER_VAL
 import org.nahoft.codex.LogoutTimerBroadcastReceiver
 import org.nahoft.nahoft.*

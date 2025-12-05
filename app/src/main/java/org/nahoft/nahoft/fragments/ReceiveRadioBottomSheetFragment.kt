@@ -1,4 +1,4 @@
-package org.nahoft.Nahoft.fragments
+package org.nahoft.nahoft.fragments
 
 import android.animation.ObjectAnimator
 import android.graphics.PorterDuff
@@ -11,7 +11,6 @@ import androidx.core.animation.ValueAnimator
 import androidx.core.content.ContextCompat
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import kotlinx.coroutines.*
-import kotlinx.coroutines.flow.*
 import org.libsodium.jni.keys.PublicKey
 import org.nahoft.codex.Encryption
 import org.nahoft.nahoft.Friend

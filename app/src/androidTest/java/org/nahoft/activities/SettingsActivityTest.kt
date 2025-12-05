@@ -9,6 +9,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.nahoft.nahoft.R
+import kotlin.text.matches
 
 //Ensure emulator is open to the Settings Activity Screen before pressing play for SettingsActivityTest
 @RunWith(AndroidJUnit4ClassRunner::class)

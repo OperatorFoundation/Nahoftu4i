@@ -1,6 +1,5 @@
 package org.nahoft.nahoft.activities
 
-import android.R.attr.text
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Intent
@@ -12,7 +11,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.biometric.BiometricManager
 import androidx.core.view.isGone
 import com.google.android.material.snackbar.Snackbar
-import org.nahoft.Nahoft.utils.registerReceiverCompat
+import org.nahoft.nahoft.utils.registerReceiverCompat
 import org.nahoft.codex.Codex
 import org.nahoft.codex.Encryption
 import org.nahoft.codex.LOGOUT_TIMER_VAL

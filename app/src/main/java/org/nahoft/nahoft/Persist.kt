@@ -11,6 +11,7 @@ import java.io.ByteArrayOutputStream
 import java.io.File
 import java.lang.Exception
 import org.libsodium.jni.keys.PublicKey
+import org.nahoft.util.LockoutLogic
 
 class Persist
 {
@@ -104,6 +105,68 @@ class Persist
             return minutes * 60 * 1000L
         }
 
+
+        /**
+         * Checks if the current lockout has expired.
+         *
+         * Returns true if EITHER:
+         * - Wall clock is past the expiry time, OR
+         * - Enough real time (elapsedRealtime) has passed since lockout was set
+         *
+         * if the user travels and their wall clock moves backward,
+         * they can still log in once enough real time has passed.
+         *
+         * Reboot detection: If elapsedRealtime() is less than the stored value,
+         * the device has rebooted, fall back to wall clock only.
+         */
+        fun isLockoutExpired(failedLoginAttempts: Int): Boolean
+        {
+            return LockoutLogic.isLockoutExpired(
+                lockoutDuration = getLockoutDurationMillis(failedLoginAttempts),
+                lockoutExpiry = encryptedSharedPreferences.getLong(sharedPrefLockoutExpiryKey, 0L),
+                elapsedAtLockout = encryptedSharedPreferences.getLong(sharedPrefLockoutElapsedKey, 0L),
+                currentTimeMillis = System.currentTimeMillis(),
+                currentElapsedRealtime = SystemClock.elapsedRealtime()
+            )
+        }
+
+        /**
+         * Returns true if the wall clock shows the lockout has expired,
+         * but not enough real time has actually passed. This indicates
+         * the user moved their clock forward to bypass the lockout.
+         *
+         * Returns false if:
+         * - Device has rebooted (can't reliably detect manipulation)
+         * - No active lockout
+         * - No manipulation detected
+         */
+        fun isClockManipulationDetected(failedLoginAttempts: Int): Boolean
+        {
+            return LockoutLogic.isClockManipulationDetected(
+                lockoutDuration = getLockoutDurationMillis(failedLoginAttempts),
+                lockoutExpiry = encryptedSharedPreferences.getLong(sharedPrefLockoutExpiryKey, 0L),
+                elapsedAtLockout = encryptedSharedPreferences.getLong(sharedPrefLockoutElapsedKey, 0L),
+                currentTimeMillis = System.currentTimeMillis(),
+                currentElapsedRealtime = SystemClock.elapsedRealtime()
+            )
+        }
+
+        /**
+         * Returns the remaining lockout time in milliseconds.
+         * Uses the more accurate of wall clock or elapsed time remaining.
+         * Returns 0 if lockout has expired.
+         */
+        fun getRemainingLockoutMillis(failedLoginAttempts: Int): Long
+        {
+            return LockoutLogic.getRemainingLockoutMillis(
+                lockoutDuration = getLockoutDurationMillis(failedLoginAttempts),
+                lockoutExpiry = encryptedSharedPreferences.getLong(sharedPrefLockoutExpiryKey, 0L),
+                elapsedAtLockout = encryptedSharedPreferences.getLong(sharedPrefLockoutElapsedKey, 0L),
+                currentTimeMillis = System.currentTimeMillis(),
+                currentElapsedRealtime = SystemClock.elapsedRealtime()
+            )
+        }
+
         /**
          * Saves a login failure and sets up the lockout expiry.
          *
@@ -143,124 +206,6 @@ class Persist
                     .putLong(sharedPrefLockoutElapsedKey, elapsedAtLockout)
                     .apply()
             }
-        }
-
-        /**
-         * Checks if the current lockout has expired.
-         *
-         * Returns true if EITHER:
-         * - Wall clock is past the expiry time, OR
-         * - Enough real time (elapsedRealtime) has passed since lockout was set
-         *
-         * if the user travels and their wall clock moves backward,
-         * they can still log in once enough real time has passed.
-         *
-         * Reboot detection: If elapsedRealtime() is less than the stored value,
-         * the device has rebooted, fall back to wall clock only.
-         */
-        fun isLockoutExpired(failedLoginAttempts: Int): Boolean
-        {
-            val lockoutDuration = getLockoutDurationMillis(failedLoginAttempts)
-
-            // No lockout for fewer than 6 attempts
-            if (lockoutDuration == 0L) return true
-
-            val lockoutExpiration = encryptedSharedPreferences.getLong(sharedPrefLockoutExpiryKey, 0L)
-            val elapsedAtLockout = encryptedSharedPreferences.getLong(sharedPrefLockoutElapsedKey, 0L)
-
-            // No lockout data stored
-            if (lockoutExpiration == 0L) return true
-
-            val now = System.currentTimeMillis()
-            val currentElapsed = SystemClock.elapsedRealtime()
-
-            // Check for reboot: elapsedRealtime resets to 0 on boot
-            // If stored value is greater than current, device has rebooted
-            val deviceRebooted = elapsedAtLockout > currentElapsed
-
-            val wallClockExpired = now >= lockoutExpiration
-
-            if (deviceRebooted)
-            {
-                // Can't verify with monotonic time, fall back to wall clock
-                return wallClockExpired
-            }
-
-            val elapsedSinceLockout = currentElapsed - elapsedAtLockout
-            val realTimeExpired = elapsedSinceLockout >= lockoutDuration
-
-            // Lenient: allow if EITHER measure shows expired
-            return wallClockExpired || realTimeExpired
-        }
-
-        /**
-         * Returns true if the wall clock shows the lockout has expired,
-         * but not enough real time has actually passed. This indicates
-         * the user moved their clock forward to bypass the lockout.
-         *
-         * Returns false if:
-         * - Device has rebooted (can't reliably detect manipulation)
-         * - No active lockout
-         * - No manipulation detected
-         */
-        fun isClockManipulationDetected(failedLoginAttempts: Int): Boolean
-        {
-            val lockoutDuration = getLockoutDurationMillis(failedLoginAttempts)
-
-            // No lockout active
-            if (lockoutDuration == 0L) return false
-
-            val lockoutExpired = encryptedSharedPreferences.getLong(sharedPrefLockoutExpiryKey, 0L)
-            val elapsedAtLockout = encryptedSharedPreferences.getLong(sharedPrefLockoutElapsedKey, 0L)
-
-            // No lockout data stored
-            if (lockoutExpired == 0L || elapsedAtLockout == 0L) return false
-
-            val now = System.currentTimeMillis()
-            val currentElapsed = SystemClock.elapsedRealtime()
-
-            // Check for reboot — can't reliably detect manipulation after reboot
-            if (elapsedAtLockout > currentElapsed) return false
-
-            val wallClockExpired = now >= lockoutExpired
-            val elapsedSinceLockout = currentElapsed - elapsedAtLockout
-            val realTimeExpired = elapsedSinceLockout >= lockoutDuration
-
-            // Manipulation: wall clock says expired, but real time disagrees
-            return wallClockExpired && !realTimeExpired
-        }
-
-        /**
-         * Returns the remaining lockout time in milliseconds.
-         * Uses the more accurate of wall clock or elapsed time remaining.
-         * Returns 0 if lockout has expired.
-         */
-        fun getRemainingLockoutMillis(failedLoginAttempts: Int): Long
-        {
-            val lockoutDuration = getLockoutDurationMillis(failedLoginAttempts)
-
-            if (lockoutDuration == 0L) return 0L
-
-            val lockoutExpired = encryptedSharedPreferences.getLong(sharedPrefLockoutExpiryKey, 0L)
-            val elapsedAtLockout = encryptedSharedPreferences.getLong(sharedPrefLockoutElapsedKey, 0L)
-
-            if (lockoutExpired == 0L) return 0L
-
-            val now = System.currentTimeMillis()
-            val currentElapsed = SystemClock.elapsedRealtime()
-
-            // Wall clock remaining
-            val wallClockRemaining = maxOf(0L, lockoutExpired - now)
-
-            // Check for reboot
-            if (elapsedAtLockout > currentElapsed) return wallClockRemaining
-
-            // Real time remaining
-            val elapsedSinceLockout = currentElapsed - elapsedAtLockout
-            val realTimeRemaining = maxOf(0L, lockoutDuration - elapsedSinceLockout)
-
-            // Return the smaller value
-            return minOf(wallClockRemaining, realTimeRemaining)
         }
 
         fun accessIsAllowed(): Boolean
