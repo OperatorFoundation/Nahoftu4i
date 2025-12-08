@@ -1,5 +1,6 @@
 package org.nahoft.codex
 
+import org.libsodium.jni.Sodium
 import org.libsodium.jni.SodiumConstants
 import org.libsodium.jni.crypto.Random as SodiumRandom
 import org.libsodium.jni.keys.KeyPair as SodiumKeyPair
@@ -17,12 +18,8 @@ class Encryption {
     private val privateKeyPreferencesKey = "NahoftPrivateKey"
 
     // Generate a new keypair for this device and store it in EncryptedSharedPreferences
-    private fun generateKeypair(): Keys {
+    private fun generateKeypair(): SodiumPublicKey {
         val seed = SodiumRandom().randomBytes(SodiumConstants.SECRETKEY_BYTES)
-        return generateKeypair(seed)
-    }
-
-    private fun generateKeypair(seed: ByteArray): Keys {
         val keyPair = SodiumKeyPair(seed)
 
         // Save the keys to EncryptedSharedPreferences
@@ -32,73 +29,73 @@ class Encryption {
             .putString(privateKeyPreferencesKey, keyPair.privateKey.toString())
             .apply()
 
-        return Keys(keyPair.privateKey, keyPair.publicKey)
+        return keyPair.publicKey
     }
 
     // Generate a new keypair for this device and store it in EncryptedSharedPreferences
-    private fun loadKeypair(): Keys? {
+    private fun loadPublicKey(): SodiumPublicKey? {
 
-        val privateKeyHex = Persist.encryptedSharedPreferences.getString(
-            privateKeyPreferencesKey,
-            null
-        )
         val publicKeyHex = Persist.encryptedSharedPreferences.getString(
             publicKeyPreferencesKey,
             null
         )
 
-        if (privateKeyHex == null || publicKeyHex == null) {
+        if (publicKeyHex == null) {
             return null
         }
 
-        val publicKey = SodiumPublicKey(publicKeyHex)
-        val privateKey = SodiumPrivateKey(privateKeyHex)
-
-        return Keys(privateKey, publicKey)
+        return SodiumPublicKey(publicKeyHex)
     }
 
-    fun ensureKeysExist(): Keys
+    fun ensureKeysExist(): SodiumPublicKey
     {
-        return loadKeypair() ?: generateKeypair()
+        return loadPublicKey() ?: generateKeypair()
     }
 
     @Throws(SecurityException::class)
     fun encrypt(encodedPublicKey: ByteArray, plaintext: String): ByteArray
     {
-        val privateKey = ensureKeysExist().privateKey
-
-        try {
-            return encrypt(encodedPublicKey, privateKey, plaintext)
-
-        } catch (exception: SecurityException) {
-            throw exception
-        }
-    }
-
-    @Throws(SecurityException::class)
-    fun encrypt(encodedPublicKey: ByteArray, privateKey: SodiumPrivateKey, plaintext: String): ByteArray
-    {
+        val sRandom = SodiumRandom()
         val plaintTextBytes = plaintext.encodeToByteArray()
-        val nonce = SodiumRandom().randomBytes(SodiumConstants.NONCE_BYTES)
+        val nonce = sRandom.randomBytes(SodiumConstants.NONCE_BYTES)
         val friendPublicKey = SodiumPublicKey(encodedPublicKey)
 
-        try {
+        // Make sure keys exist
+        ensureKeysExist()
+        var privateKeyHex = Persist.encryptedSharedPreferences.getString(privateKeyPreferencesKey, null)
+        if (privateKeyHex == null) throw SecurityException("Private Key Not Found")
+        val privateKey = SodiumPrivateKey(privateKeyHex)
+        val privateKeyBytes = privateKey.toBytes()
+
+        try
+        {
             // Uses XSalsa20Poly1305
             // Returns nonce + ciphertext
             val result = SodiumWrapper().encrypt(
                 plaintTextBytes,
                 nonce,
                 friendPublicKey.toBytes(),
-                privateKey.toBytes()
+                privateKeyBytes
             )
 
-            if (result.size <= nonce.size) {
+            // Key Hygiene
+            Sodium.randombytes(privateKeyBytes, privateKeyBytes.size)
+            privateKeyHex = null
+            System.gc()
+            System.runFinalization()
+
+            if (result.size <= nonce.size)
+            {
                 throw SecurityException("Failed to encrypt the message.")
-            } else {
+            }
+            else
+            {
                 return result
             }
 
-        } catch (exception: SecurityException) {
+        }
+        catch (exception: SecurityException)
+        {
             throw exception
         }
     }
@@ -110,20 +107,32 @@ class Encryption {
         { return "" }
         else
         {
-            val keypair = loadKeypair() ?: throw SecurityException()
+            loadPublicKey() ?: throw SecurityException()
+            var privateKeyHex = Persist.encryptedSharedPreferences.getString(privateKeyPreferencesKey, null)
+            if (privateKeyHex == null) throw SecurityException("Private Key Not Found")
+            val privateKey = SodiumPrivateKey(privateKeyHex)
+            val privateKeyBytes = privateKey.toBytes()
 
             try
             {
                 val result = SodiumWrapper().decrypt(
                     ciphertext,
                     friendPublicKey.toBytes(),
-                    keypair.privateKey.toBytes()
+                    privateKeyBytes
                 )
                 return String(result)
             }
             catch (exception: SecurityException)
             {
                 throw exception
+            }
+            finally 
+            {
+                // Key Hygiene
+                Sodium.randombytes(privateKeyBytes, privateKeyBytes.size)
+                privateKeyHex = null
+                System.gc()
+                System.runFinalization()
             }
         }
     }

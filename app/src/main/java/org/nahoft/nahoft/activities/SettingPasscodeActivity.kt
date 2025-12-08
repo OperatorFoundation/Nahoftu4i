@@ -48,7 +48,7 @@ class SettingPasscodeActivity : AppCompatActivity()
         }, exported = false)
 
         val codex = Codex()
-        val userCode = codex.encodeKey(Encryption().ensureKeysExist().publicKey.toBytes())
+        val userCode = codex.encodeKey(Encryption().ensureKeysExist().toBytes())
         binding.userPublicKeyEdittext.setText(userCode)
 
         setupButtons()

@@ -808,7 +808,7 @@ class FriendInfoActivity: AppCompatActivity()
             }
             else ""
 
-        val userCode = codex.encodeKey(Encryption().ensureKeysExist().publicKey.toBytes())
+        val userCode = codex.encodeKey(Encryption().ensureKeysExist().toBytes())
         ft.replace(
             R.id.frame_placeholder,
             MenuFragment.newInstance(thisFriend, userCode, friendCode),
@@ -827,7 +827,7 @@ class FriendInfoActivity: AppCompatActivity()
             val ft = supportFragmentManager.beginTransaction()
             val codex = Codex()
             val friendCode = codex.encodeKey(PublicKey(thisFriend.publicKeyEncoded).toBytes())
-            val userCode = codex.encodeKey(Encryption().ensureKeysExist().publicKey.toBytes())
+            val userCode = codex.encodeKey(Encryption().ensureKeysExist().toBytes())
             ft.replace(
                 R.id.frame_placeholder,
                 VerifyStatusFragment.newInstance(userCode, friendCode, thisFriend.name),
@@ -926,7 +926,7 @@ class FriendInfoActivity: AppCompatActivity()
     fun inviteClicked()
     {
         // Get user's public key to send to contact
-        val userPublicKey = Encryption().ensureKeysExist().publicKey
+        val userPublicKey = Encryption().ensureKeysExist()
         val keyBytes = userPublicKey.toBytes()
         ShareUtil.shareKey(this, keyBytes)
 

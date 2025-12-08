@@ -2,6 +2,7 @@ package org.nahoft.nahoft
 
 import android.app.Application
 import android.content.Context
+import android.icu.util.Calendar
 import android.os.SystemClock
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKeys
@@ -12,6 +13,13 @@ import java.io.File
 import java.lang.Exception
 import org.libsodium.jni.keys.PublicKey
 import org.nahoft.util.LockoutLogic
+import timber.log.Timber
+import java.security.SecureRandom
+import java.util.Calendar as JavaCalendar
+import java.io.RandomAccessFile
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
+import kotlin.random.Random
 
 class Persist
 {
@@ -296,24 +304,82 @@ class Persist
             saveMessagesToFile(context)
         }
 
-        fun clearAllData(secondaryCode: Boolean) {
-            if (friendsFile.exists()) { friendsFile.delete() }
-            if (messagesFile.exists()) { messagesFile.delete() }
+        fun secureDelete(file: File)
+        {
+            if (!file.exists()) return
+
+            try
+            {
+                val length = file.length()
+                val random = SecureRandom()
+
+                // Overwrite with random data multiple times
+                repeat(3)
+                {
+                    RandomAccessFile(file, "rws").use { raf ->
+                        val buffer = ByteArray(4096)
+
+                        var remaining = length
+
+                        while (remaining > 0)
+                        {
+                            val toWrite = minOf(remaining, buffer.size.toLong()).toInt()
+                            random.nextBytes(buffer)
+                            raf.write(buffer, 0, toWrite)
+                            remaining -= toWrite
+                        }
+
+                        raf.fd.sync()
+                    }
+                }
+
+                // Delete the file
+                file.delete()
+            }
+            catch (e: kotlin.Exception)
+            {
+                Timber.d("Error deleting a file: ${e.printStackTrace()}")
+            }
+        }
+
+        @OptIn(ExperimentalStdlibApi::class)
+        fun clearAllData(secondaryCode: Boolean)
+        {
+            secureDelete(friendsFile)
+            secureDelete(messagesFile)
+
+            for (friend in friendList)
+            {
+                overwriteFriend(friend)
+            }
             friendList.clear()
+
+
+            for ((index, message) in messageList.withIndex())
+            {
+                messageList[index] = overwriteMessage(message)
+            }
             messageList.clear()
 
             var passcode = ""
             if (secondaryCode) {
                 passcode = encryptedSharedPreferences.getString(sharedPrefSecondaryPasscodeKey, "").toString()
             }
-            // Overwrite the keys to EncryptedSharedPreferences
-            val keyHex = "0000000000000000000000000000000000000000000000000000000000000000"
 
-            encryptedSharedPreferences
-                .edit()
-                .putString("NahoftPrivateKey", keyHex)
-                .putString(publicKeyPreferencesKey, keyHex)
-                .apply()
+            // Overwrite the keys to EncryptedSharedPreferences
+            repeat(3)
+            {
+                val outputBytes = ByteArray(32)
+                val secRandom = SecureRandom.getInstanceStrong()
+                secRandom.nextBytes(outputBytes)
+                val keyHex = outputBytes.toHexString()
+
+                encryptedSharedPreferences
+                    .edit()
+                    .putString("NahoftPrivateKey", keyHex)
+                    .putString(publicKeyPreferencesKey, keyHex)
+                    .apply()
+            }
 
             // Remove Everything from EncryptedSharedPreferences
             encryptedSharedPreferences
@@ -321,13 +387,57 @@ class Persist
                 .clear()
                 .apply()
 
-            if (secondaryCode) {
+            if (secondaryCode)
+            {
                 saveKey(sharedPrefPasscodeKey, passcode)
                 saveBooleanKey(sharedPrefAlreadySeeTutorialKey, true)
                 status = LoginStatus.LoggedIn
                 saveLoginStatus()
-            } else {
+            }
+            else
+            {
                 status = LoginStatus.NotRequired
+            }
+        }
+
+        @OptIn(ExperimentalStdlibApi::class)
+        fun overwriteFriend(friend: Friend)
+        {
+            val secRandom = SecureRandom.getInstanceStrong()
+
+            if (friend.publicKeyEncoded != null)
+            {
+                secRandom.nextBytes(friend.publicKeyEncoded)
+            }
+
+            val nameBytes = ByteArray(friend.name.length + secRandom.nextInt(10))
+            secRandom.nextBytes(nameBytes)
+            friend.name =  nameBytes.toHexString()
+            friend.status = FriendStatus.Default
+        }
+
+        fun overwriteMessage(message: Message): Message
+        {
+            val secRandom = SecureRandom.getInstanceStrong()
+            secRandom.nextBytes(message.cipherText)
+            val randomTimestamp = LocalDateTime.ofEpochSecond(
+                Random.nextLong(946684800, System.currentTimeMillis() / 1000),
+                0,
+                java.time.ZoneOffset.UTC
+            ).format(DateTimeFormatter.ofPattern("yyyy/MM/dd"))
+
+            return Message(randomTimestamp, randomCalendar(), message.cipherText, false )
+        }
+
+        fun randomCalendar(): JavaCalendar
+        {
+            val minMillis = 946684800000L  // 2000-01-01
+            val maxMillis = System.currentTimeMillis()
+
+            val randomMillis = Random.nextLong(minMillis, maxMillis)
+
+            return JavaCalendar.getInstance().apply {
+                timeInMillis = randomMillis
             }
         }
 
