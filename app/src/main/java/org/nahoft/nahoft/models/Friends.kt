@@ -1,5 +1,6 @@
-package org.nahoft.nahoft
+package org.nahoft.nahoft.models
 
+import org.nahoft.nahoft.Persist
 import org.simpleframework.xml.ElementList
 import org.simpleframework.xml.Root
 
@@ -17,7 +18,7 @@ data class Friends constructor(
         verifiedFriends.add(0, Friend(" "))
 
         // Get only verified friends
-        for (friend in Persist.friendList) {
+        for (friend in Persist.Companion.friendList) {
 
             if (friend.status == FriendStatus.Verified) {
                 verifiedFriends.add(friend)
@@ -30,7 +31,7 @@ data class Friends constructor(
     fun allFriendsSpinnerList(): Array<Friend>
     {
         val allFriends = ArrayList<Friend>()
-        allFriends.addAll(Persist.friendList)
+        allFriends.addAll(Persist.Companion.friendList)
 
         // First spinner element should be blank
         allFriends.add(0, Friend(" "))

@@ -5,7 +5,7 @@ import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import org.nahoft.nahoft.Friend
+import org.nahoft.nahoft.models.Friend
 import org.nahoft.nahoft.R
 import org.nahoft.nahoft.activities.FriendInfoActivity
 import org.nahoft.nahoft.databinding.FragmentInvitedStatusBinding

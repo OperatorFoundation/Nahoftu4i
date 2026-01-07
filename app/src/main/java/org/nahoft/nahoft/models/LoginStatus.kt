@@ -1,4 +1,4 @@
-package org.nahoft.nahoft
+package org.nahoft.nahoft.models
 
 enum class LoginStatus {
     NotRequired,

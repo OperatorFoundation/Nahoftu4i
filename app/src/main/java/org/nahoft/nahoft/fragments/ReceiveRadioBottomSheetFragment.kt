@@ -13,7 +13,7 @@ import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import kotlinx.coroutines.*
 import org.libsodium.jni.keys.PublicKey
 import org.nahoft.codex.Encryption
-import org.nahoft.nahoft.Friend
+import org.nahoft.nahoft.models.Friend
 import org.nahoft.nahoft.R
 import org.nahoft.nahoft.databinding.FragmentBottomSheetReceiveRadioBinding
 import org.operatorfoundation.audiocoder.WSPRStation

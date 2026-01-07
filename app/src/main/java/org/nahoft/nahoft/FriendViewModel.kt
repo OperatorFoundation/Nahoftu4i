@@ -3,6 +3,8 @@ package org.nahoft.nahoft
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import org.nahoft.codex.PersistenceEncryption
+import org.nahoft.nahoft.models.Friend
+import org.nahoft.nahoft.models.Friends
 import org.simpleframework.xml.core.Persister
 import java.io.ByteArrayInputStream
 import java.io.File

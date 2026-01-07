@@ -1,6 +1,7 @@
-package org.nahoft.nahoft
+package org.nahoft.nahoft.models
 
 import android.content.Context
+import org.nahoft.nahoft.R
 import org.simpleframework.xml.Element
 import org.simpleframework.xml.Root
 import java.io.Serializable

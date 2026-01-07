@@ -15,7 +15,7 @@ import androidx.core.content.ContextCompat
 import org.nahoft.nahoft.utils.registerReceiverCompat
 import org.nahoft.codex.LOGOUT_TIMER_VAL
 import org.nahoft.codex.LogoutTimerBroadcastReceiver
-import org.nahoft.nahoft.LoginStatus
+import org.nahoft.nahoft.models.LoginStatus
 import org.nahoft.nahoft.Persist
 import org.nahoft.nahoft.Persist.Companion.clearAllData
 import org.nahoft.nahoft.Persist.Companion.sharedPrefFailedLoginAttemptsKey

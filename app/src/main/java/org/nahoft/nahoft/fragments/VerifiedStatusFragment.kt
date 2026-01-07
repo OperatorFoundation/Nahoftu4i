@@ -13,6 +13,8 @@ import androidx.core.view.isVisible
 import androidx.recyclerview.widget.LinearLayoutManager
 import org.nahoft.nahoft.*
 import org.nahoft.nahoft.databinding.FragmentVerifiedStatusBinding
+import org.nahoft.nahoft.models.Friend
+import org.nahoft.nahoft.models.Message
 
 // the fragment initialization parameters
 private const val FRIEND = "friend"

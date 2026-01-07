@@ -1,14 +1,16 @@
-package org.nahoft.nahoft
+package org.nahoft.nahoft.models
 
 import android.content.Context
 import android.text.format.DateUtils
+import org.nahoft.nahoft.Persist
 import org.simpleframework.xml.Element
 import org.simpleframework.xml.Root
 import java.io.Serializable
 import java.text.SimpleDateFormat
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
-import java.util.*
+import java.util.Calendar
+import java.util.Locale
 
 @Root(name = "message", strict = false)
 data class Message constructor(
@@ -108,8 +110,8 @@ data class Message constructor(
 
     fun save(context: Context): Message
     {
-        Persist.messageList.add(this)
-        Persist.saveMessagesToFile(context)
+        Persist.Companion.messageList.add(this)
+        Persist.Companion.saveMessagesToFile(context)
 
         return this
     }

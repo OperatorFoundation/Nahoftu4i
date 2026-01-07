@@ -29,6 +29,11 @@ import org.nahoft.nahoft.Persist.Companion.friendsFilename
 import org.nahoft.nahoft.Persist.Companion.messagesFilename
 import org.nahoft.nahoft.Persist.Companion.status
 import org.nahoft.nahoft.databinding.ActivityHomeBinding
+import org.nahoft.nahoft.models.Friend
+import org.nahoft.nahoft.models.FriendStatus
+import org.nahoft.nahoft.models.LoginStatus
+import org.nahoft.nahoft.models.slideNameAbout
+import org.nahoft.nahoft.models.slideNameAboutAndFriends
 import org.nahoft.util.RequestCodes
 import org.nahoft.util.showAlert
 import java.io.File

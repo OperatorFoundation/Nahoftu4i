@@ -2,7 +2,6 @@ package org.nahoft.nahoft
 
 import android.app.Application
 import android.content.Context
-import android.icu.util.Calendar
 import android.os.SystemClock
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKeys
@@ -12,6 +11,12 @@ import java.io.ByteArrayOutputStream
 import java.io.File
 import java.lang.Exception
 import org.libsodium.jni.keys.PublicKey
+import org.nahoft.nahoft.models.Friend
+import org.nahoft.nahoft.models.FriendStatus
+import org.nahoft.nahoft.models.Friends
+import org.nahoft.nahoft.models.LoginStatus
+import org.nahoft.nahoft.models.Message
+import org.nahoft.nahoft.models.Messages
 import org.nahoft.util.LockoutLogic
 import timber.log.Timber
 import java.security.SecureRandom
@@ -426,7 +431,7 @@ class Persist
                 java.time.ZoneOffset.UTC
             ).format(DateTimeFormatter.ofPattern("yyyy/MM/dd"))
 
-            return Message(randomTimestamp, randomCalendar(), message.cipherText, false )
+            return Message(randomTimestamp, randomCalendar(), message.cipherText, false)
         }
 
         fun randomCalendar(): JavaCalendar

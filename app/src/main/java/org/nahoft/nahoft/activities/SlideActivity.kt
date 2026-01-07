@@ -2,10 +2,19 @@ package org.nahoft.nahoft.activities
 
 import android.content.Intent
 import android.os.Bundle
-import android.view.View
 import androidx.appcompat.app.AppCompatActivity
 import androidx.viewpager.widget.ViewPager
 import org.nahoft.nahoft.*
+import org.nahoft.nahoft.models.getAboutAndFriendsSlides
+import org.nahoft.nahoft.models.getAboutSlides
+import org.nahoft.nahoft.models.getChatSlides
+import org.nahoft.nahoft.models.getIntroSlides
+import org.nahoft.nahoft.models.getSettingSlides
+import org.nahoft.nahoft.models.slideNameAbout
+import org.nahoft.nahoft.models.slideNameAboutAndFriends
+import org.nahoft.nahoft.models.slideNameChat
+import org.nahoft.nahoft.models.slideNameIntro
+import org.nahoft.nahoft.models.slideNameSetting
 
 class SlideActivity : AppCompatActivity() {
     companion object {

@@ -1,12 +1,10 @@
 package org.nahoft.nahoft
 
-import android.text.Layout
 import android.view.LayoutInflater
-import android.view.View
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
 import org.nahoft.nahoft.databinding.FriendRecyclerviewItemRowBinding
-import org.nahoft.util.inflate
+import org.nahoft.nahoft.models.Friend
 
 class FriendsRecyclerAdapter(private val friends: ArrayList<Friend>) : RecyclerView.Adapter<FriendsRecyclerAdapter.FriendViewHolder>()
 {

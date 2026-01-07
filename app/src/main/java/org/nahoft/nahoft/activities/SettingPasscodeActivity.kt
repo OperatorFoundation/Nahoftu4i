@@ -16,11 +16,11 @@ import org.nahoft.codex.Codex
 import org.nahoft.codex.Encryption
 import org.nahoft.codex.LOGOUT_TIMER_VAL
 import org.nahoft.codex.LogoutTimerBroadcastReceiver
-import org.nahoft.nahoft.LoginStatus
+import org.nahoft.nahoft.models.LoginStatus
 import org.nahoft.nahoft.Persist
 import org.nahoft.nahoft.R
 import org.nahoft.nahoft.databinding.ActivitySettingPasscodeBinding
-import org.nahoft.nahoft.slideNameSetting
+import org.nahoft.nahoft.models.slideNameSetting
 import org.nahoft.util.showAlert
 
 

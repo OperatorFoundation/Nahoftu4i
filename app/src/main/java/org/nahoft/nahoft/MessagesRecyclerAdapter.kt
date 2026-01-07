@@ -8,6 +8,7 @@ import org.libsodium.jni.keys.PublicKey
 import org.nahoft.codex.Encryption
 import org.nahoft.nahoft.databinding.ActivitySettingPasscodeBinding
 import org.nahoft.nahoft.databinding.MessageItemRowBinding
+import org.nahoft.nahoft.models.Message
 
 class MessagesRecyclerAdapter(private val messages: ArrayList<Message>) : RecyclerView.Adapter<MessagesRecyclerAdapter.MessageViewHolder>()
 {

@@ -20,6 +20,7 @@ import androidx.core.view.setPadding
 import androidx.viewpager.widget.PagerAdapter
 import org.nahoft.nahoft.activities.SlideActivity
 import org.nahoft.nahoft.databinding.SlideScreenBinding
+import org.nahoft.nahoft.models.Slide
 
 class SlideViewPagerAdapter(private val context: Context, private val slideList: ArrayList<Slide>) : PagerAdapter() {
     override fun getCount(): Int {

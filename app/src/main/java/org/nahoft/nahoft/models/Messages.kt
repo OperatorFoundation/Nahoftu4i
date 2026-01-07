@@ -1,4 +1,4 @@
-package org.nahoft.nahoft
+package org.nahoft.nahoft.models
 
 import org.simpleframework.xml.ElementList
 import org.simpleframework.xml.Root

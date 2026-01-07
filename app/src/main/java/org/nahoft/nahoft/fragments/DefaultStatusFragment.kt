@@ -6,7 +6,7 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
-import org.nahoft.nahoft.Friend
+import org.nahoft.nahoft.models.Friend
 import org.nahoft.nahoft.R
 import org.nahoft.nahoft.activities.FriendInfoActivity
 import org.nahoft.nahoft.databinding.FragmentDefaultStatusBinding

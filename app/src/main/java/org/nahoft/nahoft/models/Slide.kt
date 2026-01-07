@@ -1,6 +1,7 @@
-package org.nahoft.nahoft
+package org.nahoft.nahoft.models
 
 import android.content.Context
+import org.nahoft.nahoft.R
 
 data class Slide constructor(
     val image: Int,

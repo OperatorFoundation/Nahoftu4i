@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.util.Log
 import org.nahoft.codex.LOGOUT_TIMER_VAL
+import org.nahoft.nahoft.models.LoginStatus
 
 class ScreenLockReceiver: BroadcastReceiver() {
     override fun onReceive(context: Context?, intent: Intent?) {

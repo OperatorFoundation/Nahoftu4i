@@ -51,6 +51,10 @@ import org.operatorfoundation.transmission.SerialConnectionFactory
 import org.operatorfoundation.transmission.SerialConnection
 import com.hoho.android.usbserial.driver.UsbSerialDriver
 import org.nahoft.nahoft.fragments.ReceiveRadioBottomSheetFragment
+import org.nahoft.nahoft.models.Friend
+import org.nahoft.nahoft.models.FriendStatus
+import org.nahoft.nahoft.models.Message
+import org.nahoft.nahoft.models.slideNameChat
 import org.operatorfoundation.audiocoder.WSPREncoder
 import org.operatorfoundation.codex.symbols.WSPRMessageSequence
 import org.operatorfoundation.ion.storage.NounType

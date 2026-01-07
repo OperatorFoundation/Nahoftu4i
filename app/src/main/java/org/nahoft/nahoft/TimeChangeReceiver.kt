@@ -6,7 +6,6 @@ import android.content.Intent
 
 class TimeChangeReceiver: BroadcastReceiver()
 {
-
     override fun onReceive(context: Context?, intent: Intent?)
     {
         // Only respond to actual time change intents

@@ -3,6 +3,8 @@ package org.nahoft.nahoft
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import org.nahoft.codex.PersistenceEncryption
+import org.nahoft.nahoft.models.Message
+import org.nahoft.nahoft.models.Messages
 import org.simpleframework.xml.core.Persister
 import java.io.ByteArrayInputStream
 import java.io.File
