@@ -151,7 +151,10 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
                 wsprStation = WSPRStation(audioSource!!, config)
 
                 // Start the station
+                Timber.d("NAHOFT-TEST-12345: About to start WSPR station")
                 val startResult = wsprStation!!.startStation()
+                Timber.d("NAHOFT-TEST-12345: startStation returned: ${startResult.isSuccess}")
+
                 if (startResult.isFailure) {
                     updateStatus("Failed to start: ${startResult.exceptionOrNull()?.message}")
                     return@launch
@@ -314,7 +317,15 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
      */
     private suspend fun observeDecodeResults()
     {
+        Timber.d("NAHOFT: observeDecodeResults STARTED")
+
         wsprStation?.decodeResults?.collect { results ->
+            Timber.d("NAHOFT: Received ${results.size} decode results")
+
+            results.forEach { result ->
+                Timber.d("NAHOFT-DETAIL: call='${result.callsign}', grid='${result.gridSquare}', power=${result.powerLevelDbm}, snr=${result.signalToNoiseRatioDb}, msg='${result.completeMessage}'")
+            }
+
             if (results.isNotEmpty()) processDecodeResults(results)
         }
     }

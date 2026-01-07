@@ -62,11 +62,11 @@ dependencies {
     implementation fileTree(dir: "libs", include: ["*.jar"])
 
     // Operator Libraries
-    implementation("com.github.OperatorFoundation:AudioCoderAndroid:v1.0.2") // Radio codec (WSPR) Library
+    implementation("com.github.OperatorFoundation:AudioCoderAndroid:71afc30f5f") // Radio codec (WSPR) Library
     implementation("com.github.OperatorFoundation:TransmissionAndroid:v1.4.0") // Serial communications
     implementation("com.github.OperatorFoundation:ion-android:1.1.0") // Communication protocol
     implementation("com.github.OperatorFoundation:CodexKotlin:v1.0.1") // Message Encoding
-    implementation ("com.github.OperatorFoundation:SignalBridge:v1.0.1") // USBAudio Management
+    implementation ("com.github.OperatorFoundation:SignalBridge:91ab373f61") // USBAudio Management
 
     // 3rd party
     implementation 'com.github.mik3y:usb-serial-for-android:3.9.0'
