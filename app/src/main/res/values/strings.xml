@@ -622,4 +622,12 @@ After pressing this (+) sign, you must first enter your friend\'s name. You can 
     <string name="usb_audio_disconnected">USB audio disconnected</string>
     <string name="receive_timeout">Receive timed out after %1$d minutes</string>
     <string name="receive_cancelled">Receive cancelled</string>
+
+    <!-- WSPR Spots Dialog -->
+    <string name="wspr_spots_title">WSPR Activity</string>
+    <string name="spot_count_format">(%d spots)</string>
+    <string name="nahoft_message_legend">= Nahoft message</string>
+    <string name="nahoft_failed_legend">= Failed</string>
+    <string name="no_wspr_spots_yet">No WSPR spots decoded yet.\nListening for signals…</string>
+    <string name="wspr_spots_badge">%d spots</string>
 </resources>

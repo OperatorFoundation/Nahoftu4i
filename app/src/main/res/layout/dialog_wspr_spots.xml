@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Dialog layout for displaying all WSPR spots received during a session.
+
+  Shows a scrollable list of spots with:
+  - Header with spot count and close button
+  - Empty state when no spots yet
+  - RecyclerView of spots (newest at top)
+-->
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/dialog_rounded_background"
+    android:padding="16dp"
+    android:minHeight="300dp"
+    android:maxHeight="500dp">
+
+    <!--
+      Header row: Title with spot count and close button
+    -->
+    <TextView
+        android:id="@+id/tvTitle"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="@string/wspr_spots_title"
+        android:textSize="18sp"
+        android:textColor="@color/royalBlueDark"
+        android:textStyle="bold"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintEnd_toStartOf="@id/tvSpotCount" />
+
+    <TextView
+        android:id="@+id/tvSpotCount"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="8dp"
+        android:textSize="14sp"
+        android:textColor="@color/coolGrey"
+        app:layout_constraintEnd_toStartOf="@id/btnClose"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="@id/tvTitle"
+        tools:text="(12 spots)" />
+
+    <ImageButton
+        android:id="@+id/btnClose"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="@string/close"
+        android:src="@drawable/ic_close"
+        app:tint="@color/coolGrey"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <!--
+      Divider below header
+    -->
+    <View
+        android:id="@+id/divider"
+        android:layout_width="0dp"
+        android:layout_height="1dp"
+        android:layout_marginTop="12dp"
+        android:background="@color/lightGrey"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/tvTitle" />
+
+    <!--
+      Legend row: explains the visual elements (green = Nahoft, red = failed)
+    -->
+    <LinearLayout
+        android:id="@+id/legendContainer"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/divider">
+
+        <!-- Green = Nahoft message -->
+        <View
+            android:layout_width="12dp"
+            android:layout_height="12dp"
+            android:background="@color/caribbeanGreen" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="6dp"
+            android:text="@string/nahoft_message_legend"
+            android:textSize="11sp"
+            android:textColor="@color/coolGrey" />
+
+        <!-- Spacer -->
+        <View
+            android:layout_width="16dp"
+            android:layout_height="1dp" />
+
+        <!-- Red = Failed -->
+        <View
+            android:layout_width="12dp"
+            android:layout_height="12dp"
+            android:background="@color/madderLake" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="6dp"
+            android:text="@string/nahoft_failed_legend"
+            android:textSize="11sp"
+            android:textColor="@color/coolGrey" />
+
+    </LinearLayout>
+
+    <!--
+      Empty state - shown when no spots received yet
+    -->
+    <LinearLayout
+        android:id="@+id/emptyStateContainer"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:visibility="gone"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/legendContainer"
+        app:layout_constraintBottom_toBottomOf="parent"
+        tools:visibility="visible">
+
+        <ImageView
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:src="@drawable/ic_radio"
+            app:tint="@color/lightGrey"
+            android:contentDescription="@null" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="@string/no_wspr_spots_yet"
+            android:textSize="14sp"
+            android:textColor="@color/coolGrey"
+            android:textAlignment="center" />
+
+    </LinearLayout>
+
+    <!--
+      Spots list
+    -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/recyclerSpots"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:layout_marginTop="8dp"
+        android:clipToPadding="false"
+        android:paddingBottom="8dp"
+        app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/legendContainer"
+        app:layout_constraintBottom_toBottomOf="parent"
+        tools:listitem="@layout/item_wspr_spot" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

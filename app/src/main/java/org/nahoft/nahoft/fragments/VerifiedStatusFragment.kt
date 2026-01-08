@@ -12,6 +12,7 @@ import androidx.appcompat.app.AlertDialog
 import androidx.core.view.isVisible
 import androidx.recyclerview.widget.LinearLayoutManager
 import org.nahoft.nahoft.*
+import org.nahoft.nahoft.adapters.MessagesRecyclerAdapter
 import org.nahoft.nahoft.databinding.FragmentVerifiedStatusBinding
 import org.nahoft.nahoft.models.Friend
 import org.nahoft.nahoft.models.Message

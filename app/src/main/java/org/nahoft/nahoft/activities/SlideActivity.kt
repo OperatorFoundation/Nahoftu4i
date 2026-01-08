@@ -5,6 +5,7 @@ import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import androidx.viewpager.widget.ViewPager
 import org.nahoft.nahoft.*
+import org.nahoft.nahoft.adapters.SlideViewPagerAdapter
 import org.nahoft.nahoft.models.getAboutAndFriendsSlides
 import org.nahoft.nahoft.models.getAboutSlides
 import org.nahoft.nahoft.models.getChatSlides

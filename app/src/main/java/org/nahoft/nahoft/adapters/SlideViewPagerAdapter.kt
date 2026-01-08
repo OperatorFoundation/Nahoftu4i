@@ -1,4 +1,4 @@
-package org.nahoft.nahoft
+package org.nahoft.nahoft.adapters
 
 import android.app.Activity
 import android.content.Context
@@ -18,6 +18,7 @@ import androidx.core.view.isInvisible
 import androidx.core.view.isVisible
 import androidx.core.view.setPadding
 import androidx.viewpager.widget.PagerAdapter
+import org.nahoft.nahoft.R
 import org.nahoft.nahoft.activities.SlideActivity
 import org.nahoft.nahoft.databinding.SlideScreenBinding
 import org.nahoft.nahoft.models.Slide
@@ -64,11 +65,11 @@ class SlideViewPagerAdapter(private val context: Context, private val slideList:
         setIndicatorColor(binding, position)
 
         binding.nextButton.setOnClickListener {
-            SlideActivity.viewPager?.currentItem = position + 1
+            SlideActivity.Companion.viewPager?.currentItem = position + 1
         }
 
         binding.prevButton.setOnClickListener {
-            SlideActivity.viewPager?.currentItem = position - 1
+            SlideActivity.Companion.viewPager?.currentItem = position - 1
         }
 
         binding.getStartedButton.setOnClickListener {

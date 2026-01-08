@@ -16,6 +16,9 @@ import org.nahoft.codex.Encryption
 import org.nahoft.nahoft.models.Friend
 import org.nahoft.nahoft.R
 import org.nahoft.nahoft.databinding.FragmentBottomSheetReceiveRadioBinding
+import org.nahoft.nahoft.models.FailureReason
+import org.nahoft.nahoft.models.NahoftSpotStatus
+import org.nahoft.nahoft.models.WSPRSpotItem
 import org.operatorfoundation.audiocoder.WSPRStation
 import org.operatorfoundation.audiocoder.models.WSPRCycleInformation
 import org.operatorfoundation.audiocoder.models.WSPRDecodeResult
@@ -63,6 +66,9 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
     private val receivedMessages = mutableListOf<WSPRMessage>()
     private var decodeAttempts = 0
     private var startTimeMs = 0L
+    private val allSpots = mutableListOf<WSPRSpotItem>()
+    private var currentNahoftGroupId = 0
+    private var spotsDialog: WSPRSpotsDialogFragment? = null
 
     // Animation tracking
     private var currentAnimator: ObjectAnimator? = null
@@ -120,9 +126,15 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
         startReceiving()
     }
 
-    private fun setupClickListeners() {
+    private fun setupClickListeners()
+    {
         binding.btnClose.setOnClickListener { cancelAndDismiss() }
         binding.btnCancel.setOnClickListener { cancelAndDismiss() }
+        binding.btnClose.setOnClickListener { cancelAndDismiss() }
+        binding.btnCancel.setOnClickListener { cancelAndDismiss() }
+
+        // Badge to open spots dialog
+        binding.btnSpotsCount.setOnClickListener { showSpotsDialog() }
     }
 
     /**
@@ -351,6 +363,11 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
 
         // If we get here without being cancelled, we timed out
         withContext(Dispatchers.Main) {
+            // Mark any pending spots as incomplete
+            if (receivedMessages.isNotEmpty()) {
+                markCurrentGroupAsFailed(FailureReason.INCOMPLETE)
+            }
+
             val minutes = (TIMEOUT_MS / 60000).toInt()
             updateStatus(getString(R.string.receive_timeout, minutes))
             delay(2000)
@@ -361,62 +378,103 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
     /**
      * Processes decode results from a WSPR decode cycle.
      *
-     * Filters for encoded Nahoft messages (Q prefix), accumulates them,
-     * and attempts decryption.
+     * - Adds ALL spots to allSpots list (with appropriate status)
+     * - Filters Nahoft messages for decryption tracking
+     * - Updates spots badge count
      */
-    private fun processDecodeResults(results: List<WSPRDecodeResult>)
-    {
+    private fun processDecodeResults(results: List<WSPRDecodeResult>) {
         decodeAttempts++
         binding.tvDecodeAttempts.text = decodeAttempts.toString()
 
-        // Filter for encoded Nahoft messages (callsign starts with Q)
-        val nahoftMessages = results.filter { result ->
-            WSPRMessage.isEncodedMessage(result.callsign)
-        }
+        // Process each decode result
+        for (result in results) {
+            val isNahoftMessage = WSPRMessage.isEncodedMessage(result.callsign)
+            val timestamp = System.currentTimeMillis()
 
-        if (nahoftMessages.isEmpty()) {
-            Timber.d("No Nahoft messages in this decode cycle")
-            return
-        }
+            if (isNahoftMessage) {
+                // Nahoft message - try to parse it
+                try {
+                    val message = WSPRMessage.fromWSPRFields(
+                        result.callsign,
+                        result.gridSquare,
+                        result.powerLevelDbm
+                    )
 
-        // Convert decode results to WSPRMessage objects
-        for (result in nahoftMessages) {
-            try {
-                val message = WSPRMessage.fromWSPRFields(
-                    result.callsign,
-                    result.gridSquare,
-                    result.powerLevelDbm
+                    val isDuplicate = receivedMessages.any { existing ->
+                        existing.toWSPRFields() == message.toWSPRFields()
+                    }
+
+                    if (!isDuplicate) {
+                        receivedMessages.add(message)
+                        Timber.d("Added new WSPR message: ${message.toWSPRFields()}")
+                    }
+
+                    // Determine part number within current group
+                    val partNumber = receivedMessages.size  // 1-based after adding
+
+                    // Create spot with Pending status (successfully parsed)
+                    val spot = WSPRSpotItem(
+                        callsign = result.callsign,
+                        gridSquare = result.gridSquare,
+                        powerDbm = result.powerLevelDbm,
+                        snrDb = result.signalToNoiseRatioDb,
+                        timestamp = timestamp,
+                        nahoftStatus = NahoftSpotStatus.Pending(
+                            groupId = currentNahoftGroupId,
+                            partNumber = partNumber
+                        )
+                    )
+                    allSpots.add(0, spot)  // Add at beginning (newest first)
+
+                }
+                catch (e: Exception)
+                {
+                    Timber.w(e, "Failed to parse WSPR message: ${result.callsign}")
+
+                    // Create spot with Failed status (parse error)
+                    val spot = WSPRSpotItem(
+                        callsign = result.callsign,
+                        gridSquare = result.gridSquare,
+                        powerDbm = result.powerLevelDbm,
+                        snrDb = result.signalToNoiseRatioDb,
+                        timestamp = timestamp,
+                        nahoftStatus = NahoftSpotStatus.Failed(
+                            groupId = currentNahoftGroupId,
+                            partNumber = receivedMessages.size + 1,  // Would have been this part
+                            reason = FailureReason.PARSE_ERROR
+                        )
+                    )
+                    allSpots.add(0, spot)
+                }
+            }
+            else
+            {
+                // Regular WSPR spot
+                val spot = WSPRSpotItem(
+                    callsign = result.callsign,
+                    gridSquare = result.gridSquare,
+                    powerDbm = result.powerLevelDbm,
+                    snrDb = result.signalToNoiseRatioDb,
+                    timestamp = timestamp,
+                    nahoftStatus = NahoftSpotStatus.Spotted
                 )
-
-                // Check if we already have this message (deduplicate)
-                val isDuplicate = receivedMessages.any { existing ->
-                    existing.toWSPRFields() == message.toWSPRFields()
-                }
-
-                if (!isDuplicate) {
-                    receivedMessages.add(message)
-                    Timber.d("Added new WSPR message: ${message.toWSPRFields()}")
-                }
-            } catch (e: Exception) {
-                Timber.w(e, "Failed to parse WSPR message: ${result.callsign}")
+                allSpots.add(0, spot)  // Add at beginning (newest first)
             }
         }
+
+        // Update UI
+        updateSpotsCount()
+        updateSpotsDialog()
 
         // Update message count
         binding.tvMessagesReceived.text = receivedMessages.size.toString()
 
-        // Attempt decryption if we have at least 2 messages
+        // Attempt decryption if we have at least 2 Nahoft messages
         if (receivedMessages.size >= 2) {
             attemptDecryption()
         }
     }
 
-    /**
-     * Attempts to decode and decrypt accumulated WSPR messages.
-     *
-     * Tries with current message count. If decryption fails,
-     * we continue listening for more messages.
-     */
     /**
      * Attempts to decode and decrypt accumulated WSPR messages.
      *
@@ -429,46 +487,54 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
     private fun attemptDecryption()
     {
         val friendKeyBytes = friend?.publicKeyEncoded
-        if (friendKeyBytes == null) {
+
+        if (friendKeyBytes == null)
+        {
             Timber.w("No friend public key available for decryption")
             return
         }
 
         updateStatus(getString(R.string.attempting_decrypt))
 
-        try {
-            // Create message sequence from accumulated messages
+        try
+        {
             val sequence = WSPRMessageSequence.fromMessages(receivedMessages.toList())
-
-            // Decode to BigInteger then to bytes (this is the encrypted data)
             val numericValue = sequence.decode()
             val encryptedBytes = bigIntegerToByteArray(numericValue)
 
             Timber.d("Attempting decryption of ${encryptedBytes.size} bytes from ${receivedMessages.size} WSPR messages")
 
-            // Attempt decryption to verify we have all the messages
-            // decrypt() throws SecurityException if ciphertext is invalid/incomplete
             val friendPublicKey = PublicKey(friendKeyBytes)
             val decryptedText = Encryption().decrypt(friendPublicKey, encryptedBytes)
 
-            // If we get here without exception, decryption succeeded
             Timber.i("Successfully decrypted message from ${receivedMessages.size} WSPR messages")
             updateStatus(getString(R.string.message_received))
 
-            // Callback with ENCRYPTED bytes (Message stores cipher text)
+            // Mark spots as decrypted before clearing receivedMessages
+            markCurrentGroupAsDecrypted(receivedMessages.size)
+
+            // Clear for next message
+            receivedMessages.clear()
+
             coroutineScope.launch {
-                delay(500) // Brief pause to show success message
+                delay(500)
                 onMessageReceived?.invoke(encryptedBytes)
                 dismiss()
             }
-        } catch (e: SecurityException) {
-            // Decryption failed - likely need more messages
+        }
+        catch (e: SecurityException)
+        {
+            // Decryption failed - might need more messages, or might be wrong key/corrupted
             Timber.d("Decryption attempt failed (may need more messages): ${e.message}")
             updateStatus(getString(R.string.listening_for_signals))
-        } catch (e: Exception) {
-            // Other error (parsing, etc.)
+            // Don't mark as failed yet - we might just need more parts
+        }
+        catch (e: Exception)
+        {
+            // Other error - likely a real failure
             Timber.w(e, "Error during decryption attempt")
             updateStatus(getString(R.string.listening_for_signals))
+            // Don't mark as failed yet - could be transient
         }
     }
 
@@ -477,21 +543,22 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
      *
      * Handles the sign byte that BigInteger.toByteArray() may prepend.
      */
-    private fun bigIntegerToByteArray(value: BigInteger): ByteArray {
+    private fun bigIntegerToByteArray(value: BigInteger): ByteArray
+    {
         val bytes = value.toByteArray()
 
         // If the first byte is 0x00 (sign byte for positive numbers), remove it
         return if (bytes.isNotEmpty() && bytes[0] == 0.toByte() && bytes.size > 1) {
             bytes.copyOfRange(1, bytes.size)
-        } else {
-            bytes
         }
+        else { bytes }
     }
 
     /**
      * Updates the cycle progress UI.
      */
-    private fun updateCycleProgress(cycleInfo: WSPRCycleInformation) {
+    private fun updateCycleProgress(cycleInfo: WSPRCycleInformation)
+    {
         binding.progressCycle.progress = cycleInfo.cyclePositionSeconds
         binding.tvCycleTime.text = "${cycleInfo.cyclePositionSeconds}s / 120s"
 
@@ -505,7 +572,8 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
     /**
      * Updates the status message.
      */
-    private fun updateStatus(message: String) {
+    private fun updateStatus(message: String)
+    {
         if (_binding != null) {
             binding.tvStatus.text = message
         }
@@ -514,7 +582,8 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
     /**
      * Starts updating elapsed time display.
      */
-    private fun startElapsedTimeUpdates() {
+    private fun startElapsedTimeUpdates()
+    {
         elapsedTimeJob = coroutineScope.launch {
             while (isActive) {
                 val elapsedMs = System.currentTimeMillis() - startTimeMs
@@ -527,10 +596,119 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
     }
 
     /**
-     * Cancels the receive operation and dismisses the sheet.
+     * Updates the spots badge count in the UI.
      */
-    private fun cancelAndDismiss() {
+    private fun updateSpotsCount()
+    {
+        if (_binding == null) return
+
+        val count = allSpots.size
+        binding.btnSpotsCount.text = getString(R.string.wspr_spots_badge, count)
+        binding.btnSpotsCount.visibility = if (count > 0) View.VISIBLE else View.GONE
+    }
+
+    /**
+     * Shows the WSPR spots dialog.
+     */
+    private fun showSpotsDialog()
+    {
+        spotsDialog = WSPRSpotsDialogFragment.newInstance().also { dialog ->
+            dialog.updateSpots(allSpots)
+            dialog.show(childFragmentManager, "WSPRSpotsDialog")
+        }
+    }
+
+    /**
+     * Updates the spots dialog if it's currently visible.
+     */
+    private fun updateSpotsDialog()
+    {
+        spotsDialog?.updateSpots(allSpots)
+    }
+
+    /**
+     * @param totalParts Total number of parts in the completed message
+     */
+    private fun markCurrentGroupAsDecrypted(totalParts: Int)
+    {
+        val updatedSpots = allSpots.map { spot ->
+            when (val status = spot.nahoftStatus) {
+                is NahoftSpotStatus.Pending -> {
+                    if (status.groupId == currentNahoftGroupId) {
+                        spot.copy(
+                            nahoftStatus = NahoftSpotStatus.Decrypted(
+                                groupId = status.groupId,
+                                partNumber = status.partNumber,
+                                totalParts = totalParts
+                            )
+                        )
+                    } else {
+                        spot
+                    }
+                }
+                else -> spot
+            }
+        }
+
+        allSpots.clear()
+        allSpots.addAll(updatedSpots)
+
+        // Increment group ID for next message
+        currentNahoftGroupId++
+
+        // Update dialog if open
+        updateSpotsDialog()
+    }
+
+    /**
+     * @param reason The reason for failure
+     */
+    private fun markCurrentGroupAsFailed(reason: FailureReason)
+    {
+        val updatedSpots = allSpots.map { spot ->
+            when (val status = spot.nahoftStatus)
+            {
+                is NahoftSpotStatus.Pending -> {
+                    if (status.groupId == currentNahoftGroupId)
+                    {
+                        spot.copy(
+                            nahoftStatus = NahoftSpotStatus.Failed(
+                                groupId = status.groupId,
+                                partNumber = status.partNumber,
+                                reason = reason
+                            )
+                        )
+                    }
+                    else { spot }
+                }
+                else -> spot
+            }
+        }
+
+        allSpots.clear()
+        allSpots.addAll(updatedSpots)
+
+        // Increment group ID for next message attempt
+        currentNahoftGroupId++
+
+        // Update dialog if open
+        updateSpotsDialog()
+    }
+
+    /**
+     * Cancels the receive operation and dismisses the sheet.
+     * Marks any pending Nahoft spots as incomplete.
+     */
+    private fun cancelAndDismiss()
+    {
         Timber.d("Receive operation cancelled")
+
+        // Mark any pending spots as incomplete before cleanup
+        if (receivedMessages.isNotEmpty())
+        {
+            markCurrentGroupAsFailed(FailureReason.INCOMPLETE)
+        }
+
         stopReceiving()
         dismissAllowingStateLoss()
     }
@@ -538,7 +716,8 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
     /**
      * Stops all receive operations and cleans up resources.
      */
-    private fun stopReceiving() {
+    private fun stopReceiving()
+    {
         stationJob?.cancel()
         elapsedTimeJob?.cancel()
 
@@ -555,7 +734,8 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
         audioSource = null
     }
 
-    override fun onDestroyView() {
+    override fun onDestroyView()
+    {
         super.onDestroyView()
         stopReceiving()
         coroutineScope.cancel()

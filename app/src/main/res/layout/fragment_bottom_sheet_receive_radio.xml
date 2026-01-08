@@ -3,6 +3,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
+    xmlns:tools="http://schemas.android.com/tools"
     android:background="@drawable/bkgd_blue_rect"
     android:padding="20dp">
 
@@ -251,6 +252,22 @@
                     android:textSize="11sp" />
             </LinearLayout>
         </androidx.cardview.widget.CardView>
+
+        <!-- WSPR Spots Badge - a tappable pill/badge that shows the WSPR spot count and opens the spots dialog when tapped. -->
+        <TextView
+            android:id="@+id/btnSpotsCount"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:paddingHorizontal="12dp"
+            android:paddingVertical="6dp"
+            android:background="@drawable/badge_spots_background"
+            android:textSize="12sp"
+            android:textColor="@color/royalBlueDark"
+            android:drawableStart="@drawable/ic_radio"
+            android:drawablePadding="4dp"
+            android:visibility="gone"
+            tools:text="5 spots"
+            tools:visibility="visible" />
 
         <!-- Decode Attempts Card -->
         <androidx.cardview.widget.CardView

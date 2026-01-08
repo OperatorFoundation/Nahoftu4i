@@ -1,4 +1,4 @@
-package org.nahoft.nahoft
+package org.nahoft.nahoft.adapters
 
 import android.view.LayoutInflater
 import android.view.View
@@ -6,7 +6,7 @@ import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
 import org.libsodium.jni.keys.PublicKey
 import org.nahoft.codex.Encryption
-import org.nahoft.nahoft.databinding.ActivitySettingPasscodeBinding
+import org.nahoft.nahoft.R
 import org.nahoft.nahoft.databinding.MessageItemRowBinding
 import org.nahoft.nahoft.models.Message
 

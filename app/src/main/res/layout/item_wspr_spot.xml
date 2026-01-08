@@ -1,0 +1,169 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Layout for a single WSPR spot in the spots list.
+
+  Structure:
+  [GroupConnector][AccentBar][  Callsign  Grid  Power  SNR  |  PartNum  Status  |  Time  ]
+
+  - GroupConnector: Visual bracket/line showing message grouping (Nahoft only)
+  - AccentBar: Green bar for Nahoft spots, invisible for regular spots
+  - Main content: WSPR decode data
+  - Annotations: Part number and status (Nahoft only)
+  - Time: Decode timestamp
+-->
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:paddingVertical="4dp"
+    android:paddingEnd="@dimen/padding_half">
+
+    <!--
+      Group connector view - draws brackets/lines for Nahoft message grouping.
+      Width is fixed, drawable set programmatically based on GroupPosition.
+    -->
+    <View
+        android:id="@+id/viewGroupConnector"
+        android:layout_width="16dp"
+        android:layout_height="0dp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        tools:background="@color/caribbeanGreen" />
+
+    <!--
+      Accent bar - solid green bar for Nahoft spots, invisible for regular spots.
+    -->
+    <View
+        android:id="@+id/viewAccentBar"
+        android:layout_width="4dp"
+        android:layout_height="0dp"
+        android:layout_marginStart="2dp"
+        android:background="@color/caribbeanGreen"
+        android:visibility="gone"
+        app:layout_constraintStart_toEndOf="@id/viewGroupConnector"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        tools:visibility="visible" />
+
+    <!--
+      Callsign - the station identifier (e.g., "N5HIM" or "Q0ABC")
+    -->
+    <TextView
+        android:id="@+id/tvCallsign"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="8dp"
+        android:fontFamily="monospace"
+        android:textSize="14sp"
+        android:textColor="@color/royalBlueDark"
+        android:textStyle="bold"
+        app:layout_constraintStart_toEndOf="@id/viewAccentBar"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintWidth_percent="0.18"
+        tools:text="N5HIM" />
+
+    <!--
+      Grid square - Maidenhead locator (e.g., "EM89")
+    -->
+    <TextView
+        android:id="@+id/tvGrid"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:fontFamily="monospace"
+        android:textSize="13sp"
+        android:textColor="@color/coolGrey"
+        app:layout_constraintStart_toEndOf="@id/tvCallsign"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintWidth_percent="0.12"
+        tools:text="EM89" />
+
+    <!--
+      Power level in dBm
+    -->
+    <TextView
+        android:id="@+id/tvPower"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:fontFamily="monospace"
+        android:textSize="12sp"
+        android:textColor="@color/coolGrey"
+        app:layout_constraintStart_toEndOf="@id/tvGrid"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintWidth_percent="0.12"
+        tools:text="37dBm" />
+
+    <!--
+      Signal-to-noise ratio in dB
+    -->
+    <TextView
+        android:id="@+id/tvSnr"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:fontFamily="monospace"
+        android:textSize="12sp"
+        android:textColor="@color/coolGrey"
+        app:layout_constraintStart_toEndOf="@id/tvPower"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintWidth_percent="0.12"
+        tools:text="+39dB" />
+
+    <!--
+      Part number annotation (Nahoft only) - e.g., "[2/3]" or "[2/?]"
+    -->
+    <TextView
+        android:id="@+id/tvPartNumber"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:fontFamily="monospace"
+        android:textSize="11sp"
+        android:textColor="@color/caribbeanGreen"
+        android:visibility="gone"
+        app:layout_constraintStart_toEndOf="@id/tvSnr"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        tools:text="[2/3]"
+        tools:visibility="visible" />
+
+    <!--
+      Status annotation (Nahoft only) - e.g., "Pending..." or "✓ Decrypted"
+    -->
+    <TextView
+        android:id="@+id/tvStatus"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="4dp"
+        android:textSize="11sp"
+        android:textColor="@color/coolGrey"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:visibility="gone"
+        app:layout_constraintStart_toEndOf="@id/tvPartNumber"
+        app:layout_constraintEnd_toStartOf="@id/tvTime"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        tools:text="✓ Decrypted"
+        tools:visibility="visible" />
+
+    <!--
+      Decode timestamp - right-aligned
+    -->
+    <TextView
+        android:id="@+id/tvTime"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="4dp"
+        android:textSize="11sp"
+        android:textColor="@color/coolGrey"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        tools:text="12:34" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>
