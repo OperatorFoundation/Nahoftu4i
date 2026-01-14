@@ -1,4 +1,4 @@
-package org.nahoft.nahoft
+package org.nahoft.nahoft.viewmodels
 
 import android.content.Context
 import androidx.lifecycle.ViewModel
