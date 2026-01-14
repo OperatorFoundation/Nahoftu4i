@@ -44,7 +44,6 @@ import java.math.BigInteger
  */
 class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
 {
-
     private var _binding: FragmentBottomSheetReceiveRadioBinding? = null
     private val binding get() = _binding!!
 
@@ -84,7 +83,8 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
     }
 
     // Configuration
-    companion object {
+    companion object
+    {
         private const val TAG = "ReceiveRadioBottomSheet"
 
         /** Maximum time to listen before timing out (20 minutes) */
@@ -119,9 +119,12 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
         return binding.root
     }
 
-    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?)
+    {
         super.onViewCreated(view, savedInstanceState)
 
+        isCancelable = false
+        
         setupClickListeners()
         startReceiving()
     }

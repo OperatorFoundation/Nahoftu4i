@@ -49,7 +49,7 @@
         tools:visibility="visible" />
 
     <!--
-      Callsign - the station identifier (e.g., "N5HIM" or "Q0ABC")
+      Callsign - the station identifier
     -->
     <TextView
         android:id="@+id/tvCallsign"
@@ -64,10 +64,10 @@
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintWidth_percent="0.18"
-        tools:text="N5HIM" />
+        tools:text="QQQQQ" />
 
     <!--
-      Grid square - Maidenhead locator (e.g., "EM89")
+      Grid square - Maidenhead locator
     -->
     <TextView
         android:id="@+id/tvGrid"
@@ -80,7 +80,7 @@
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintWidth_percent="0.12"
-        tools:text="EM89" />
+        tools:text="QQ00" />
 
     <!--
       Power level in dBm

@@ -912,15 +912,6 @@ class FriendInfoActivity: AppCompatActivity()
                 binding.btnReceiveRadio.isVisible = usbAudioConnection != null
                 binding.btnResendInvite.isVisible = false
                 binding.sendMessageContainer.isVisible = true
-//                val codex = Codex()
-//                val friendCode = codex.encodeKey(PublicKey(thisFriend.publicKeyEncoded).toBytes())
-//                val userCode = codex.encodeKey(Encryption().ensureKeysExist().publicKey.toBytes())
-//                ft.replace(R.id.frame_placeholder, VerifyStatusFragment.newInstance(userCode, friendCode, thisFriend.name))
-//                ft.commit()
-//                btn_import_image.isVisible = false
-//                btn_import_text.isVisible = false
-//                btn_resend_invite.isVisible = true
-//                send_message_container.isVisible = false
             }
         }
 

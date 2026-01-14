@@ -10,7 +10,8 @@ import java.io.ByteArrayInputStream
 import java.io.File
 import java.lang.Exception
 
-object FriendViewModel: ViewModel() {
+object FriendViewModel: ViewModel()
+{
 
     private var friends: ArrayList<Friend>? = null
 
