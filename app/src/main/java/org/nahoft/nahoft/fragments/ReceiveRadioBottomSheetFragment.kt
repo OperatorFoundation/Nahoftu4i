@@ -124,7 +124,7 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
         super.onViewCreated(view, savedInstanceState)
 
         isCancelable = false
-        
+
         setupClickListeners()
         startReceiving()
     }

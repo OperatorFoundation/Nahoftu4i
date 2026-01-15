@@ -6,6 +6,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.PackageManager
 import android.hardware.usb.UsbManager
 import android.net.Uri
 import android.os.Bundle
@@ -14,7 +15,6 @@ import android.provider.MediaStore
 import android.text.Layout
 import android.text.SpannableString
 import android.text.style.AlignmentSpan
-import android.util.Log
 import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
@@ -22,6 +22,8 @@ import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.view.ContextThemeWrapper
@@ -31,9 +33,7 @@ import androidx.core.view.isVisible
 import androidx.core.view.setPadding
 import kotlinx.coroutines.*
 import org.libsodium.jni.keys.PublicKey
-import androidx.activity.result.contract.ActivityResultContracts
-import android.content.pm.PackageManager
-import android.widget.Toast
+import androidx.lifecycle.ViewModelProvider
 
 import org.nahoft.codex.Codex
 import org.nahoft.codex.Encryption
@@ -49,20 +49,16 @@ import org.nahoft.util.showAlert
 
 import org.operatorfoundation.transmission.SerialConnectionFactory
 import org.operatorfoundation.transmission.SerialConnection
-import com.hoho.android.usbserial.driver.UsbSerialDriver
 import org.nahoft.nahoft.fragments.ReceiveRadioBottomSheetFragment
 import org.nahoft.nahoft.models.Friend
 import org.nahoft.nahoft.models.FriendStatus
 import org.nahoft.nahoft.models.Message
 import org.nahoft.nahoft.models.slideNameChat
+import org.nahoft.nahoft.viewmodels.FriendInfoViewModel
 import org.operatorfoundation.audiocoder.WSPREncoder
 import org.operatorfoundation.codex.symbols.WSPRMessageSequence
 import org.operatorfoundation.ion.storage.NounType
 import org.operatorfoundation.ion.storage.Word
-import org.operatorfoundation.signalbridge.UsbAudioConnection
-import org.operatorfoundation.signalbridge.UsbAudioManager
-import org.operatorfoundation.signalbridge.models.ConnectionStatus
-import org.operatorfoundation.signalbridge.models.UsbAudioDevice
 
 import timber.log.Timber
 import java.math.BigInteger
@@ -71,28 +67,15 @@ import java.time.temporal.ChronoUnit
 
 class FriendInfoActivity: AppCompatActivity()
 {
+    private lateinit var viewModel: FriendInfoViewModel
     private lateinit var binding: ActivityFriendInfoBinding
     private var decodePayload: ByteArray? = null
     private lateinit var thisFriend: Friend
 
     private val parentJob = Job()
     private val coroutineScope = CoroutineScope(Dispatchers.Main + parentJob)
-    private val TAG = "FriendInfoActivity"
     private val menuFragmentTag = "MenuFragment"
-
-    // Audio permission launcher (for USB audio recording)
-    private val audioPermissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { isGranted ->
-        if (isGranted) {
-            Timber.d("RECORD_AUDIO permission granted, retrying audio device discovery")
-            // Restart discovery now that we have permission
-            startAudioDeviceDiscovery()
-        } else {
-            Timber.w("RECORD_AUDIO permission denied")
-            Toast.makeText(this, "Microphone permission is required for USB audio", Toast.LENGTH_LONG).show()
-        }
-    }
+    private var isShareImageButtonShow: Boolean = false
 
     private val usbReceiver = object : BroadcastReceiver()
     {
@@ -102,47 +85,34 @@ class FriendInfoActivity: AppCompatActivity()
             {
                 UsbManager.ACTION_USB_DEVICE_ATTACHED -> {
                     Timber.d("USB device attached")
-                    // Only check if not already connected or connecting
-                    if (serialConnection == null && !isConnecting)
-                    {
-                        // Delay slightly to let USB stabilize
-                        coroutineScope.launch {
-                            delay(500)
-                            checkForSerialDevices()
-                        }
-                    }
+                    viewModel.onUsbDeviceAttached()
+
                 }
 
                 UsbManager.ACTION_USB_DEVICE_DETACHED -> {
                     Timber.d("USB device detached")
-                    if (serialConnection != null)
-                    {
-                        coroutineScope.launch {
-                            handleDeviceDisconnected()
-                        }
-                    }
-
-                    isConnecting = false  // Clear flag on disconnect
+                    viewModel.onUsbDeviceDetached()
                 }
             }
         }
     }
 
-    private var isShareImageButtonShow: Boolean = false
+    // Audio permission launcher (for USB audio recording)
+    private val audioPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
 
-    // Serial connection properties
-    private var connectionStateJob: Job? = null
-    private lateinit var connectionFactory: SerialConnectionFactory
-    private var serialConnection: SerialConnection? = null
-    private var isConnecting = false
-
-    // USB Audio connection properties (for WSPR receive)
-    private lateinit var usbAudioManager: UsbAudioManager
-    private var usbAudioConnection: UsbAudioConnection? = null
-    private var audioDeviceDiscoveryJob: Job? = null
-    private var audioConnectionStatusJob: Job? = null
-
-
+        if (isGranted)
+        {
+            Timber.d("RECORD_AUDIO permission granted, retrying audio device discovery")
+            viewModel.startAudioDeviceDiscovery()
+        }
+        else
+        {
+            Timber.w("RECORD_AUDIO permission denied")
+            Toast.makeText(this, "Microphone permission is required for USB audio", Toast.LENGTH_LONG).show()
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?)
     {
@@ -150,6 +120,7 @@ class FriendInfoActivity: AppCompatActivity()
 
         binding = ActivityFriendInfoBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        viewModel = ViewModelProvider(this)[FriendInfoViewModel::class.java]
 
         window.setFlags(WindowManager.LayoutParams.FLAG_SECURE,
                         WindowManager.LayoutParams.FLAG_SECURE)
@@ -161,12 +132,13 @@ class FriendInfoActivity: AppCompatActivity()
 
         if (maybeFriend == null)
         { // this should never happen, get out of this activity.
-            Log.e(TAG, "Attempted to open FriendInfoActivity, but Friend was null.")
+            Timber.e("Attempted to open FriendInfoActivity, but Friend was null.")
             return
         }
         else
         {
             thisFriend = maybeFriend
+            viewModel.initializeFriend(thisFriend)
         }
 
         setClickListeners()
@@ -180,8 +152,17 @@ class FriendInfoActivity: AppCompatActivity()
         }
         registerReceiver(usbReceiver, filter)
 
-        setupSerialConnection()
-        setupUsbAudioConnection()
+        setupConnectionObservers()
+        viewModel.checkForSerialDevices()
+        viewModel.observeAudioConnectionStatus()
+
+        // Before starting audio discovery, check permission
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+            != PackageManager.PERMISSION_GRANTED)
+        {
+            audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+        }
+        else { viewModel.startAudioDeviceDiscovery() }
     }
 
     override fun onResume() {
@@ -190,104 +171,30 @@ class FriendInfoActivity: AppCompatActivity()
         setupViewByStatus()
     }
 
-    private fun setupSerialConnection()
-    {
-        connectionFactory = SerialConnectionFactory(this)
-        observeConnectionState()
-        checkForSerialDevices()
-    }
-
     /**
-     * Sets up USB audio device discovery and connection management.
-     * Mirrors the pattern used for serial connections.
+     * Sets up observers for connection state from ViewModel.
      */
-    private fun setupUsbAudioConnection()
+    private fun setupConnectionObservers()
     {
-        usbAudioManager = UsbAudioManager.create(this)
-        observeAudioConnectionStatus()
-        startAudioDeviceDiscovery()
-    }
-
-    /**
-     * Observes USB audio connection status changes.
-     */
-    private fun observeAudioConnectionStatus()
-    {
-        audioConnectionStatusJob = coroutineScope.launch {
-            usbAudioManager.getConnectionStatus().collect { status ->
-
-                Timber.d("USB Audio connection status: $status")
-
-                when (status)
-                {
-                    is ConnectionStatus.Connected -> {
-                        Timber.i("USB Audio connected")
-                        updateReceiveButtonVisibility()
-                    }
-
-                    is ConnectionStatus.Disconnected -> {
-                        Timber.d("USB Audio disconnected")
-                        usbAudioConnection = null
-                        updateReceiveButtonVisibility()
-                    }
-
-                    is ConnectionStatus.Connecting -> {
-                        Timber.d("USB Audio connecting...")
-                    }
-
-                    is ConnectionStatus.Error -> {
-                        Timber.e("USB Audio error: ${status.message}")
-                        usbAudioConnection = null
-                        updateReceiveButtonVisibility()
-                    }
-                }
-            }
-        }
-    }
-
-    /**
-     * Starts discovery of USB audio devices.
-     * When a device is found and we're not connected, auto-connects.
-     */
-    private fun startAudioDeviceDiscovery()
-    {
-        audioDeviceDiscoveryJob = coroutineScope.launch {
-            usbAudioManager.discoverDevices().collect { devices ->
-
-                Timber.d("Discovered ${devices.size} USB audio device(s)")
-
-                // Auto-connect to first device if not already connected
-                if (devices.isNotEmpty() && usbAudioConnection == null) connectToAudioDevice(devices.first())
-            }
-        }
-    }
-
-    /**
-     * Connects to a USB audio device.
-     * Checks for RECORD_AUDIO permission first.
-     */
-    private fun connectToAudioDevice(device: UsbAudioDevice)
-    {
-        // Check for RECORD_AUDIO permission first
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
-            != PackageManager.PERMISSION_GRANTED) {
-            Timber.d("RECORD_AUDIO permission not granted, requesting...")
-            audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-            return
-        }
-
+        // Observe serial connection state
         coroutineScope.launch {
-            Timber.d("Attempting to connect to USB audio device: ${device.displayName}")
-
-            val result = usbAudioManager.connectToDevice(device)
-
-            if (result.isSuccess)
-            {
-                usbAudioConnection = result.getOrNull()
-                Timber.i("USB Audio connected: ${device.displayName}")
-                updateReceiveButtonVisibility()
+            viewModel.serialConnectionState.collect { state ->
+                handleSerialConnectionState(state)
             }
-            else Timber.e(result.exceptionOrNull(), "Failed to connect to USB audio device")
+        }
+
+        // Observe USB audio connection for receive button visibility
+        coroutineScope.launch {
+            viewModel.canReceiveRadio.collect { canReceive ->
+                binding.btnReceiveRadio.visibility = if (canReceive) View.VISIBLE else View.GONE
+            }
+        }
+
+        // Observe serial connection for send button visibility
+        coroutineScope.launch {
+            viewModel.canSendViaSerial.collect { canSend ->
+                binding.sendViaSerial.visibility = if (canSend) View.VISIBLE else View.GONE
+            }
         }
     }
 
@@ -296,7 +203,7 @@ class FriendInfoActivity: AppCompatActivity()
      */
     private fun updateReceiveButtonVisibility()
     {
-        val shouldShow = usbAudioConnection != null &&
+        val shouldShow = viewModel.usbAudioConnection.value != null &&
                 (thisFriend.status == FriendStatus.Verified || thisFriend.status == FriendStatus.Approved)
 
         binding.btnReceiveRadio.visibility = if (shouldShow) View.VISIBLE else View.GONE
@@ -308,7 +215,7 @@ class FriendInfoActivity: AppCompatActivity()
      */
     private fun receiveViaRadioClicked()
     {
-        val connection = usbAudioConnection
+        val connection = viewModel.usbAudioConnection.value
         if (connection == null) {
             showAlert(getString(R.string.usb_audio_not_connected))
             return
@@ -345,138 +252,81 @@ class FriendInfoActivity: AppCompatActivity()
     }
 
     /**
-     * Observes the connection factory's state flow and updates UI accordingly.
+     * Handles serial connection state changes and updates UI accordingly.
+     * Called from setupConnectionObservers() when state flow emits.
      */
-    private fun observeConnectionState()
+    private fun handleSerialConnectionState(state: SerialConnectionFactory.ConnectionState)
     {
-        connectionStateJob = coroutineScope.launch {
-            connectionFactory.connectionState.collect { state ->
+        Timber.d("Connection state changed: $state")
 
-                Timber.d("Connection state changed: $state")
+        when (state)
+        {
+            is SerialConnectionFactory.ConnectionState.Connected -> {
 
-                when (state)
-                {
-                    is SerialConnectionFactory.ConnectionState.Connected -> {
+                Timber.d("🔔 FriendInfoActivity received state: $state")
 
-                        Timber.d("🔔 FriendInfoActivity received state: $state")
+                viewModel.onSerialConnectionStateSettled()
 
-                        isConnecting = false
-                        serialConnection = state.connection
+                // Button visibility now handled by canSendViaSerial flow observer
 
-                        // Only show button if friend status allows sending
-                        if (thisFriend.status == FriendStatus.Verified ||
-                            thisFriend.status == FriendStatus.Approved) {
-                            binding.sendViaSerial.visibility = View.VISIBLE
-                        }
+                binding.serialStatusContainer.visibility = View.VISIBLE
+                binding.serialStatusText.text = "✔ Serial Connected"
+                Timber.d("Serial connected successfully")
 
-                        binding.serialStatusContainer.visibility = View.VISIBLE
-                        binding.serialStatusText.text = "✓ Serial Connected"
-                        Timber.d("Serial connected successfully")
-
-                        // Auto-hide status after 3 seconds
-                        launch {
-                            delay(3000)
-                            binding.serialStatusContainer.animate()
-                                .alpha(0f)
-                                .setDuration(500)
-                                .withEndAction {
-                                    binding.serialStatusContainer.visibility = View.GONE
-                                    binding.serialStatusContainer.alpha = 1f
-                                }
-                        }
-                    }
-
-                    is SerialConnectionFactory.ConnectionState.Disconnected -> {
-                        isConnecting = false
-                        serialConnection = null
-                        binding.sendViaSerial.visibility = View.GONE
-
-                        // Only show disconnected message if we were previously connected
-                        if (binding.serialStatusContainer.visibility == View.VISIBLE) {
-                            binding.serialStatusText.text = "✗ Disconnected"
-                            launch {
-                                delay(2000)
-                                binding.serialStatusContainer.visibility = View.GONE
-                            }
-                        }
-                    }
-
-                    is SerialConnectionFactory.ConnectionState.RequestingPermission -> {
-                        binding.serialStatusContainer.visibility = View.VISIBLE
-                        binding.serialStatusText.text = "Requesting USB permission..."
-                        Timber.d("Waiting for USB permission...")
-                    }
-
-                    is SerialConnectionFactory.ConnectionState.Connecting -> {
-                        binding.serialStatusContainer.visibility = View.VISIBLE
-                        binding.serialStatusText.text = "Connecting to device..."
-                        Timber.d("Establishing serial connection...")
-                    }
-
-                    is SerialConnectionFactory.ConnectionState.Error -> {
-                        isConnecting = false
-                        val errorMessage = "✗ Error: ${state.message}"
-                        binding.serialStatusContainer.visibility = View.VISIBLE
-                        binding.serialStatusText.text = errorMessage
-                        Timber.e("Serial connection error: ${state.message}")
-
-                        launch {
-                            delay(5000)
+                // Auto-hide status after 3 seconds
+                coroutineScope.launch {
+                    delay(3000)
+                    binding.serialStatusContainer.animate()
+                        .alpha(0f)
+                        .setDuration(500)
+                        .withEndAction {
                             binding.serialStatusContainer.visibility = View.GONE
+                            binding.serialStatusContainer.alpha = 1f
                         }
+                }
+            }
+
+            is SerialConnectionFactory.ConnectionState.Disconnected -> {
+                viewModel.onSerialConnectionStateSettled()
+
+                // Button visibility now handled by canSendViaSerial flow observer
+
+                // Only show disconnected message if we were previously connected
+                if (binding.serialStatusContainer.visibility == View.VISIBLE) {
+                    binding.serialStatusText.text = "✗ Disconnected"
+                    coroutineScope.launch {
+                        delay(2000)
+                        binding.serialStatusContainer.visibility = View.GONE
                     }
                 }
             }
-        }
-    }
 
-    private fun checkForSerialDevices()
-    {
-        if (isConnecting)
-        {
-            Timber.d("Connection already in progress, skipping check")
-            return
-        }
-
-        coroutineScope.launch {
-            val devices = withContext(Dispatchers.IO)
-            {
-                connectionFactory.findAvailableDevices()
+            is SerialConnectionFactory.ConnectionState.RequestingPermission -> {
+                binding.serialStatusContainer.visibility = View.VISIBLE
+                binding.serialStatusText.text = "Requesting USB permission..."
+                Timber.d("Waiting for USB permission...")
             }
 
-            if (devices.isNotEmpty() && serialConnection == null && !isConnecting)
-            {
-                Timber.d("Found ${devices.size} device(s), initiating connection...")
-                isConnecting = true
-                connectToDevice(devices.first())
+            is SerialConnectionFactory.ConnectionState.Connecting -> {
+                binding.serialStatusContainer.visibility = View.VISIBLE
+                binding.serialStatusText.text = "Connecting to device..."
+                Timber.d("Establishing serial connection...")
+            }
+
+            is SerialConnectionFactory.ConnectionState.Error -> {
+                viewModel.onSerialConnectionStateSettled()
+
+                val errorMessage = "✗ Error: ${state.message}"
+                binding.serialStatusContainer.visibility = View.VISIBLE
+                binding.serialStatusText.text = errorMessage
+                Timber.e("Serial connection error: ${state.message}")
+
+                coroutineScope.launch {
+                    delay(5000)
+                    binding.serialStatusContainer.visibility = View.GONE
+                }
             }
         }
-    }
-
-    // Handle disconnection
-    private suspend fun handleDeviceDisconnected() {
-        serialConnection?.close()
-        serialConnection = null
-
-        withContext(Dispatchers.Main) {
-            binding.sendViaSerial.visibility = View.GONE
-            binding.serialStatusContainer.visibility = View.VISIBLE
-            binding.serialStatusText.text = "✗ Device Disconnected"
-
-            // Hide after 2 seconds
-            delay(2000)
-            binding.serialStatusContainer.visibility = View.GONE
-        }
-    }
-
-    /**
-     * Initiates connection to a device.
-     * State changes are observed by observeConnectionState().
-     */
-    private fun connectToDevice(driver: UsbSerialDriver)
-    {
-//        connectionFactory.createConnection(driver.device, 9600)
-        connectionFactory.createConnection(driver.device)
     }
 
     @ExperimentalUnsignedTypes
@@ -826,25 +676,6 @@ class FriendInfoActivity: AppCompatActivity()
         if (isShareImageButtonShow) showHideShareImageButtons()
     }
 
-    fun showVerificationStep() {
-        if (thisFriend.status == FriendStatus.Approved || thisFriend.status == FriendStatus.Verified) {
-            val ft = supportFragmentManager.beginTransaction()
-            val codex = Codex()
-            val friendCode = codex.encodeKey(PublicKey(thisFriend.publicKeyEncoded).toBytes())
-            val userCode = codex.encodeKey(Encryption().ensureKeysExist().toBytes())
-            ft.replace(
-                R.id.frame_placeholder,
-                VerifyStatusFragment.newInstance(userCode, friendCode, thisFriend.name),
-                menuFragmentTag
-            )
-            ft.commit()
-            binding.btnImportImage.isVisible = false
-            binding.btnImportText.isVisible = false
-            binding.btnResendInvite.isVisible = true
-            binding.sendMessageContainer.isVisible = false
-        }
-    }
-
     private fun setupViewByStatus()
     {
         binding.tvFriendName.text =
@@ -854,7 +685,7 @@ class FriendInfoActivity: AppCompatActivity()
         binding.profilePicture.text = thisFriend.name.substring(0, 1)
 
         binding.sendViaSerial.visibility =
-            if ((thisFriend.status == FriendStatus.Verified || thisFriend.status == FriendStatus.Approved) && serialConnection != null) View.VISIBLE
+            if ((thisFriend.status == FriendStatus.Verified || thisFriend.status == FriendStatus.Approved) && viewModel.serialConnection != null) View.VISIBLE
             else View.GONE
 
         val ft = supportFragmentManager.beginTransaction()
@@ -897,7 +728,7 @@ class FriendInfoActivity: AppCompatActivity()
                 ft.commit()
                 binding.btnImportImage.isVisible = true
                 binding.btnImportText.isVisible = true
-                binding.btnReceiveRadio.isVisible = usbAudioConnection != null
+                binding.btnReceiveRadio.isVisible = viewModel.usbAudioConnection.value != null
                 binding.btnResendInvite.isVisible = false
                 binding.sendMessageContainer.isVisible = true
                 binding.verifiedStatusIconImageView.isVisible = true
@@ -909,7 +740,7 @@ class FriendInfoActivity: AppCompatActivity()
                 ft.commit()
                 binding.btnImportImage.isVisible = true
                 binding.btnImportText.isVisible = true
-                binding.btnReceiveRadio.isVisible = usbAudioConnection != null
+                binding.btnReceiveRadio.isVisible = viewModel.usbAudioConnection.value != null
                 binding.btnResendInvite.isVisible = false
                 binding.sendMessageContainer.isVisible = true
             }
@@ -1070,7 +901,7 @@ class FriendInfoActivity: AppCompatActivity()
 
         // Switch to IO thread for serial communication
         return withContext(Dispatchers.IO) {
-            val connection: SerialConnection? = serialConnection
+            val connection: SerialConnection? = viewModel.serialConnection
 
             if (connection == null)
             {
@@ -1119,14 +950,17 @@ class FriendInfoActivity: AppCompatActivity()
                 // Serialize and send using ion
                 val sent = try
                 {
-                    for(frequencyArray in frequencyArrays) {
+                    for(frequencyArray in frequencyArrays)
+                    {
                         Timber.d("Waiting until even minute...")
                         Thread.sleep(millisUntilEvenMinute())
                         Timber.d("It's go time!")
 
                         var first = true
-                        for(frequency in frequencyArray) {
-                            val ionFrequency = Word.make(frequency.toInt(), NounType.INTEGER.value);
+
+                        for(frequency in frequencyArray)
+                        {
+                            val ionFrequency = Word.make(frequency.toInt(), NounType.INTEGER.value)
                             Word.to_conn(connection, ionFrequency)
 
                             if(first)
@@ -1153,9 +987,7 @@ class FriendInfoActivity: AppCompatActivity()
 
                 if (!sent)
                 {
-                    withContext(Dispatchers.Main) {
-                        showAlert("Failed to write to Serial device.")
-                    }
+                    withContext(Dispatchers.Main) { showAlert("Failed to write to Serial device.") }
                     return@withContext false
                 }
 
@@ -1239,7 +1071,7 @@ class FriendInfoActivity: AppCompatActivity()
             // Start with a reasonable minimum based on data size
             val estimatedMessages = maxOf(1, (bitsNeeded / 50) + 1)
 
-            Timber.d("Data: ${data.size} bytes, ${bitsNeeded} bits → estimated ${estimatedMessages} WSPR messages")
+            Timber.d("Data: ${data.size} bytes, $bitsNeeded bits → estimated $estimatedMessages WSPR messages")
 
             // Try encoding with increasing message counts until successful
             val maxAttempts = 20 // Reasonable upper limit
@@ -1273,35 +1105,6 @@ class FriendInfoActivity: AppCompatActivity()
         }
     }
 
-    /**
-     * Decodes a power byte back to dBm value.
-     * WSPR standard power levels: 0, 3, 7, 10, 13, 17, 20, 23, 27, 30,
-     *                              33, 37, 40, 43, 47, 50, 53, 57, 60 dBm
-     */
-    private fun decodePowerByte(powerByte: Byte): Int
-    {
-        val powerLevels = listOf(
-            0, 3, 7, 10, 13, 17, 20, 23, 27, 30,
-            33, 37, 40, 43, 47, 50, 53, 57, 60
-        )
-
-        // The Power symbol likely encodes 0-18 as an index
-        val index = powerByte.toInt() and 0xFF
-
-        return if (index in powerLevels.indices) {
-            powerLevels[index]
-        } else {
-            // Fallback: treat as ASCII digit if possible
-            val char = powerByte.toInt().toChar()
-            if (char.isDigit()) {
-                powerLevels[char.digitToInt()]
-            } else {
-                Timber.w("Unknown power byte: $powerByte, defaulting to 30dBm")
-                30 // Safe default
-            }
-        }
-    }
-
     private fun pickImageFromGallery(saveImage: Boolean)
     {
         // Calling GetContent contract
@@ -1329,7 +1132,7 @@ class FriendInfoActivity: AppCompatActivity()
     {
         super.onActivityResult(requestCode, resultCode, data)
 
-        if (resultCode == Activity.RESULT_OK)
+        if (resultCode == RESULT_OK)
         {
             if (requestCode == RequestCodes.selectImageForImport)
             {
@@ -1616,7 +1419,8 @@ class FriendInfoActivity: AppCompatActivity()
         finish()
     }
 
-    fun changeFriendsName(newName: String) {
+    fun changeFriendsName(newName: String)
+    {
         Persist.updateFriend(this, thisFriend, newName)
         thisFriend.name = if (newName.length <= 10) newName else newName.substring(0, 8) + "..."
         binding.tvFriendName.text = thisFriend.name
@@ -1631,7 +1435,7 @@ class FriendInfoActivity: AppCompatActivity()
 //    }
 
     fun Activity.hideSoftKeyboard(editText: EditText) {
-        (getSystemService(AppCompatActivity.INPUT_METHOD_SERVICE) as InputMethodManager).apply {
+        (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).apply {
             hideSoftInputFromWindow(editText.windowToken, 0)
         }
     }
@@ -1649,23 +1453,6 @@ class FriendInfoActivity: AppCompatActivity()
             // Receiver wasn't registered
         }
 
-        // Cancel the state observer
-        connectionStateJob?.cancel()
-
-        serialConnection?.close()
-        connectionFactory.disconnect()
         parentJob.cancel()
-
-        audioDeviceDiscoveryJob?.cancel()
-        audioConnectionStatusJob?.cancel()
-
-        coroutineScope.launch {
-            try {
-                usbAudioConnection?.disconnect()
-                usbAudioManager.cleanup()
-            } catch (e: Exception) {
-                Timber.w(e, "Error cleaning up USB audio")
-            }
-        }
     }
 }
