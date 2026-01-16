@@ -622,6 +622,7 @@ After pressing this (+) sign, you must first enter your friend\'s name. You can 
     <string name="usb_audio_disconnected">USB audio disconnected</string>
     <string name="receive_timeout">Receive timed out after %1$d minutes</string>
     <string name="receive_cancelled">Receive cancelled</string>
+    <string name="waiting_for_next_window">Waiting for next transmission window…</string>
 
     <!-- WSPR Spots Dialog -->
     <string name="wspr_spots_title">WSPR Activity</string>

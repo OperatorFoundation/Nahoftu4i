@@ -20,6 +20,7 @@ import org.nahoft.nahoft.models.FailureReason
 import org.nahoft.nahoft.models.NahoftSpotStatus
 import org.nahoft.nahoft.models.WSPRSpotItem
 import org.operatorfoundation.audiocoder.WSPRStation
+import org.operatorfoundation.audiocoder.WSPRTimingCoordinator
 import org.operatorfoundation.audiocoder.models.WSPRCycleInformation
 import org.operatorfoundation.audiocoder.models.WSPRDecodeResult
 import org.operatorfoundation.audiocoder.models.WSPRStationConfiguration
@@ -31,6 +32,7 @@ import org.operatorfoundation.signalbridge.UsbAudioConnection
 import org.operatorfoundation.signalbridge.models.AudioBufferConfiguration
 import timber.log.Timber
 import java.math.BigInteger
+import kotlin.coroutines.coroutineContext
 
 /**
  * BottomSheet for receiving encrypted messages via WSPR radio.
@@ -68,8 +70,7 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
     private val allSpots = mutableListOf<WSPRSpotItem>()
     private var currentNahoftGroupId = 0
     private var spotsDialog: WSPRSpotsDialogFragment? = null
-
-    // Animation tracking
+    private var isWaitingForFreshWindow = false
     private var currentAnimator: ObjectAnimator? = null
 
     /**
@@ -142,10 +143,13 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
 
     /**
      * Starts the WSPR receive operation.
+     * If entered mid-cycle, waits for the next fresh window before collecting.
      */
-    private fun startReceiving() {
+    private fun startReceiving()
+    {
         val connection = usbAudioConnection
-        if (connection == null) {
+        if (connection == null)
+        {
             updateStatus(getString(R.string.usb_audio_not_connected))
             return
         }
@@ -153,8 +157,67 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
         startTimeMs = System.currentTimeMillis()
         startElapsedTimeUpdates()
 
+        // Check if we're early enough in the cycle to start collecting
+        val timingCoordinator = WSPRTimingCoordinator()
+
+        if (timingCoordinator.isEarlyEnoughToStartCollection()) {
+            // Good timing - start immediately
+            isWaitingForFreshWindow = false
+            startWSPRStation(connection)
+        } else {
+            // Entered mid-cycle - wait for next window
+            isWaitingForFreshWindow = true
+            updateStatus(getString(R.string.waiting_for_next_window))
+            updateStateIcon(R.drawable.ic_access_time, R.color.coolGrey, AnimationType.NONE)
+
+            // Start a coroutine to wait and then begin
+            stationJob = coroutineScope.launch {
+                waitForNextWindowAndStart(connection, timingCoordinator)
+            }
+        }
+    }
+
+    /**
+     * Waits until the next WSPR window begins, then starts the station.
+     */
+    private suspend fun waitForNextWindowAndStart(
+        connection: UsbAudioConnection,
+        timingCoordinator: WSPRTimingCoordinator
+    ) {
+        // Update UI with countdown while waiting
+        while (coroutineContext.isActive && isWaitingForFreshWindow) {
+            val windowInfo = timingCoordinator.getTimeUntilNextDecodeWindow()
+            val secondsRemaining = windowInfo.secondsUntilWindow
+
+            if (secondsRemaining <= 0) {
+                // Window is starting now
+                isWaitingForFreshWindow = false
+                withContext(Dispatchers.Main) {
+                    startWSPRStation(connection)
+                }
+                return
+            }
+
+            withContext(Dispatchers.Main) {
+                binding.tvNextWindow.text = getString(
+                    R.string.next_decode_window_in,
+                    secondsRemaining.toInt()
+                )
+            }
+
+            delay(1000)
+        }
+    }
+
+    /**
+     * Creates and starts the WSPR station for audio collection.
+     * Extracted from original startReceiving() to allow delayed start.
+     */
+    private fun startWSPRStation(connection: UsbAudioConnection)
+    {
         stationJob = coroutineScope.launch {
-            try {
+            try
+            {
                 // Create audio source from USB connection
                 audioSource = SignalBridgeWSPRAudioSource(
                     usbAudioConnection = connection,
@@ -166,9 +229,8 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
                 wsprStation = WSPRStation(audioSource!!, config)
 
                 // Start the station
-                Timber.d("NAHOFT-TEST-12345: About to start WSPR station")
+                Timber.d("Starting WSPR station")
                 val startResult = wsprStation!!.startStation()
-                Timber.d("NAHOFT-TEST-12345: startStation returned: ${startResult.isSuccess}")
 
                 if (startResult.isFailure) {
                     updateStatus("Failed to start: ${startResult.exceptionOrNull()?.message}")
@@ -182,7 +244,9 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
                 launch { observeAudioLevels() }
                 launch { monitorTimeout() }
 
-            } catch (e: Exception) {
+            }
+            catch (e: Exception)
+            {
                 Timber.e(e, "Error starting WSPR receive")
                 updateStatus("Error: ${e.message}")
             }
