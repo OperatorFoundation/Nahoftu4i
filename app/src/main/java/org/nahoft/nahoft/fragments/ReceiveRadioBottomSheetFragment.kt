@@ -270,7 +270,11 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
     private suspend fun observeStationState()
     {
         wsprStation?.stationState?.collect { state ->
-            when (state) {
+
+            Timber.d("NAHOFT-STATE: Received station state: ${state::class.simpleName}")
+
+            when (state)
+            {
                 is WSPRStationState.Running -> {
                     updateStateIcon(R.drawable.ic_radio, R.color.caribbeanGreen, AnimationType.PULSE)
                     updateStatus(getString(R.string.listening_for_signals))
