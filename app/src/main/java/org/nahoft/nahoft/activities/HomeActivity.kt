@@ -477,7 +477,7 @@ class HomeActivity : AppCompatActivity()
             }
         }
 
-        builder.setNeutralButton(resources.getString(R.string.cancel_button)) {
+        builder.setNeutralButton(resources.getString(R.string.stop_button)) {
                 dialog, _->
             dialog.cancel()
         }

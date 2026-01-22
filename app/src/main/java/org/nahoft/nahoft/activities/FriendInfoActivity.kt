@@ -834,7 +834,7 @@ class FriendInfoActivity: AppCompatActivity()
                 }
             }
         }
-        builder.setNeutralButton(resources.getString(R.string.cancel_button)) { dialog, _->
+        builder.setNeutralButton(resources.getString(R.string.stop_button)) { dialog, _->
             dialog.cancel()
         }.create().show()
     }

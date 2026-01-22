@@ -316,7 +316,7 @@
     <!-- Add Friend Alert Dialog -->
     <string name="enter_nickname">وارد کردن نام مستعار</string>
     <string name="add_button">افزودن</string>
-    <string name="cancel_button">لغو</string>
+    <string name="stop_button">لغو</string>
 
     <!-- Activity Friends Info -->
     <string name="nickname">نام</string>

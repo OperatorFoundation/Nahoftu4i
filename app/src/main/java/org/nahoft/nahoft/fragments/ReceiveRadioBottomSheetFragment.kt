@@ -65,13 +65,14 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
 
     // State tracking
     private val receivedMessages = mutableListOf<WSPRMessage>()
-    private var decodeAttempts = 0
     private var startTimeMs = 0L
     private val allSpots = mutableListOf<WSPRSpotItem>()
     private var currentNahoftGroupId = 0
     private var spotsDialog: WSPRSpotsDialogFragment? = null
     private var isWaitingForFreshWindow = false
     private var currentAnimator: ObjectAnimator? = null
+    private var decryptionAttempts = 0
+    private var messageJustReceived = false
 
     /**
      * Animation types for state icon
@@ -133,12 +134,63 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
     private fun setupClickListeners()
     {
         binding.btnClose.setOnClickListener { cancelAndDismiss() }
-        binding.btnCancel.setOnClickListener { cancelAndDismiss() }
-        binding.btnClose.setOnClickListener { cancelAndDismiss() }
-        binding.btnCancel.setOnClickListener { cancelAndDismiss() }
+        binding.btnStop.setOnClickListener { cancelAndDismiss() }
+        binding.cardSpots.setOnClickListener { showSpotsDialog() }
+    }
 
-        // Badge to open spots dialog
-        binding.btnSpotsCount.setOnClickListener { showSpotsDialog() }
+    /**
+     * Updates the Status card based on current decryption state.
+     */
+    private fun updateStatusCard()
+    {
+        if (_binding == null) return
+
+        val context = requireContext()
+
+        when {
+            messageJustReceived -> {
+                // Success state
+                binding.ivStatusIcon.setImageResource(R.drawable.ic_success)
+                binding.ivStatusIcon.setColorFilter(
+                    ContextCompat.getColor(context, R.color.caribbeanGreen),
+                    PorterDuff.Mode.SRC_IN
+                )
+                binding.tvStatusTitle.text = getString(R.string.status)
+                binding.tvStatusSubtitle.text = getString(R.string.status_received)
+                binding.tvStatusSubtitle.setTextColor(
+                    ContextCompat.getColor(context, R.color.caribbeanGreen)
+                )
+                binding.cardStatus.setCardBackgroundColor(
+                    ContextCompat.getColor(context, R.color.lightGrey)
+                )
+            }
+            decryptionAttempts > 0 -> {
+                // Tried but incomplete
+                binding.ivStatusIcon.setImageResource(R.drawable.ic_sync)
+                binding.ivStatusIcon.setColorFilter(
+                    ContextCompat.getColor(context, R.color.tangerine),
+                    PorterDuff.Mode.SRC_IN
+                )
+                binding.tvStatusTitle.text = getString(R.string.status)
+                binding.tvStatusSubtitle.text = getString(R.string.status_incomplete)
+                binding.tvStatusSubtitle.setTextColor(
+                    ContextCompat.getColor(context, R.color.coolGrey)
+                )
+            }
+            else -> {
+                // Waiting for parts
+                binding.ivStatusIcon.setImageResource(R.drawable.ic_sync)
+                binding.ivStatusIcon.setColorFilter(
+                    ContextCompat.getColor(context, R.color.coolGrey),
+                    PorterDuff.Mode.SRC_IN
+                )
+                binding.tvStatusTitle.text = getString(R.string.status)
+                binding.tvStatusSubtitle.text = getString(R.string.status_waiting)
+                binding.tvStatusSubtitle.setTextColor(
+                    ContextCompat.getColor(context, R.color.coolGrey)
+                )
+            }
+        }
     }
 
     /**
@@ -453,10 +505,8 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
      * - Filters Nahoft messages for decryption tracking
      * - Updates spots badge count
      */
-    private fun processDecodeResults(results: List<WSPRDecodeResult>) {
-        decodeAttempts++
-        binding.tvDecodeAttempts.text = decodeAttempts.toString()
-
+    private fun processDecodeResults(results: List<WSPRDecodeResult>)
+    {
         // Process each decode result
         for (result in results) {
             val isNahoftMessage = WSPRMessage.isEncodedMessage(result.callsign)
@@ -565,6 +615,7 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
             return
         }
 
+        decryptionAttempts++
         updateStatus(getString(R.string.attempting_decrypt))
 
         try
@@ -579,13 +630,18 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
             val decryptedText = Encryption().decrypt(friendPublicKey, encryptedBytes)
 
             Timber.i("Successfully decrypted message from ${receivedMessages.size} WSPR messages")
-            updateStatus(getString(R.string.message_received))
+
+            // Mark success and show celebration
+            messageJustReceived = true
+            updateStatusCard()
+            showMessageReceivedCelebration()
 
             // Mark spots as decrypted before clearing receivedMessages
             markCurrentGroupAsDecrypted(receivedMessages.size)
 
             // Clear for next message
             receivedMessages.clear()
+            decryptionAttempts = 0
 
             coroutineScope.launch {
                 delay(500)
@@ -598,6 +654,7 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
             // Decryption failed - might need more messages, or might be wrong key/corrupted
             Timber.d("Decryption attempt failed (may need more messages): ${e.message}")
             updateStatus(getString(R.string.listening_for_signals))
+            updateStatusCard()
             // Don't mark as failed yet - we might just need more parts
         }
         catch (e: Exception)
@@ -605,8 +662,44 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
             // Other error - likely a real failure
             Timber.w(e, "Error during decryption attempt")
             updateStatus(getString(R.string.listening_for_signals))
+            updateStatusCard()
             // Don't mark as failed yet - could be transient
         }
+    }
+
+    /**
+     * Shows visual feedback when a message is successfully received and decrypted.
+     */
+    private fun showMessageReceivedCelebration()
+    {
+        if (_binding == null) return
+
+        // Flash the status card green
+        val originalColor = ContextCompat.getColor(requireContext(), R.color.lightGrey)
+        val successColor = ContextCompat.getColor(requireContext(), R.color.caribbeanGreen)
+
+        // Animate card background
+        val colorAnim = android.animation.ValueAnimator.ofArgb(successColor, originalColor).apply {
+            duration = 1000
+            addUpdateListener { animator ->
+                binding.cardStatus.setCardBackgroundColor(animator.animatedValue as Int)
+            }
+        }
+        colorAnim.start()
+
+        // Scale animation on status icon
+        val scaleX = ObjectAnimator.ofFloat(binding.ivStatusIcon, "scaleX", 1f, 1.5f, 1f).apply {
+            duration = 500
+        }
+        val scaleY = ObjectAnimator.ofFloat(binding.ivStatusIcon, "scaleY", 1f, 1.5f, 1f).apply {
+            duration = 500
+        }
+        scaleX.start()
+        scaleY.start()
+
+        // Update main status area too
+        updateStatus(getString(R.string.message_received))
+        updateStateIcon(R.drawable.ic_success, R.color.caribbeanGreen, AnimationType.SCALE)
     }
 
     /**
@@ -673,9 +766,7 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
     {
         if (_binding == null) return
 
-        val count = allSpots.size
-        binding.btnSpotsCount.text = getString(R.string.wspr_spots_badge, count)
-        binding.btnSpotsCount.visibility = if (count > 0) View.VISIBLE else View.GONE
+        binding.tvSpotsCount.text = allSpots.size.toString()
     }
 
     /**

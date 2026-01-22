@@ -380,7 +380,7 @@ After pressing this (+) sign, you must first enter your friend\'s name. You can 
     <!-- Add Friend Alert Dialog -->
     <string name="enter_nickname">Enter Nickname</string>
     <string name="add_button">Add</string>
-    <string name="cancel_button">Cancel</string>
+    <string name="stop_button">Stop</string>
 
     <!-- Activity Friends Info -->
     <string name="nickname">Nickname</string>
@@ -623,6 +623,15 @@ After pressing this (+) sign, you must first enter your friend\'s name. You can 
     <string name="receive_timeout">Receive timed out after %1$d minutes</string>
     <string name="receive_cancelled">Receive cancelled</string>
     <string name="waiting_for_next_window">Waiting for next transmission window…</string>
+    <string name="wspr_spots">WSPR Spots</string>
+    <string name="message_parts">Message Parts</string>
+    <string name="status">Status</string>
+    <string name="status_waiting">Waiting for parts</string>
+    <string name="status_incomplete">Incomplete, more parts needed</string>
+    <string name="status_received">✓ Received!</string>
+    <string name="session_label">Session:</string>
+    <string name="tap_for_details">Tap for details</string>
+    <string name="next_decode_window">Next decode window</string>
 
     <!-- WSPR Spots Dialog -->
     <string name="wspr_spots_title">WSPR Activity</string>
