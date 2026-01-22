@@ -1,33 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-  Dialog layout for displaying all WSPR spots received during a session.
-
-  Shows a scrollable list of spots with:
-  - Header with spot count and close button
-  - Empty state when no spots yet
-  - RecyclerView of spots (newest at top)
--->
 <androidx.constraintlayout.widget.ConstraintLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:background="@drawable/dialog_rounded_background"
-    android:padding="16dp"
-    android:minHeight="300dp"
-    android:maxHeight="500dp">
+    android:background="@drawable/dialog_dark_background"
+    android:padding="20dp"
+    android:minHeight="300dp">
 
-    <!--
-      Header row: Title with spot count and close button
-    -->
+    <!-- Header -->
     <TextView
         android:id="@+id/tvTitle"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:text="@string/wspr_spots_title"
-        android:textSize="18sp"
-        android:textColor="@color/royalBlueDark"
+        android:textSize="20sp"
+        android:textColor="@color/white"
         android:textStyle="bold"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
@@ -37,90 +26,70 @@
         android:id="@+id/tvSpotCount"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginEnd="8dp"
+        android:layout_marginEnd="16dp"
         android:textSize="14sp"
-        android:textColor="@color/coolGrey"
+        android:textColor="#B0B0B0"
         app:layout_constraintEnd_toStartOf="@id/btnClose"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintBottom_toBottomOf="@id/tvTitle"
-        tools:text="(12 spots)" />
+        app:layout_constraintBaseline_toBaselineOf="@id/tvTitle"
+        tools:text="(12)" />
 
     <ImageButton
         android:id="@+id/btnClose"
-        android:layout_width="32dp"
-        android:layout_height="32dp"
-        android:background="?attr/selectableItemBackgroundBorderless"
+        android:layout_width="36dp"
+        android:layout_height="36dp"
+        android:background="@drawable/btn_close_circle"
         android:contentDescription="@string/close"
         android:src="@drawable/ic_close"
-        app:tint="@color/coolGrey"
+        android:padding="8dp"
+        app:tint="@color/white"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
-    <!--
-      Divider below header
-    -->
-    <View
-        android:id="@+id/divider"
-        android:layout_width="0dp"
-        android:layout_height="1dp"
-        android:layout_marginTop="12dp"
-        android:background="@color/lightGrey"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/tvTitle" />
-
-    <!--
-      Legend row: explains the visual elements (green = Nahoft, red = failed)
-    -->
+    <!-- Legend -->
     <LinearLayout
         android:id="@+id/legendContainer"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
+        android:layout_marginTop="20dp"
         android:orientation="horizontal"
         android:gravity="center_vertical"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/divider">
+        app:layout_constraintTop_toBottomOf="@id/tvTitle">
 
-        <!-- Green = Nahoft message -->
         <View
-            android:layout_width="12dp"
-            android:layout_height="12dp"
-            android:background="@color/caribbeanGreen" />
+            android:layout_width="10dp"
+            android:layout_height="10dp"
+            android:background="@drawable/legend_dot_green" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="6dp"
+            android:layout_marginStart="8dp"
             android:text="@string/nahoft_message_legend"
-            android:textSize="11sp"
-            android:textColor="@color/coolGrey" />
+            android:textSize="12sp"
+            android:textColor="#B0B0B0" />
 
-        <!-- Spacer -->
         <View
-            android:layout_width="16dp"
+            android:layout_width="32dp"
             android:layout_height="1dp" />
 
-        <!-- Red = Failed -->
         <View
-            android:layout_width="12dp"
-            android:layout_height="12dp"
-            android:background="@color/madderLake" />
+            android:layout_width="10dp"
+            android:layout_height="10dp"
+            android:background="@drawable/legend_dot_red" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="6dp"
+            android:layout_marginStart="8dp"
             android:text="@string/nahoft_failed_legend"
-            android:textSize="11sp"
-            android:textColor="@color/coolGrey" />
+            android:textSize="12sp"
+            android:textColor="#B0B0B0" />
 
     </LinearLayout>
 
-    <!--
-      Empty state - shown when no spots received yet
-    -->
+    <!-- Empty state -->
     <LinearLayout
         android:id="@+id/emptyStateContainer"
         android:layout_width="0dp"
@@ -135,38 +104,38 @@
         tools:visibility="visible">
 
         <ImageView
-            android:layout_width="48dp"
-            android:layout_height="48dp"
+            android:layout_width="56dp"
+            android:layout_height="56dp"
             android:src="@drawable/ic_radio"
-            app:tint="@color/lightGrey"
+            app:tint="#505050"
             android:contentDescription="@null" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="16dp"
             android:text="@string/no_wspr_spots_yet"
-            android:textSize="14sp"
-            android:textColor="@color/coolGrey"
+            android:textSize="15sp"
+            android:textColor="#808080"
             android:textAlignment="center" />
 
     </LinearLayout>
 
-    <!--
-      Spots list
-    -->
+    <!-- Spots list -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recyclerSpots"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        android:layout_marginTop="8dp"
+        android:layout_marginTop="16dp"
         android:clipToPadding="false"
         android:paddingBottom="8dp"
+        android:overScrollMode="never"
         app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toBottomOf="@id/legendContainer"
         app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintHeight_max="400dp"
         tools:listitem="@layout/item_wspr_spot" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

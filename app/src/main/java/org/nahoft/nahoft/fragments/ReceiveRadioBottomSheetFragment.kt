@@ -586,6 +586,7 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
         // Update UI
         updateSpotsCount()
         updateSpotsDialog()
+        updateStatusCard()
 
         // Update message count
         binding.tvMessagesReceived.text = receivedMessages.size.toString()
