@@ -14,151 +14,139 @@
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/header_section"
         android:layout_width="match_parent"
-        android:layout_height="100dp"
+        android:layout_height="wrap_content"
         android:background="@drawable/bkgd_header_main_page"
+        android:paddingBottom="12dp"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent">
 
+        <!-- Row 1: Back button, profile picture, name, status icon -->
         <ImageButton
             android:id="@+id/button_back"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="15dp"
+            android:layout_marginTop="30dp"
             android:padding="5dp"
             android:background="@android:color/transparent"
             android:src="@drawable/ic_nohoft_icons_arrow_back"
-            app:layout_constraintBottom_toBottomOf="@id/profile_picture"
+            android:contentDescription="@string/return_button"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="@id/profile_picture"
-            android:contentDescription="@string/return_button" />
-
-<!--        <ImageView-->
-<!--            android:id="@+id/profile_picture"-->
-<!--            android:layout_width="50dp"-->
-<!--            android:layout_height="50dp"-->
-<!--            android:layout_marginStart="25dp"-->
-<!--            android:layout_marginTop="30dp"-->
-<!--            android:contentDescription="@string/logo_image"-->
-<!--            app:layout_constraintStart_toEndOf="@id/button_back"-->
-<!--            app:layout_constraintTop_toTopOf="parent"-->
-<!--            app:srcCompat="@drawable/ic_nahoft_icons_profile_picture" />-->
+            app:layout_constraintTop_toTopOf="parent" />
 
         <TextView
             android:id="@+id/profile_picture"
             android:layout_width="50dp"
             android:layout_height="50dp"
             android:layout_marginStart="25dp"
-            android:layout_marginTop="30dp"
             android:text="N"
             android:textSize="20sp"
             android:gravity="center"
             android:background="@drawable/bkgd_circle_white_56"
             android:contentDescription="@string/logo_image"
             app:layout_constraintStart_toEndOf="@id/button_back"
-            app:layout_constraintTop_toTopOf="parent" />
-
-        <TextView
-            android:id="@+id/tv_friend_name"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="10dp"
-            android:layout_marginEnd="8dp"
-            android:ellipsize="end"
-            android:maxLines="1"
-            android:text="@string/friendNameRecyclerView"
-            android:textColor="@color/white"
-            android:textSize="20sp"
-            app:layout_constraintBottom_toBottomOf="@id/profile_picture"
-            app:layout_constraintStart_toEndOf="@id/profile_picture"
-            app:layout_constraintEnd_toStartOf="@id/btn_help"
-            app:layout_constraintTop_toTopOf="@id/profile_picture" />
+            app:layout_constraintTop_toTopOf="@id/button_back"
+            app:layout_constraintBottom_toBottomOf="@id/button_back" />
 
         <ImageView
             android:id="@+id/status_icon_image_view"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            app:layout_constraintBottom_toBottomOf="@+id/profile_picture"
-            app:layout_constraintEnd_toEndOf="@+id/profile_picture"
-            app:srcCompat="@drawable/status_icon_default"
-            android:contentDescription="@string/status_icon" />
+            android:contentDescription="@string/status_icon"
+            app:layout_constraintBottom_toBottomOf="@id/profile_picture"
+            app:layout_constraintEnd_toEndOf="@id/profile_picture"
+            app:srcCompat="@drawable/status_icon_default" />
 
         <ImageView
             android:id="@+id/verified_status_icon_image_view"
             android:layout_width="15dp"
             android:layout_height="15dp"
             android:visibility="invisible"
-            app:layout_constraintBottom_toBottomOf="@+id/profile_picture"
-            app:layout_constraintEnd_toEndOf="@+id/profile_picture"
-            app:srcCompat="@drawable/ic_nahoft_icons_verify"
-            android:contentDescription="@string/status_icon" />
+            android:contentDescription="@string/status_icon"
+            app:layout_constraintBottom_toBottomOf="@id/profile_picture"
+            app:layout_constraintEnd_toEndOf="@id/profile_picture"
+            app:srcCompat="@drawable/ic_nahoft_icons_verify" />
 
-        <ImageButton
-            android:id="@+id/btn_import_text"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:layout_marginEnd="@dimen/activity_horizontal_margin"
-            android:background="@drawable/btn_bkgd_toolbar"
-            android:contentDescription="@string/import_text"
-            android:padding="8dp"
-            android:src="@drawable/ic_nahoft_icons_import_text"
-            app:layout_constraintBottom_toBottomOf="@+id/tv_friend_name"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintTop_toTopOf="@+id/tv_friend_name" />
-
-        <!-- Receive via radio button -->
-        <ImageButton
-            android:id="@+id/btn_receive_radio"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:layout_marginEnd="10dp"
-            android:background="@drawable/btn_bkgd_toolbar"
-            android:contentDescription="@string/receive_via_radio"
-            android:padding="8dp"
-            android:src="@drawable/ic_nahoft_radio_transmit"
-            android:visibility="gone"
-            app:layout_constraintBottom_toBottomOf="@+id/tv_friend_name"
-            app:layout_constraintEnd_toStartOf="@id/btn_import_image"
-            app:layout_constraintTop_toTopOf="@+id/tv_friend_name"
-            app:tint="@color/white" />
-
-        <ImageButton
-            android:id="@+id/btn_import_image"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:layout_marginEnd="10dp"
-            android:background="@drawable/btn_bkgd_toolbar"
-            android:contentDescription="@string/import_image_hint"
-            android:src="@drawable/ic_nahoft_icons_import_image"
-            app:layout_constraintBottom_toBottomOf="@+id/tv_friend_name"
-            app:layout_constraintEnd_toStartOf="@id/btn_import_text"
-            app:layout_constraintTop_toTopOf="@+id/tv_friend_name" />
-
-        <ImageButton
-            android:id="@+id/btn_help"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:layout_marginEnd="10dp"
-            android:background="@drawable/btn_bkgd_toolbar"
-            android:contentDescription="@string/import_image_hint"
-            android:src="@drawable/ic_nahoft_icons_question"
-            app:layout_constraintBottom_toBottomOf="@+id/tv_friend_name"
-            app:layout_constraintEnd_toStartOf="@id/btn_receive_radio"
-            app:layout_constraintTop_toTopOf="@+id/tv_friend_name" />
-
-        <ImageButton
-            android:id="@+id/btn_resend_invite"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
+        <TextView
+            android:id="@+id/tv_friend_name"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="10dp"
             android:layout_marginEnd="16dp"
-            android:background="@drawable/btn_bkgd_toolbar"
-            android:contentDescription="@string/resend_invitation"
-            android:src="@drawable/ic_nahoft_icons_share"
-            android:padding="5dp"
-            android:visibility="invisible"
-            android:scaleType="fitCenter"
-            app:layout_constraintBottom_toBottomOf="@+id/tv_friend_name"
-            app:layout_constraintEnd_toStartOf="@id/btn_import_image"
-            app:layout_constraintTop_toTopOf="@+id/tv_friend_name" />
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:text="@string/friendNameRecyclerView"
+            android:textColor="@color/white"
+            android:textSize="20sp"
+            app:layout_constraintBottom_toBottomOf="@id/profile_picture"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toEndOf="@id/profile_picture"
+            app:layout_constraintTop_toTopOf="@id/profile_picture" />
+
+        <!-- Row 2: Action buttons -->
+        <LinearLayout
+            android:id="@+id/toolbar_buttons"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:layout_marginEnd="16dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/profile_picture">
+
+            <ImageButton
+                android:id="@+id/btn_help"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_marginEnd="8dp"
+                android:background="@drawable/btn_bkgd_toolbar"
+                android:contentDescription="@string/import_image_hint"
+                android:src="@drawable/ic_nahoft_icons_question" />
+
+            <ImageButton
+                android:id="@+id/btn_receive_radio"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_marginEnd="8dp"
+                android:background="@drawable/btn_bkgd_toolbar"
+                android:contentDescription="@string/receive_via_radio"
+                android:padding="8dp"
+                android:src="@drawable/ic_nahoft_radio_transmit"
+                android:visibility="gone"
+                app:tint="@color/white" />
+
+            <ImageButton
+                android:id="@+id/btn_resend_invite"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_marginEnd="8dp"
+                android:background="@drawable/btn_bkgd_toolbar"
+                android:contentDescription="@string/resend_invitation"
+                android:src="@drawable/ic_nahoft_icons_share"
+                android:padding="5dp"
+                android:visibility="invisible"
+                android:scaleType="fitCenter" />
+
+            <ImageButton
+                android:id="@+id/btn_import_image"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_marginEnd="8dp"
+                android:background="@drawable/btn_bkgd_toolbar"
+                android:contentDescription="@string/import_image_hint"
+                android:src="@drawable/ic_nahoft_icons_import_image" />
+
+            <ImageButton
+                android:id="@+id/btn_import_text"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="@drawable/btn_bkgd_toolbar"
+                android:contentDescription="@string/import_text"
+                android:padding="8dp"
+                android:src="@drawable/ic_nahoft_icons_import_text" />
+
+        </LinearLayout>
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 
