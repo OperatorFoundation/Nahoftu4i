@@ -121,18 +121,21 @@ class FriendInfoActivity: AppCompatActivity()
     }
 
     // Image picker for saving encoded image locally
+    @OptIn(ExperimentalUnsignedTypes::class)
     private val pickImageForSavingLauncher: ActivityResultLauncher<PickVisualMediaRequest> =
         registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
             uri?.let { handlePickedImageForEncoding(it, saveImage = true) }
         }
 
     // Image picker for sharing encoded image
+    @OptIn(ExperimentalUnsignedTypes::class)
     private val pickImageForSharingLauncher: ActivityResultLauncher<PickVisualMediaRequest> =
         registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
             uri?.let { handlePickedImageForEncoding(it, saveImage = false) }
         }
 
     // Image picker for importing/decoding
+    @OptIn(ExperimentalUnsignedTypes::class)
     private val pickImageForImportLauncher: ActivityResultLauncher<PickVisualMediaRequest> =
         registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
             uri?.let { decodeImage(it) }
@@ -211,7 +214,7 @@ class FriendInfoActivity: AppCompatActivity()
         // Observe USB audio connection for receive button visibility
         coroutineScope.launch {
             viewModel.canReceiveRadio.collect { canReceive ->
-                binding.receiveRadioContainer.visibility = if (canReceive) View.VISIBLE else View.GONE
+                binding.btnReceiveRadio.visibility = if (canReceive) View.VISIBLE else View.GONE
             }
         }
 
@@ -225,7 +228,7 @@ class FriendInfoActivity: AppCompatActivity()
         // Observe receive session state for indicator
         coroutineScope.launch {
             viewModel.receiveSessionState.collect { state ->
-                updateReceiveSessionIndicator(state)
+                updateReceiveButtonState(state)
             }
         }
 
@@ -250,35 +253,29 @@ class FriendInfoActivity: AppCompatActivity()
         val shouldShow = viewModel.usbAudioConnection.value != null &&
                 (thisFriend.status == FriendStatus.Verified || thisFriend.status == FriendStatus.Approved)
 
-        binding.receiveRadioContainer.visibility = if (shouldShow) View.VISIBLE else View.GONE
+        binding.btnReceiveRadio.visibility = if (shouldShow) View.VISIBLE else View.GONE
     }
 
     /**
-     * Updates the receive session indicator based on session state.
-     * Shows a pulsing badge when a session is active.
+     * Updates the receive button appearance based on session state.
+     * Animates the button icon when a session is active.
      */
-    private fun updateReceiveSessionIndicator(state: ReceiveSessionState)
+    private fun updateReceiveButtonState(state: ReceiveSessionState)
     {
         when (state) {
             is ReceiveSessionState.Running,
             is ReceiveSessionState.WaitingForWindow -> {
-                // Show indicator with pulse animation
-                binding.receiveSessionIndicator.visibility = View.VISIBLE
-                startIndicatorPulseAnimation()
-
-                // Tint the button to indicate active state
+                // Tint green and start pulse animation
                 binding.btnReceiveRadio.drawable?.setTint(
                     ContextCompat.getColor(this, R.color.caribbeanGreen)
                 )
+                startButtonPulseAnimation()
             }
 
             is ReceiveSessionState.Idle,
             is ReceiveSessionState.Stopped -> {
-                // Hide indicator and stop animation
-                stopIndicatorAnimation()
-                binding.receiveSessionIndicator.visibility = View.GONE
-
-                // Reset button tint
+                // Reset to white and stop animation
+                stopButtonAnimation()
                 binding.btnReceiveRadio.drawable?.setTint(
                     ContextCompat.getColor(this, R.color.white)
                 )
@@ -287,17 +284,17 @@ class FriendInfoActivity: AppCompatActivity()
     }
 
     /**
-     * Starts a pulse animation on the session indicator.
+     * Starts a pulse animation on the receive button.
      */
-    private fun startIndicatorPulseAnimation()
+    private fun startButtonPulseAnimation()
     {
         // Cancel any existing animation
         indicatorAnimator?.cancel()
 
         indicatorAnimator = ObjectAnimator.ofFloat(
-            binding.receiveSessionIndicator,
+            binding.btnReceiveRadio,
             "alpha",
-            1f, 0.3f, 1f
+            1f, 0.4f, 1f
         ).apply {
             duration = 1500
             repeatCount = ValueAnimator.INFINITE
@@ -308,13 +305,13 @@ class FriendInfoActivity: AppCompatActivity()
     }
 
     /**
-     * Stops the indicator animation.
+     * Stops the button animation and resets alpha.
      */
-    private fun stopIndicatorAnimation()
+    private fun stopButtonAnimation()
     {
         indicatorAnimator?.cancel()
         indicatorAnimator = null
-        binding.receiveSessionIndicator.alpha = 1f
+        binding.btnReceiveRadio.alpha = 1f
     }
 
     /**
@@ -326,10 +323,8 @@ class FriendInfoActivity: AppCompatActivity()
     {
         // Check if sheet is already showing
         val existingSheet = supportFragmentManager.findFragmentByTag("ReceiveRadioBottomSheet")
-        if (existingSheet != null)
-        {
-            return // Already showing
-        }
+
+        if (existingSheet != null) return // Already showing
 
         // If no active session, validate prerequisites before starting
         if (!viewModel.isSessionActive())
@@ -841,7 +836,7 @@ class FriendInfoActivity: AppCompatActivity()
                 ft.commit()
                 binding.btnImportImage.isVisible = true
                 binding.btnImportText.isVisible = true
-                binding.receiveRadioContainer.isVisible = viewModel.usbAudioConnection.value != null
+                binding.btnReceiveRadio.isVisible = viewModel.usbAudioConnection.value != null
                 binding.btnResendInvite.isVisible = false
                 binding.sendMessageContainer.isVisible = true
                 binding.verifiedStatusIconImageView.isVisible = true
@@ -853,7 +848,7 @@ class FriendInfoActivity: AppCompatActivity()
                 ft.commit()
                 binding.btnImportImage.isVisible = true
                 binding.btnImportText.isVisible = true
-                binding.receiveRadioContainer.isVisible = viewModel.usbAudioConnection.value != null
+                binding.btnReceiveRadio.isVisible = viewModel.usbAudioConnection.value != null
                 binding.btnResendInvite.isVisible = false
                 binding.sendMessageContainer.isVisible = true
             }
@@ -1523,7 +1518,7 @@ class FriendInfoActivity: AppCompatActivity()
     {
         super.onDestroy()
 
-        stopIndicatorAnimation()
+        stopButtonAnimation()
 
         try
         {
