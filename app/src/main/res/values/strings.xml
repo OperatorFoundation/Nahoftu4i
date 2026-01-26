@@ -634,6 +634,7 @@ After pressing this (+) sign, you must first enter your friend\'s name. You can 
     <string name="next_decode_window">Next decode window</string>
     <string name="stop_session">Stop Session</string>
     <string name="session_stopped">Session stopped</string>
+    <string name="receiving_indicator">Receiving message</string>
 
     <!-- WSPR Spots Dialog -->
     <string name="wspr_spots_title">WSPR Activity</string>

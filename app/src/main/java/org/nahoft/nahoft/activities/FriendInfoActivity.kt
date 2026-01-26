@@ -12,6 +12,7 @@ import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.hardware.usb.UsbManager
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.os.Parcelable
 import android.text.Layout
@@ -58,12 +59,12 @@ import org.nahoft.nahoft.models.Friend
 import org.nahoft.nahoft.models.FriendStatus
 import org.nahoft.nahoft.models.Message
 import org.nahoft.nahoft.models.slideNameChat
+import org.nahoft.nahoft.services.ReceiveSessionState
 import org.nahoft.nahoft.viewmodels.FriendInfoViewModel
 import org.operatorfoundation.audiocoder.WSPREncoder
 import org.operatorfoundation.codex.symbols.WSPRMessageSequence
 import org.operatorfoundation.ion.storage.NounType
 import org.operatorfoundation.ion.storage.Word
-import org.nahoft.nahoft.viewmodels.ReceiveSessionState
 
 import timber.log.Timber
 import java.math.BigInteger
@@ -117,6 +118,20 @@ class FriendInfoActivity: AppCompatActivity()
         {
             Timber.w("RECORD_AUDIO permission denied")
             Toast.makeText(this, "Microphone permission is required for USB audio", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private val notificationPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+
+        if (isGranted)
+        {
+            Timber.d("POST_NOTIFICATIONS permission granted")
+        }
+        else
+        {
+            Timber.w("POST_NOTIFICATIONS permission denied - notifications won't show")
         }
     }
 
@@ -191,12 +206,38 @@ class FriendInfoActivity: AppCompatActivity()
             audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
         }
         else { viewModel.startAudioDeviceDiscovery() }
+
+        // Request notification permission for Android 13+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
+        {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+                != PackageManager.PERMISSION_GRANTED)
+            {
+                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
     }
 
     override fun onResume() {
         super.onResume()
 
         setupViewByStatus()
+    }
+
+    override fun onStart()
+    {
+        super.onStart()
+
+        // Bind to service if it's running (restores UI state)
+        viewModel.bindToServiceIfRunning()
+    }
+
+    override fun onStop()
+    {
+        super.onStop()
+
+        // Unbind from service (service continues running)
+        viewModel.unbindFromService()
     }
 
     /**
@@ -235,7 +276,7 @@ class FriendInfoActivity: AppCompatActivity()
         // Observe received messages and save them
         coroutineScope.launch {
             viewModel.lastReceivedMessage.collect { encryptedBytes ->
-                saveMessage(encryptedBytes, thisFriend, false)
+                // Message already saved by service, just refresh UI
                 setupViewByStatus()
             }
         }
@@ -310,37 +351,49 @@ class FriendInfoActivity: AppCompatActivity()
         binding.btnReceiveRadio.alpha = 1f
     }
 
-    /**
-     * Handles the receive via radio button click.
-     * Opens the ReceiveRadioBottomSheetFragment.
-     * If a session is already active, reopens the sheet.
-     */
     private fun receiveViaRadioClicked()
     {
         // Check if sheet is already showing
         val existingSheet = supportFragmentManager.findFragmentByTag("ReceiveRadioBottomSheet")
+        if (existingSheet != null) return
 
-        if (existingSheet != null) return // Already showing
-
-        // If no active session, validate prerequisites before starting
+        // If no active session, validate prerequisites
         if (!viewModel.isSessionActive())
         {
             val connection = viewModel.usbAudioConnection.value
-            if (connection == null) {
+            if (connection == null)
+            {
                 showAlert(getString(R.string.usb_audio_not_connected))
                 return
             }
 
-            if (thisFriend.publicKeyEncoded == null) {
+            if (thisFriend.publicKeyEncoded == null)
+            {
                 showAlert(getString(R.string.alert_text_verified_friends_only))
                 return
             }
+
+            // Check notification permission before starting (Android 13+)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
+            {
+                if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+                    != PackageManager.PERMISSION_GRANTED)
+                {
+                    notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    Toast.makeText(
+                        this,
+                        "Enable notifications to see session progress",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
         }
 
-        // Show the bottom sheet - it will start or resume session via ViewModel
+        // Show the bottom sheet
         val bottomSheet = ReceiveRadioBottomSheetFragment()
         bottomSheet.show(supportFragmentManager, "ReceiveRadioBottomSheet")
     }
+
 
     /**
      * Handles serial connection state changes and updates UI accordingly.
@@ -1497,6 +1550,8 @@ class FriendInfoActivity: AppCompatActivity()
         }
     }
 
+    // Remove session stopping (service manages its own lifecycle):
+
     override fun onDestroy()
     {
         super.onDestroy()
@@ -1513,5 +1568,8 @@ class FriendInfoActivity: AppCompatActivity()
         }
 
         parentJob.cancel()
+
+        // Note: Do NOT call viewModel.stopReceiveSession() here
+        // The service should continue running when activity is destroyed
     }
 }

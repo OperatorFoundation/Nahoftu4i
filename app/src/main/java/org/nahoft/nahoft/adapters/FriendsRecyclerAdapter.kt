@@ -10,6 +10,7 @@ class FriendsRecyclerAdapter(private val friends: ArrayList<Friend>) : RecyclerV
 {
     var onItemClick: ((Friend) -> Unit)? = null
     var onItemLongClick: ((Friend) -> Unit)? = null
+    var receivingFriendName: String? = null
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): FriendViewHolder
     {
@@ -25,14 +26,6 @@ class FriendsRecyclerAdapter(private val friends: ArrayList<Friend>) : RecyclerV
     {
         val itemFriend = friends[position]
         holder.bindFriend(itemFriend)
-//
-//        holder.itemView.setOnClickListener {
-//            onItemClick?.invoke(itemFriend)
-//        }
-//        holder.itemView.setOnLongClickListener {
-//            onItemLongClick?.invoke(itemFriend)
-//            return@setOnLongClickListener true
-//        }
     }
 
     override fun getItemCount() = friends.size
@@ -40,6 +33,22 @@ class FriendsRecyclerAdapter(private val friends: ArrayList<Friend>) : RecyclerV
     fun cleanup()
     {
         friends.clear()
+    }
+
+    fun setReceivingFriend(name: String?)
+    {
+        val oldName = receivingFriendName
+        receivingFriendName = name
+
+        // Refresh affected items
+        oldName?.let { notifyFriendChanged(it) }
+        name?.let { notifyFriendChanged(it) }
+    }
+
+    private fun notifyFriendChanged(name: String)
+    {
+        val index = friends.indexOfFirst { it.name == name }
+        if (index >= 0) notifyItemChanged(index)
     }
 
     inner class FriendViewHolder(private val binding: FriendRecyclerviewItemRowBinding) : RecyclerView.ViewHolder(binding.root)
@@ -70,6 +79,24 @@ class FriendsRecyclerAdapter(private val friends: ArrayList<Friend>) : RecyclerV
             binding.statusTextView.text = newFriend.getStatusString(binding.root.context)
             binding.friendIconView.setImageResource(newFriend.status.getIcon())
             binding.friendPicture.text = newFriend.name.substring(0, 1)
+
+            // Receiving indicator
+            val isReceiving = newFriend.name == receivingFriendName
+            binding.receivingIndicator.visibility = if (isReceiving) View.VISIBLE else View.GONE
+
+            if (isReceiving)
+            {
+                binding.receivingIndicator.startAnimation(
+                    android.view.animation.AnimationUtils.loadAnimation(
+                        binding.root.context,
+                        R.anim.pulse
+                    )
+                )
+            }
+            else
+            {
+                binding.receivingIndicator.clearAnimation()
+            }
         }
     }
 }

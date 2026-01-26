@@ -17,10 +17,10 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import org.libsodium.jni.keys.PublicKey
 import org.nahoft.codex.Encryption
+import org.nahoft.nahoft.Persist
 import org.nahoft.nahoft.R
 import org.nahoft.nahoft.activities.FriendInfoActivity
 import org.nahoft.nahoft.models.*
-import org.nahoft.nahoft.Persist
 import org.operatorfoundation.audiocoder.WSPRStation
 import org.operatorfoundation.audiocoder.WSPRTimingCoordinator
 import org.operatorfoundation.audiocoder.models.WSPRCycleInformation
@@ -32,7 +32,6 @@ import org.operatorfoundation.signalbridge.SignalBridgeWSPRAudioSource
 import org.operatorfoundation.signalbridge.UsbAudioConnection
 import org.operatorfoundation.signalbridge.UsbAudioManager
 import org.operatorfoundation.signalbridge.models.AudioBufferConfiguration
-import org.operatorfoundation.signalbridge.models.ConnectionStatus
 import timber.log.Timber
 import java.math.BigInteger
 
@@ -50,7 +49,6 @@ import java.math.BigInteger
  */
 class ReceiveSessionService : Service()
 {
-
     companion object
     {
         // Intent actions
@@ -58,7 +56,6 @@ class ReceiveSessionService : Service()
         const val ACTION_STOP_SESSION = "org.nahoft.nahoft.action.STOP_SESSION"
 
         // Intent extras
-        const val EXTRA_FRIEND_ID = "friend_id"
         const val EXTRA_FRIEND_NAME = "friend_name"
         const val EXTRA_FRIEND_PUBLIC_KEY = "friend_public_key"
 
@@ -75,14 +72,12 @@ class ReceiveSessionService : Service()
          */
         fun createStartIntent(
             context: Context,
-            friendId: String,
             friendName: String,
             friendPublicKey: ByteArray
         ): Intent
         {
             return Intent(context, ReceiveSessionService::class.java).apply {
                 action = ACTION_START_SESSION
-                putExtra(EXTRA_FRIEND_ID, friendId)
                 putExtra(EXTRA_FRIEND_NAME, friendName)
                 putExtra(EXTRA_FRIEND_PUBLIC_KEY, friendPublicKey)
             }
@@ -131,12 +126,9 @@ class ReceiveSessionService : Service()
     private val _lastReceivedMessage = MutableSharedFlow<ByteArray>(replay = 0)
     val lastReceivedMessage: SharedFlow<ByteArray> = _lastReceivedMessage.asSharedFlow()
 
-    // Current friend info (for UI display)
+    // Current friend info (for UI display and HomeActivity indicator)
     private val _currentFriendName = MutableStateFlow<String?>(null)
     val currentFriendName: StateFlow<String?> = _currentFriendName.asStateFlow()
-
-    private val _currentFriendId = MutableStateFlow<String?>(null)
-    val currentFriendId: StateFlow<String?> = _currentFriendId.asStateFlow()
 
     // ==================== Internal State ====================
 
@@ -152,7 +144,6 @@ class ReceiveSessionService : Service()
     private var usbAudioConnection: UsbAudioConnection? = null
 
     // Friend context for decryption
-    private var friendId: String? = null
     private var friendName: String? = null
     private var friendPublicKey: ByteArray? = null
 
@@ -193,23 +184,28 @@ class ReceiveSessionService : Service()
     {
         Timber.d("onStartCommand: action=${intent?.action}")
 
-        when (intent?.action) {
+        when (intent?.action)
+        {
             ACTION_START_SESSION -> {
-                val id = intent.getStringExtra(EXTRA_FRIEND_ID)
                 val name = intent.getStringExtra(EXTRA_FRIEND_NAME)
                 val key = intent.getByteArrayExtra(EXTRA_FRIEND_PUBLIC_KEY)
 
-                if (id != null && name != null && key != null) {
-                    startSession(id, name, key)
-                } else {
+                if (name != null && key != null)
+                {
+                    startSession(name, key)
+                }
+                else
+                {
                     Timber.e("Missing required extras for START_SESSION")
                     stopSelf()
                 }
             }
+
             ACTION_STOP_SESSION -> {
                 stopSession()
                 stopSelf()
             }
+
             else -> {
                 Timber.w("Unknown action: ${intent?.action}")
             }
@@ -249,19 +245,19 @@ class ReceiveSessionService : Service()
 
     // ==================== Session Management ====================
 
-    private fun startSession(id: String, name: String, key: ByteArray)
+    private fun startSession(name: String, key: ByteArray)
     {
         // Check if session already active
         if (isSessionActive())
         {
-            if (friendId == id)
+            if (friendName == name)
             {
                 Timber.d("Session already active for this friend")
                 return
             }
             else
             {
-                Timber.w("Session active for different friend (${friendName}), ignoring")
+                Timber.w("Session active for different friend ($friendName), ignoring")
                 return
             }
         }
@@ -269,10 +265,8 @@ class ReceiveSessionService : Service()
         Timber.d("Starting receive session for friend: $name")
 
         // Store friend context
-        friendId = id
         friendName = name
         friendPublicKey = key
-        _currentFriendId.value = id
         _currentFriendName.value = name
 
         // Reset session state
@@ -330,7 +324,8 @@ class ReceiveSessionService : Service()
         Timber.d("Stopping receive session")
 
         // Mark any pending spots as incomplete
-        if (receivedMessages.isNotEmpty()) {
+        if (receivedMessages.isNotEmpty())
+        {
             markCurrentGroupAsFailed(FailureReason.INCOMPLETE)
         }
 
@@ -360,10 +355,8 @@ class ReceiveSessionService : Service()
 
         // Reset state
         _receiveSessionState.value = ReceiveSessionState.Stopped
-        friendId = null
         friendName = null
         friendPublicKey = null
-        _currentFriendId.value = null
         _currentFriendName.value = null
     }
 
@@ -442,7 +435,8 @@ class ReceiveSessionService : Service()
     private fun waitForNextWindowAndStart(connection: UsbAudioConnection)
     {
         waitForWindowJob = serviceScope.launch {
-            while (isActive && _receiveSessionState.value == ReceiveSessionState.WaitingForWindow) {
+            while (isActive && _receiveSessionState.value == ReceiveSessionState.WaitingForWindow)
+            {
                 val windowInfo = timingCoordinator.getTimeUntilNextDecodeWindow()
 
                 if (windowInfo.secondsUntilWindow <= 0)
@@ -487,7 +481,6 @@ class ReceiveSessionService : Service()
                 launch { observeCycleInformation() }
                 launch { observeDecodeResults() }
                 launch { observeAudioLevels(connection) }
-
             }
             catch (e: Exception)
             {
@@ -515,7 +508,8 @@ class ReceiveSessionService : Service()
     private suspend fun observeDecodeResults()
     {
         wsprStation?.decodeResults?.collect { results ->
-            if (results.isNotEmpty()) {
+            if (results.isNotEmpty())
+            {
                 processDecodeResults(results)
                 updateNotification()
             }
@@ -574,7 +568,6 @@ class ReceiveSessionService : Service()
                         )
                     )
                     currentSpots.add(0, spot)
-
                 }
                 catch (e: Exception)
                 {
@@ -612,7 +605,10 @@ class ReceiveSessionService : Service()
         _receivedSpots.value = currentSpots
 
         // Attempt decryption if we have at least 2 Nahoft messages
-        if (receivedMessages.size >= 2) attemptDecryption()
+        if (receivedMessages.size >= 2)
+        {
+            attemptDecryption()
+        }
     }
 
     private fun attemptDecryption()
@@ -657,7 +653,6 @@ class ReceiveSessionService : Service()
             }
 
             updateNotification()
-
         }
         catch (e: SecurityException)
         {
@@ -671,11 +666,9 @@ class ReceiveSessionService : Service()
 
     private fun saveReceivedMessage(encryptedBytes: ByteArray)
     {
-        val id = friendId ?: return
         val name = friendName ?: return
-        val key = friendPublicKey ?: return
 
-        // Reconstruct Friend object for Message
+        // Look up Friend from Persist.friendList
         val friend = Persist.friendList.find { it.name == name }
         if (friend == null)
         {
@@ -692,9 +685,12 @@ class ReceiveSessionService : Service()
     private fun bigIntegerToByteArray(value: BigInteger): ByteArray
     {
         val bytes = value.toByteArray()
-        return if (bytes.isNotEmpty() && bytes[0] == 0.toByte() && bytes.size > 1) {
+        return if (bytes.isNotEmpty() && bytes[0] == 0.toByte() && bytes.size > 1)
+        {
             bytes.copyOfRange(1, bytes.size)
-        } else {
+        }
+        else
+        {
             bytes
         }
     }
@@ -702,9 +698,11 @@ class ReceiveSessionService : Service()
     private fun markCurrentGroupAsDecrypted(totalParts: Int)
     {
         val updatedSpots = _receivedSpots.value.map { spot ->
-            when (val status = spot.nahoftStatus) {
+            when (val status = spot.nahoftStatus)
+            {
                 is NahoftSpotStatus.Pending -> {
-                    if (status.groupId == currentNahoftGroupId) {
+                    if (status.groupId == currentNahoftGroupId)
+                    {
                         spot.copy(
                             nahoftStatus = NahoftSpotStatus.Decrypted(
                                 groupId = status.groupId,
@@ -712,7 +710,8 @@ class ReceiveSessionService : Service()
                                 totalParts = totalParts
                             )
                         )
-                    } else spot
+                    }
+                    else spot
                 }
                 else -> spot
             }
@@ -725,7 +724,6 @@ class ReceiveSessionService : Service()
     private fun markCurrentGroupAsFailed(reason: FailureReason)
     {
         val updatedSpots = _receivedSpots.value.map { spot ->
-
             when (val status = spot.nahoftStatus)
             {
                 is NahoftSpotStatus.Pending -> {
@@ -795,7 +793,10 @@ class ReceiveSessionService : Service()
                 ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
             )
         }
-        else startForeground(NOTIFICATION_ID, notification)
+        else
+        {
+            startForeground(NOTIFICATION_ID, notification)
+        }
     }
 
     private fun buildNotification(): Notification
@@ -824,7 +825,8 @@ class ReceiveSessionService : Service()
         val spots = _receivedSpots.value.size
         val parts = receivedMessages.size
 
-        val statusText = when (_receiveSessionState.value) {
+        val statusText = when (_receiveSessionState.value)
+        {
             is ReceiveSessionState.Running -> "Listening for signals"
             is ReceiveSessionState.WaitingForWindow -> "Waiting for WSPR window"
             else -> "Session active"
@@ -875,7 +877,6 @@ class ReceiveSessionService : Service()
         ).apply {
             acquire(SESSION_TIMEOUT_MS + 60_000) // Timeout + buffer
         }
-
         Timber.d("Wake lock acquired")
     }
 

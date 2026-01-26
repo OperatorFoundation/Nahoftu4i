@@ -2,10 +2,13 @@ package org.nahoft.nahoft.activities
 
 import android.annotation.SuppressLint
 import android.app.KeyguardManager
+import android.content.ComponentName
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.ServiceConnection
 import android.net.Uri
 import android.os.Bundle
+import android.os.IBinder
 import android.os.Parcelable
 import android.text.*
 import android.text.style.AlignmentSpan
@@ -20,7 +23,9 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
 import androidx.core.view.setPadding
 import androidx.core.widget.doOnTextChanged
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
+import kotlinx.coroutines.launch
 import org.nahoft.nahoft.utils.registerReceiverCompat
 import org.nahoft.codex.LOGOUT_TIMER_VAL
 import org.nahoft.codex.LogoutTimerBroadcastReceiver
@@ -35,6 +40,7 @@ import org.nahoft.nahoft.models.FriendStatus
 import org.nahoft.nahoft.models.LoginStatus
 import org.nahoft.nahoft.models.slideNameAbout
 import org.nahoft.nahoft.models.slideNameAboutAndFriends
+import org.nahoft.nahoft.services.ReceiveSessionService
 import org.nahoft.nahoft.services.UpdateService
 import org.nahoft.nahoft.viewmodels.FriendViewModel
 import org.nahoft.nahoft.viewmodels.MessageViewModel
@@ -56,9 +62,32 @@ class HomeActivity : AppCompatActivity()
     private lateinit var adapter: FriendsRecyclerAdapter
     private lateinit var filteredFriendList: ArrayList<Friend>
     private var hasShareData: Boolean = false
-//    private var isAddButtonShow: Boolean = false
+    private var receivingFriendName: String? = null
 
-    override fun onBackPressed() {
+    // Service binding for receiving indicator
+    private var receiveService: ReceiveSessionService? = null
+    private var serviceBound = false
+
+    private val serviceConnection = object : ServiceConnection
+    {
+        override fun onServiceConnected(name: ComponentName?, binder: IBinder?)
+        {
+            val localBinder = binder as ReceiveSessionService.LocalBinder
+            receiveService = localBinder.getService()
+            serviceBound = true
+            observeReceivingFriend()
+        }
+
+        override fun onServiceDisconnected(name: ComponentName?)
+        {
+            receiveService = null
+            serviceBound = false
+            adapter.setReceivingFriend(null)
+        }
+    }
+
+    override fun onBackPressed()
+    {
         finishAffinity()
     }
 
@@ -77,16 +106,15 @@ class HomeActivity : AppCompatActivity()
             addAction(LOGOUT_TIMER_VAL)
         }, exported = false)
 
-        // Prepare persisted data
-        Persist.app = Nahoft()
-        Persist.loadEncryptedSharedPreferences(this.applicationContext)
-
         if (Persist.accessIsAllowed())
         {
             // Logout Button
-            if (status == LoginStatus.NotRequired) {
+            if (status == LoginStatus.NotRequired)
+            {
                 binding.logoutButton.visibility = View.GONE
-            } else {
+            }
+            else
+            {
                 binding.logoutButton.visibility = View.VISIBLE
                 startService(Intent(this, UpdateService::class.java))
             }
@@ -98,18 +126,12 @@ class HomeActivity : AppCompatActivity()
             receiveSharedMessages()
             setupHelpText()
 
-            if (!Persist.loadBooleanKey(Persist.sharedPrefAlreadySeeTutorialKey)) {
+            if (!Persist.loadBooleanKey(Persist.sharedPrefAlreadySeeTutorialKey))
+            {
                 val slideActivity = Intent(applicationContext, SlideActivity::class.java)
                 startActivity(slideActivity)
-//                showRequestSmsAccessDialog()
                 Persist.saveBooleanKey(Persist.sharedPrefAlreadySeeTutorialKey, true)
             }
-
-//            if (Persist.loadBooleanKey(Persist.sharedPrefUseSmsAsDefaultKey)) {
-//                if (ActivityCompat.checkSelfPermission(this, Manifest.permission.RECEIVE_SMS) != PackageManager.PERMISSION_GRANTED) {
-//                    ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.RECEIVE_SMS, Manifest.permission.SEND_SMS), RequestCodes.requestPermissionCode)
-//                }
-//            }
 
             binding.searchFriends.doOnTextChanged { text, _, _, _ ->
                 filteredFriendList.clear()
@@ -123,7 +145,17 @@ class HomeActivity : AppCompatActivity()
         }
     }
 
-    override fun onResume() {
+    override fun onStart()
+    {
+        super.onStart()
+
+        // Bind to receive service if running (for receiving indicator)
+        val intent = Intent(this, ReceiveSessionService::class.java)
+        bindService(intent, serviceConnection, 0)
+    }
+
+    override fun onResume()
+    {
         super.onResume()
 
         if (!Persist.accessIsAllowed())
@@ -142,7 +174,34 @@ class HomeActivity : AppCompatActivity()
         }
     }
 
-    override fun onDestroy() {
+    override fun onStop()
+    {
+        super.onStop()
+
+        if (serviceBound)
+        {
+            unbindService(serviceConnection)
+            serviceBound = false
+            receiveService = null
+        }
+    }
+
+    override fun onDestroy()
+    {
+        // Ensure service is unbound
+        if (serviceBound)
+        {
+            try
+            {
+                unbindService(serviceConnection)
+            }
+            catch (e: Exception)
+            {
+                // Already unbound
+            }
+            serviceBound = false
+        }
+
         try
         {
             unregisterReceiver(receiver)
@@ -155,20 +214,33 @@ class HomeActivity : AppCompatActivity()
         super.onDestroy()
     }
 
-    override fun onRestart() {
+    override fun onRestart()
+    {
         super.onRestart()
         loadSavedFriends()
         updateFriendListAdapter()
     }
 
-    private fun updateFriendListAdapter() {
+    private fun observeReceivingFriend()
+    {
+        lifecycleScope.launch {
+            receiveService?.currentFriendName?.collect { name ->
+                receivingFriendName = name
+                adapter.setReceivingFriend(name)
+            }
+        }
+    }
+
+    private fun updateFriendListAdapter()
+    {
         filteredFriendList.clear()
         filteredFriendList.addAll(Persist.friendList.filter { f -> f.name.contains(binding.searchFriends.text, true) } as ArrayList<Friend>)
         adapter.notifyDataSetChanged()
         setupHelpText()
     }
 
-    private fun showFriendsList() {
+    private fun showFriendsList()
+    {
         linearLayoutManager = LinearLayoutManager(this)
         filteredFriendList = Persist.friendList.clone() as ArrayList<Friend>
         adapter = FriendsRecyclerAdapter(filteredFriendList)
@@ -184,42 +256,55 @@ class HomeActivity : AppCompatActivity()
         }
     }
 
-    private fun setupHelpText() {
+    private fun setupHelpText()
+    {
         binding.helpTextview.isVisible = Persist.friendList.isEmpty()// && !isAddButtonShow
         binding.helpImageview.isVisible = Persist.friendList.isEmpty()// && !isAddButtonShow
     }
 
-    private fun showInfoActivity(friend: Friend?) {
-        if (friend != null) {
+    private fun showInfoActivity(friend: Friend?)
+    {
+        if (friend != null)
+        {
             val friendInfoIntent = Intent(applicationContext, FriendInfoActivity::class.java)
             friendInfoIntent.putExtra(RequestCodes.friendExtraTaskDescription, friend)
 
-            if (hasShareData) {
+            if (hasShareData)
+            {
                 // We received a shared message but the user is not logged in
                 // Save the intent
-                if (intent?.action == Intent.ACTION_SEND) {
-                    if (intent.type == "text/plain") {
+                if (intent?.action == Intent.ACTION_SEND)
+                {
+                    if (intent.type == "text/plain")
+                    {
                         val messageString = intent.getStringExtra(Intent.EXTRA_TEXT)
                         friendInfoIntent.putExtra(Intent.EXTRA_TEXT, messageString)
-                    } else if (intent.type?.startsWith("image/") == true) {
+                    }
+                    else if (intent.type?.startsWith("image/") == true)
+                    {
                         val extraStream = intent.getParcelableExtra<Parcelable>(Intent.EXTRA_STREAM)
-                        if (extraStream != null) {
-                            try {
+                        if (extraStream != null)
+                        {
+                            try
+                            {
                                 val extraUri = extraStream as? Uri
 
-                                if (extraUri != null) {
+                                if (extraUri != null)
+                                {
                                     friendInfoIntent.putExtra(Intent.EXTRA_STREAM, extraUri)
                                 }
-                            } catch (e: Exception) {
+                            }
+                            catch (e: Exception)
+                            {
                                 showAlert(getString(R.string.alert_text_unable_to_process_request))
                             }
-                        } else {
-                            println("Extra Stream is Null")
                         }
-                    } else {
-                        showAlert(getString(R.string.alert_text_unable_to_process_request))
+                        else println("Extra Stream is Null")
                     }
-                } else {
+                    else showAlert(getString(R.string.alert_text_unable_to_process_request))
+                }
+                else
+                {
                     val extraString = intent.getStringExtra(Intent.EXTRA_TEXT)
                     val extraStream = intent.getParcelableExtra<Parcelable>(Intent.EXTRA_STREAM)
 
@@ -252,7 +337,8 @@ class HomeActivity : AppCompatActivity()
         }
     }
 
-    private fun sendToLogin() {
+    private fun sendToLogin()
+    {
         // If the status is not either NotRequired, or Logged in, request login
         this.showAlert(getString(R.string.alert_text_passcode_required_to_proceed))
 
@@ -298,7 +384,8 @@ class HomeActivity : AppCompatActivity()
         finish()
     }
 
-    private fun loadSavedFriends() {
+    private fun loadSavedFriends()
+    {
         // Load our existing friends list from our encrypted file
         if (Persist.friendsFile.exists())
         {
@@ -315,12 +402,14 @@ class HomeActivity : AppCompatActivity()
         }
     }
 
-    private fun setupFriends() {
+    private fun setupFriends()
+    {
         Persist.friendsFile = File(filesDir.absolutePath + File.separator + friendsFilename )
         loadSavedFriends()
     }
 
-    private fun loadSavedMessages() {
+    private fun loadSavedMessages()
+    {
         Persist.messagesFile = File(filesDir.absolutePath + File.separator + messagesFilename )
 
         // Load messages from file
@@ -334,7 +423,8 @@ class HomeActivity : AppCompatActivity()
         }
     }
 
-    private fun logoutButtonClicked() {
+    private fun logoutButtonClicked()
+    {
         status = LoginStatus.LoggedOut
         Persist.saveLoginStatus()
 
@@ -347,29 +437,15 @@ class HomeActivity : AppCompatActivity()
         finish()
     }
 
-    private fun setupOnClicks() {
+    private fun setupOnClicks()
+    {
         binding.logoutButton.setOnClickListener {
             logoutButtonClicked()
         }
 
         binding.addFriendButton.setOnClickListener {
             showAddFriendDialog()
-//            showHideAddButtons()
         }
-
-//        add_friend_manually_button.setOnClickListener {
-//            showAddFriendDialog()
-//            add_friend_button.isFocusable = true
-//            add_friend_button.isFocusableInTouchMode = true
-//            add_friend_button.requestFocus()
-//            showHideAddButtons()
-//        }
-
-//        add_friend_contact_button.setOnClickListener {
-//            val contactActivity = Intent(this, ContactListActivity::class.java)
-//            startActivity(contactActivity)
-//            showHideAddButtons()
-//        }
 
         binding.userGuideButton.setOnClickListener {
             val slideActivity = Intent(this, SlideActivity::class.java)
@@ -389,31 +465,8 @@ class HomeActivity : AppCompatActivity()
         }
     }
 
-//    private fun showHideAddButtons() {
-//        add_friend_manually_button.animate().apply {
-//            duration = 500
-//            translationY(if (isAddButtonShow) 0F else -150F)
-//        }
-//        add_friend_manually_button_help.animate().apply {
-//            duration = 500
-//            translationY(if (isAddButtonShow) 0F else -150F)
-//        }
-//        add_friend_manually_button_help.isVisible = !isAddButtonShow
-//
-//        add_friend_contact_button.animate().apply {
-//            duration = 500
-//            translationY(if (isAddButtonShow) 0F else -275F)
-//        }
-//        add_friend_contact_button_help.animate().apply {
-//            duration = 500
-//            translationY(if (isAddButtonShow) 0F else -275F)
-//        }
-//        add_friend_contact_button_help.isVisible = !isAddButtonShow
-//        isAddButtonShow = !isAddButtonShow
-//        setupHelpText()
-//    }
-
-    private fun showAddFriendDialog() {
+    private fun showAddFriendDialog()
+    {
         val builder: AlertDialog.Builder = AlertDialog.Builder(ContextThemeWrapper(this, R.style.AppTheme_AddFriendAlertDialog))
         val title = SpannableString(getString(R.string.add_new_friend))
 
@@ -441,25 +494,7 @@ class HomeActivity : AppCompatActivity()
         inputEditText.setPadding(25)
         inputEditText.setTextColor(ContextCompat.getColor(this, R.color.royalBlueDark))
         alertDialogContent.addView(inputEditText)
-
-        // Set the phone - EditText
-//        val phoneEditText = EditText(this)
-//        phoneEditText.setBackgroundResource(R.drawable.btn_bkgd_light_grey_outline_8)
-//        phoneEditText.inputType = InputType.TYPE_CLASS_PHONE
-//        phoneEditText.textAlignment = View.TEXT_ALIGNMENT_CENTER
-//        phoneEditText.isSingleLine = true
-//        phoneEditText.hint = getString(R.string.phone_number_optional)
-//        phoneEditText.setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_nahoft_icons_phone, 0, 0, 0)
-//        phoneEditText.compoundDrawablePadding = 10
-//        phoneEditText.setPadding(25)
-//        phoneEditText.setTextColor(ContextCompat.getColor(this, R.color.royalBlueDark))
-//        alertDialogContent.addView(phoneEditText)
-
         builder.setView(alertDialogContent)
-
-//        val param = phoneEditText.layoutParams as ViewGroup.MarginLayoutParams
-//        param.setMargins(0,20,0,0)
-//        phoneEditText.layoutParams = param
 
         // Set the Add and Cancel Buttons
         builder.setPositiveButton(resources.getString(R.string.add_button))
@@ -468,7 +503,6 @@ class HomeActivity : AppCompatActivity()
             if (inputEditText.text.isNotEmpty())
             {
                 val friendName = inputEditText.text.toString()
-//                val phoneNumber = phoneEditText.text.toString()
                 val newFriend = saveFriend(friendName)//, phoneNumber)
                 if (newFriend != null) {
                     val friendInfoActivityIntent = Intent(this, FriendInfoActivity::class.java)
@@ -486,102 +520,6 @@ class HomeActivity : AppCompatActivity()
             .show()
     }
 
-//    private fun showRequestSmsAccessDialog() {
-//        val builder: AlertDialog.Builder = AlertDialog.Builder(ContextThemeWrapper(this, R.style.AppTheme_AddFriendAlertDialog))
-//        val title = SpannableString(getString(R.string.add_new_friend))
-//
-//        // alert dialog title align center
-//        title.setSpan(
-//            AlignmentSpan.Standard(Layout.Alignment.ALIGN_CENTER),
-//            0,
-//            title.length,
-//            0
-//        )
-//        builder.setTitle(title)
-//
-//        val alertDialogContent = LinearLayout(this)
-//        alertDialogContent.orientation = LinearLayout.VERTICAL
-//
-//        // Set the input - EditText
-//        val textView = TextView(this)
-//        textView.setBackgroundResource(R.drawable.btn_bkgd_light_grey_outline_8)
-//        textView.textAlignment = View.TEXT_ALIGNMENT_CENTER
-//        textView.text = getString(R.string.sms_permission_first)
-//        textView.compoundDrawablePadding = 10
-//        textView.setPadding(25)
-//        textView.setTextColor(ContextCompat.getColor(this, R.color.royalBlueDark))
-//        alertDialogContent.addView(textView)
-//
-//        builder.setView(alertDialogContent)
-//
-//        // Set the Add and Cancel Buttons
-//        builder.setPositiveButton(resources.getString(R.string.accept))
-//        { _, _->
-//            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.RECEIVE_SMS) != PackageManager.PERMISSION_GRANTED) {
-//                ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.RECEIVE_SMS, Manifest.permission.SEND_SMS), RequestCodes.requestSMSPermissionCode)
-//            }
-//        }
-//
-//        builder.setNeutralButton(resources.getString(R.string.decline_button))
-//        { dialog, _->
-//            showSecondRequestSmsAccessDialog()
-//            dialog.cancel()
-//        }
-//            .create()
-//            .show()
-//    }
-
-//    private fun showSecondRequestSmsAccessDialog() {
-//        val builder: AlertDialog.Builder = AlertDialog.Builder(ContextThemeWrapper(this, R.style.AppTheme_AddFriendAlertDialog))
-//        val title = SpannableString(getString(R.string.are_you_sure))
-//
-//        // alert dialog title align center
-//        title.setSpan(
-//            AlignmentSpan.Standard(Layout.Alignment.ALIGN_CENTER),
-//            0,
-//            title.length,
-//            0
-//        )
-//        builder.setTitle(title)
-//
-//        val alertDialogContent = LinearLayout(this)
-//        alertDialogContent.orientation = LinearLayout.VERTICAL
-//
-//        // Set the input - EditText
-//        val textView = TextView(this)
-//        textView.setBackgroundResource(R.drawable.btn_bkgd_light_grey_outline_8)
-//        textView.textAlignment = View.TEXT_ALIGNMENT_CENTER
-//        textView.text = getString(R.string.sms_permission_second)
-//        textView.compoundDrawablePadding = 10
-//        textView.setPadding(25)
-//        textView.setTextColor(ContextCompat.getColor(this, R.color.royalBlueDark))
-//        alertDialogContent.addView(textView)
-//
-//        builder.setView(alertDialogContent)
-//
-//        // Set the Add and Cancel Buttons
-//        builder.setPositiveButton(resources.getString(R.string.allow))
-//        { _, _->
-//            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.RECEIVE_SMS) != PackageManager.PERMISSION_GRANTED) {
-//                ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.RECEIVE_SMS, Manifest.permission.SEND_SMS), RequestCodes.requestSMSPermissionCode)
-//            }
-//        }
-//
-//        builder.setNeutralButton(resources.getString(R.string.deny))
-//        { dialog, _->
-//            dialog.cancel()
-//        }
-//            .create()
-//            .show()
-//    }
-
-//    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
-//        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-//        if (requestCode == RequestCodes.requestSMSPermissionCode && grantResults.first() == PackageManager.PERMISSION_GRANTED) {
-//            Persist.saveBooleanKey(Persist.sharedPrefUseSmsAsDefaultKey, true)
-//        }
-//    }
-
     private fun saveFriend(friendName: String) : Friend? { //, phoneNumber: String
         val newFriend = Friend(friendName, FriendStatus.Default, null) //phoneNumber,
 
@@ -591,10 +529,6 @@ class HomeActivity : AppCompatActivity()
             showAlert(getString(R.string.alert_text_friend_already_exists))
             return null
         }
-//        else if (phoneNumber != "" && Persist.friendList.any { friend -> friend.phone == phoneNumber}) {
-//            showAlert(getString(R.string.alert_text_friend_phone_already_exists))
-//            return null
-//        }
         else
         {
             val mng = applicationContext.getSystemService(KEYGUARD_SERVICE) as KeyguardManager
@@ -612,7 +546,8 @@ class HomeActivity : AppCompatActivity()
     }
 
     @SuppressLint("StringFormatInvalid", "StringFormatMatches")
-    private fun showDeleteConfirmationDialog(friend: Friend) {
+    private fun showDeleteConfirmationDialog(friend: Friend)
+    {
         val builder: AlertDialog.Builder = AlertDialog.Builder(ContextThemeWrapper(this, R.style.AppTheme_DeleteAlertDialog))
 
         val title = SpannableString(getString(R.string.alert_text_confirm_friend_delete, friend.name))
@@ -639,14 +574,16 @@ class HomeActivity : AppCompatActivity()
         builder.show()
     }
 
-    private fun deleteFriend(friend: Friend) {
+    private fun deleteFriend(friend: Friend)
+    {
         Persist.friendList.remove(friend)
         Persist.saveFriendsToFile(this)
         updateFriendListAdapter()
     }
 
     @ExperimentalUnsignedTypes
-    private fun receiveSharedMessages() {
+    private fun receiveSharedMessages()
+    {
         // Receive shared messages
         if (intent?.action == Intent.ACTION_SEND)
         {
@@ -664,21 +601,21 @@ class HomeActivity : AppCompatActivity()
                 hasShareData = true
             }
         }
-        if (hasShareData) {
-            shareViewSetup()
-        } else {
-            normalViewSetup()
-        }
+
+        if (hasShareData) shareViewSetup()
+        else normalViewSetup()
     }
 
-    private fun shareViewSetup() {
+    private fun shareViewSetup()
+    {
         binding.settingsButton.isVisible = false
         binding.userGuideButton.isVisible = false
         binding.tvMessages.text = getString(R.string.select_sender)
         binding.tvMessages.isAllCaps = false
     }
 
-    private fun normalViewSetup() {
+    private fun normalViewSetup()
+    {
         binding.settingsButton.isVisible = true
         binding.userGuideButton.isVisible = true
         binding.tvMessages.text = getString(R.string.friends_list)
