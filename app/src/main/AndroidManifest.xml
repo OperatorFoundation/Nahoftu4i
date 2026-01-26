@@ -19,6 +19,21 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-feature android:name="android.hardware.usb.host" android:required="true" />
 
+    <!-- Foreground service -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+
+    <!-- Notifications (Android 13+) -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- Wake lock for audio capture during doze -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
+    <!-- Consider: Request battery optimization exemption for reliability -->
+    <!-- User must grant this manually in settings -->
+    <!-- <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" /> -->
+
+
     <application
         android:name=".Nahoft"
         android:allowBackup="false"
@@ -31,9 +46,15 @@
         android:theme="@style/AppTheme">
 
         <service
-            android:name=".UpdateService"
+            android:name=".services.UpdateService"
             android:enabled="true"
             android:exported="false" />
+
+        <service
+            android:name=".services.ReceiveSessionService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="microphone" />
 
         <provider
             android:name="androidx.core.content.FileProvider"
