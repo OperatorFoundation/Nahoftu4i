@@ -6,21 +6,78 @@ import androidx.lifecycle.viewModelScope
 import com.hoho.android.usbserial.driver.UsbSerialDriver
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.nahoft.nahoft.models.Friend
 import org.nahoft.nahoft.models.FriendStatus
+import org.nahoft.nahoft.models.WSPRSpotItem
+import org.nahoft.nahoft.models.NahoftSpotStatus
+import org.nahoft.nahoft.models.FailureReason
 import org.operatorfoundation.signalbridge.UsbAudioConnection
 import org.operatorfoundation.signalbridge.UsbAudioManager
 import org.operatorfoundation.signalbridge.models.ConnectionStatus
 import org.operatorfoundation.signalbridge.models.UsbAudioDevice
 import org.operatorfoundation.transmission.SerialConnection
 import org.operatorfoundation.transmission.SerialConnectionFactory
+import org.operatorfoundation.audiocoder.WSPRStation
+import org.operatorfoundation.audiocoder.WSPRTimingCoordinator
+import org.operatorfoundation.audiocoder.models.WSPRStationConfiguration
+import org.operatorfoundation.audiocoder.models.WSPRCycleInformation
+import org.operatorfoundation.audiocoder.models.WSPRDecodeResult
+import org.operatorfoundation.audiocoder.models.WSPRStationState
+import org.operatorfoundation.signalbridge.SignalBridgeWSPRAudioSource
+import org.operatorfoundation.signalbridge.models.AudioBufferConfiguration
+import org.operatorfoundation.codex.symbols.WSPRMessage
 import timber.log.Timber
 
 class FriendInfoViewModel(application: Application) : AndroidViewModel(application)
 {
+    // ==================== Receive Session State Properties ====================
+
+    private val _receiveSessionState = MutableStateFlow<ReceiveSessionState>(ReceiveSessionState.Idle)
+    val receiveSessionState: StateFlow<ReceiveSessionState> = _receiveSessionState.asStateFlow()
+
+    // WSPR station components (owned by ViewModel for session persistence)
+    private var wsprStation: WSPRStation? = null
+    private var audioSource: SignalBridgeWSPRAudioSource? = null
+    private val timingCoordinator = WSPRTimingCoordinator()
+
+    // Session data
+    private val _receivedSpots = MutableStateFlow<List<WSPRSpotItem>>(emptyList())
+    val receivedSpots: StateFlow<List<WSPRSpotItem>> = _receivedSpots.asStateFlow()
+
+    private val _receivedMessages = mutableListOf<WSPRMessage>()
+    val receivedMessageCount: Int get() = _receivedMessages.size
+
+    private var currentNahoftGroupId = 0
+    private var decryptionAttempts = 0
+    private var _messageJustReceived = MutableStateFlow(false)
+    val messageJustReceived: StateFlow<Boolean> = _messageJustReceived.asStateFlow()
+
+    // Timing
+    private var sessionStartTimeMs = 0L
+    private var sessionJob: Job? = null
+    private var waitForWindowJob: Job? = null
+
+    // Configuration
+    private val sessionTimeoutMs = 20 * 60 * 1000L  // 20 minutes, configurable
+
+    // Flows exposed from WSPRStation (relayed when station is active)
+    private val _stationState = MutableStateFlow<WSPRStationState?>(null)
+    val stationState: StateFlow<WSPRStationState?> = _stationState.asStateFlow()
+
+    private val _cycleInformation = MutableStateFlow<WSPRCycleInformation?>(null)
+    val cycleInformation: StateFlow<WSPRCycleInformation?> = _cycleInformation.asStateFlow()
+
+    private val _audioLevel = MutableStateFlow(0f)
+    val audioLevel: StateFlow<Float> = _audioLevel.asStateFlow()
+
+    // Callback for when a message is successfully decrypted
+    private var onMessageDecrypted: ((ByteArray) -> Unit)? = null
+
     // ==================== Friend State ====================
 
     private val _friend = MutableStateFlow<Friend?>(null)
@@ -240,6 +297,355 @@ class FriendInfoViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
+    // ==================== Receive Session State ====================
+
+    /**
+     * Starts a new receive session.
+     * If entered mid-cycle, waits for the next fresh window before collecting.
+     *
+     * @param onMessageReceived Callback when a message is successfully decrypted
+     */
+    fun startReceiveSession(onMessageReceived: (ByteArray) -> Unit)
+    {
+        if (_receiveSessionState.value != ReceiveSessionState.Idle &&
+            _receiveSessionState.value != ReceiveSessionState.Stopped) {
+            Timber.d("Session already active, ignoring start request")
+            return
+        }
+
+        val connection = _usbAudioConnection.value
+        if (connection == null) {
+            Timber.w("Cannot start receive session: no USB audio connection")
+            return
+        }
+
+        onMessageDecrypted = onMessageReceived
+        sessionStartTimeMs = System.currentTimeMillis()
+        _messageJustReceived.value = false
+        decryptionAttempts = 0
+
+        // Check if we're early enough in the cycle to start collecting
+        if (timingCoordinator.isEarlyEnoughToStartCollection()) {
+            startWSPRStation(connection)
+        } else {
+            _receiveSessionState.value = ReceiveSessionState.WaitingForWindow
+            waitForNextWindowAndStart(connection)
+        }
+
+        // Start timeout monitor
+        startTimeoutMonitor()
+    }
+
+    /**
+     * Waits for the next WSPR window, then starts the station.
+     */
+    private fun waitForNextWindowAndStart(connection: org.operatorfoundation.signalbridge.UsbAudioConnection)
+    {
+        waitForWindowJob = viewModelScope.launch {
+            while (isActive && _receiveSessionState.value == ReceiveSessionState.WaitingForWindow) {
+                val windowInfo = timingCoordinator.getTimeUntilNextDecodeWindow()
+
+                if (windowInfo.secondsUntilWindow <= 0) {
+                    startWSPRStation(connection)
+                    return@launch
+                }
+
+                // Update cycle info for UI
+                _cycleInformation.value = timingCoordinator.getCurrentCycleInformation()
+
+                delay(1000)
+            }
+        }
+    }
+
+    /**
+     * Creates and starts the WSPR station.
+     */
+    private fun startWSPRStation(connection: org.operatorfoundation.signalbridge.UsbAudioConnection)
+    {
+        sessionJob = viewModelScope.launch {
+            try {
+                audioSource = SignalBridgeWSPRAudioSource(
+                    usbAudioConnection = connection,
+                    bufferConfiguration = AudioBufferConfiguration.createDefault()
+                )
+
+                val config = WSPRStationConfiguration.createDefault()
+                wsprStation = WSPRStation(audioSource!!, config)
+
+                Timber.d("Starting WSPR station")
+                val startResult = wsprStation!!.startStation()
+
+                if (startResult.isFailure) {
+                    Timber.e("Failed to start WSPR station: ${startResult.exceptionOrNull()?.message}")
+                    _receiveSessionState.value = ReceiveSessionState.Stopped
+                    return@launch
+                }
+
+                _receiveSessionState.value = ReceiveSessionState.Running
+
+                // Start observing station flows
+                launch { observeStationState() }
+                launch { observeCycleInformation() }
+                launch { observeDecodeResults() }
+                launch { observeAudioLevels(connection) }
+
+            } catch (e: Exception) {
+                Timber.e(e, "Error starting WSPR station")
+                _receiveSessionState.value = ReceiveSessionState.Stopped
+            }
+        }
+    }
+
+    /**
+     * Stops the current receive session.
+     */
+    fun stopReceiveSession()
+    {
+        Timber.d("Stopping receive session")
+
+        // Mark any pending spots as incomplete
+        if (_receivedMessages.isNotEmpty()) {
+            markCurrentGroupAsFailed(FailureReason.INCOMPLETE)
+        }
+
+        waitForWindowJob?.cancel()
+        sessionJob?.cancel()
+
+        viewModelScope.launch {
+            try {
+                wsprStation?.stopStation()
+                audioSource?.cleanup()
+            } catch (e: Exception) {
+                Timber.w(e, "Error during session cleanup")
+            }
+
+            wsprStation = null
+            audioSource = null
+        }
+
+        _receiveSessionState.value = ReceiveSessionState.Stopped
+        onMessageDecrypted = null
+    }
+
+    /**
+     * Resets session to idle state
+     */
+    fun resetSession()
+    {
+        _receiveSessionState.value = ReceiveSessionState.Idle
+        _receivedSpots.value = emptyList()
+        _receivedMessages.clear()
+        _messageJustReceived.value = false
+        decryptionAttempts = 0
+        currentNahoftGroupId = 0
+        sessionStartTimeMs = 0L
+    }
+
+    /**
+     * Returns whether a receive session is currently active.
+     */
+    fun isSessionActive(): Boolean
+    {
+        return _receiveSessionState.value == ReceiveSessionState.Running ||
+                _receiveSessionState.value == ReceiveSessionState.WaitingForWindow
+    }
+
+    private fun processDecodeResults(results: List<WSPRDecodeResult>)
+    {
+        val currentSpots = _receivedSpots.value.toMutableList()
+
+        for (result in results) {
+            val isNahoftMessage = WSPRMessage.isEncodedMessage(result.callsign)
+            val timestamp = System.currentTimeMillis()
+
+            if (isNahoftMessage) {
+                try {
+                    val message = WSPRMessage.fromWSPRFields(
+                        result.callsign,
+                        result.gridSquare,
+                        result.powerLevelDbm
+                    )
+
+                    val isDuplicate = _receivedMessages.any { existing ->
+                        existing.toWSPRFields() == message.toWSPRFields()
+                    }
+
+                    if (!isDuplicate) {
+                        _receivedMessages.add(message)
+                        Timber.d("Added new WSPR message: ${message.toWSPRFields()}")
+                    }
+
+                    val partNumber = _receivedMessages.size
+
+                    val spot = WSPRSpotItem(
+                        callsign = result.callsign,
+                        gridSquare = result.gridSquare,
+                        powerDbm = result.powerLevelDbm,
+                        snrDb = result.signalToNoiseRatioDb,
+                        timestamp = timestamp,
+                        nahoftStatus = NahoftSpotStatus.Pending(
+                            groupId = currentNahoftGroupId,
+                            partNumber = partNumber
+                        )
+                    )
+                    currentSpots.add(0, spot)
+
+                } catch (e: Exception) {
+                    Timber.w(e, "Failed to parse WSPR message: ${result.callsign}")
+
+                    val spot = WSPRSpotItem(
+                        callsign = result.callsign,
+                        gridSquare = result.gridSquare,
+                        powerDbm = result.powerLevelDbm,
+                        snrDb = result.signalToNoiseRatioDb,
+                        timestamp = timestamp,
+                        nahoftStatus = NahoftSpotStatus.Failed(
+                            groupId = currentNahoftGroupId,
+                            partNumber = _receivedMessages.size + 1,
+                            reason = FailureReason.PARSE_ERROR
+                        )
+                    )
+                    currentSpots.add(0, spot)
+                }
+            } else {
+                val spot = WSPRSpotItem(
+                    callsign = result.callsign,
+                    gridSquare = result.gridSquare,
+                    powerDbm = result.powerLevelDbm,
+                    snrDb = result.signalToNoiseRatioDb,
+                    timestamp = timestamp,
+                    nahoftStatus = NahoftSpotStatus.Spotted
+                )
+                currentSpots.add(0, spot)
+            }
+        }
+
+        _receivedSpots.value = currentSpots
+
+        // Attempt decryption if we have at least 2 Nahoft messages
+        if (_receivedMessages.size >= 2) {
+            attemptDecryption()
+        }
+    }
+
+    private fun attemptDecryption()
+    {
+        val friendKeyBytes = _friend.value?.publicKeyEncoded
+
+        if (friendKeyBytes == null) {
+            Timber.w("No friend public key available for decryption")
+            return
+        }
+
+        decryptionAttempts++
+
+        try {
+            val sequence = org.operatorfoundation.codex.symbols.WSPRMessageSequence.fromMessages(_receivedMessages.toList())
+            val numericValue = sequence.decode()
+            val encryptedBytes = bigIntegerToByteArray(numericValue)
+
+            Timber.d("Attempting decryption of ${encryptedBytes.size} bytes")
+
+            val friendPublicKey = org.libsodium.jni.keys.PublicKey(friendKeyBytes)
+            val decryptedText = org.nahoft.codex.Encryption().decrypt(friendPublicKey, encryptedBytes)
+
+            Timber.i("Successfully decrypted message from ${_receivedMessages.size} WSPR messages")
+
+            _messageJustReceived.value = true
+            markCurrentGroupAsDecrypted(_receivedMessages.size)
+
+            _receivedMessages.clear()
+            decryptionAttempts = 0
+
+            onMessageDecrypted?.invoke(encryptedBytes)
+
+        } catch (e: SecurityException) {
+            Timber.d("Decryption attempt failed (may need more messages): ${e.message}")
+        } catch (e: Exception) {
+            Timber.w(e, "Error during decryption attempt")
+        }
+    }
+
+    private fun bigIntegerToByteArray(value: java.math.BigInteger): ByteArray
+    {
+        val bytes = value.toByteArray()
+        return if (bytes.isNotEmpty() && bytes[0] == 0.toByte() && bytes.size > 1) {
+            bytes.copyOfRange(1, bytes.size)
+        } else {
+            bytes
+        }
+    }
+
+    private fun markCurrentGroupAsDecrypted(totalParts: Int)
+    {
+        val updatedSpots = _receivedSpots.value.map { spot ->
+            when (val status = spot.nahoftStatus) {
+                is NahoftSpotStatus.Pending -> {
+                    if (status.groupId == currentNahoftGroupId) {
+                        spot.copy(
+                            nahoftStatus = NahoftSpotStatus.Decrypted(
+                                groupId = status.groupId,
+                                partNumber = status.partNumber,
+                                totalParts = totalParts
+                            )
+                        )
+                    } else spot
+                }
+                else -> spot
+            }
+        }
+
+        _receivedSpots.value = updatedSpots
+        currentNahoftGroupId++
+    }
+
+    private fun markCurrentGroupAsFailed(reason: FailureReason)
+    {
+        val updatedSpots = _receivedSpots.value.map { spot ->
+            when (val status = spot.nahoftStatus) {
+                is NahoftSpotStatus.Pending -> {
+                    if (status.groupId == currentNahoftGroupId) {
+                        spot.copy(
+                            nahoftStatus = NahoftSpotStatus.Failed(
+                                groupId = status.groupId,
+                                partNumber = status.partNumber,
+                                reason = reason
+                            )
+                        )
+                    } else spot
+                }
+                else -> spot
+            }
+        }
+
+        _receivedSpots.value = updatedSpots
+        currentNahoftGroupId++
+    }
+
+    /**
+     * Returns elapsed session time in milliseconds, or 0 if no session.
+     */
+    fun getSessionElapsedMs(): Long
+    {
+        return if (sessionStartTimeMs > 0) {
+            System.currentTimeMillis() - sessionStartTimeMs
+        } else 0L
+    }
+
+    /**
+     * Returns current decryption attempts count.
+     */
+    fun getDecryptionAttempts(): Int = decryptionAttempts
+
+    /**
+     * Resets the messageJustReceived flag (call after UI has shown celebration).
+     */
+    fun clearMessageReceivedFlag()
+    {
+        _messageJustReceived.value = false
+    }
+
     // ==================== Derived State ====================
 
     /**
@@ -270,23 +676,67 @@ class FriendInfoViewModel(application: Application) : AndroidViewModel(applicati
         isConnected && hasValidStatus
     }
 
+    private suspend fun observeStationState()
+    {
+        wsprStation?.stationState?.collect { state ->
+            _stationState.value = state
+        }
+    }
+
+    private suspend fun observeCycleInformation()
+    {
+        wsprStation?.cycleInformation?.collect { info ->
+            _cycleInformation.value = info
+        }
+    }
+
+    private suspend fun observeDecodeResults()
+    {
+        wsprStation?.decodeResults?.collect { results ->
+            if (results.isNotEmpty()) {
+                processDecodeResults(results)
+            }
+        }
+    }
+
+    private suspend fun observeAudioLevels(connection: org.operatorfoundation.signalbridge.UsbAudioConnection)
+    {
+        connection.getAudioLevel()?.collect { levelInfo ->
+            _audioLevel.value = levelInfo.currentLevel
+        }
+    }
+
+    private fun startTimeoutMonitor()
+    {
+        viewModelScope.launch {
+            delay(sessionTimeoutMs)
+
+            if (isSessionActive()) {
+                Timber.d("Session timeout reached")
+                stopReceiveSession()
+            }
+        }
+    }
+
     // ==================== Cleanup ====================
 
     override fun onCleared()
     {
         super.onCleared()
 
+        // Stop any active receive session
+        if (isSessionActive()) {
+            stopReceiveSession()
+        }
+
         audioDeviceDiscoveryJob?.cancel()
         audioConnectionStatusJob?.cancel()
 
         viewModelScope.launch {
-            try
-            {
+            try {
                 _usbAudioConnection.value?.disconnect()
                 usbAudioManager.cleanup()
-            }
-            catch (e: Exception)
-            {
+            } catch (e: Exception) {
                 Timber.w(e, "Error cleaning up USB audio")
             }
         }
@@ -294,4 +744,22 @@ class FriendInfoViewModel(application: Application) : AndroidViewModel(applicati
         serialConnection?.close()
         connectionFactory.disconnect()
     }
+}
+
+/**
+ * Represents the current state of a WSPR receive session.
+ */
+sealed class ReceiveSessionState
+{
+    /** No active session */
+    object Idle : ReceiveSessionState()
+
+    /** Session started, waiting for a fresh WSPR window to begin collection */
+    object WaitingForWindow : ReceiveSessionState()
+
+    /** Actively collecting and decoding WSPR signals */
+    object Running : ReceiveSessionState()
+
+    /** Session stopped (manually or by timeout) */
+    object Stopped : ReceiveSessionState()
 }

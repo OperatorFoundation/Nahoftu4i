@@ -104,17 +104,36 @@
                 android:contentDescription="@string/import_image_hint"
                 android:src="@drawable/ic_nahoft_icons_question" />
 
-            <ImageButton
-                android:id="@+id/btn_receive_radio"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
+            <!-- Receive Radio Button with Badge Indicator -->
+            <FrameLayout
+                android:id="@+id/receive_radio_container"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
                 android:layout_marginEnd="8dp"
-                android:background="@drawable/btn_bkgd_toolbar"
-                android:contentDescription="@string/receive_via_radio"
-                android:padding="8dp"
-                android:src="@drawable/ic_nahoft_radio_transmit"
-                android:visibility="gone"
-                app:tint="@color/white" />
+                android:visibility="gone">
+
+                <ImageButton
+                    android:id="@+id/btn_receive_radio"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:background="@drawable/btn_bkgd_toolbar"
+                    android:contentDescription="@string/receive_via_radio"
+                    android:padding="8dp"
+                    android:src="@drawable/ic_nahoft_radio_transmit"
+                    app:tint="@color/white" />
+
+                <!-- Active Session Indicator Badge -->
+                <View
+                    android:id="@+id/receive_session_indicator"
+                    android:layout_width="12dp"
+                    android:layout_height="12dp"
+                    android:layout_gravity="top|end"
+                    android:layout_marginTop="-2dp"
+                    android:layout_marginEnd="-2dp"
+                    android:background="@drawable/indicator_session_active"
+                    android:visibility="gone" />
+
+            </FrameLayout>
 
             <ImageButton
                 android:id="@+id/btn_resend_invite"

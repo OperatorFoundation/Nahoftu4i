@@ -409,7 +409,7 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="20dp"
         android:background="@drawable/btn_bkgd_transparent_56"
-        android:text="@string/stop_button"
+        android:text="@string/stop_session"
         android:textColor="@color/white"
         app:layout_constraintTop_toBottomOf="@id/stats_container" />
 

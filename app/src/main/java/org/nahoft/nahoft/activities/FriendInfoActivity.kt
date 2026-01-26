@@ -1,6 +1,9 @@
 package org.nahoft.nahoft.activities
 
 import android.Manifest
+import android.animation.ObjectAnimator
+import android.animation.ValueAnimator
+import android.view.animation.LinearInterpolator
 import android.app.Activity
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -59,6 +62,7 @@ import org.operatorfoundation.audiocoder.WSPREncoder
 import org.operatorfoundation.codex.symbols.WSPRMessageSequence
 import org.operatorfoundation.ion.storage.NounType
 import org.operatorfoundation.ion.storage.Word
+import org.nahoft.nahoft.viewmodels.ReceiveSessionState
 
 import timber.log.Timber
 import java.math.BigInteger
@@ -76,6 +80,7 @@ class FriendInfoActivity: AppCompatActivity()
     private val coroutineScope = CoroutineScope(Dispatchers.Main + parentJob)
     private val menuFragmentTag = "MenuFragment"
     private var isShareImageButtonShow: Boolean = false
+    private var indicatorAnimator: ObjectAnimator? = null
 
     private val usbReceiver = object : BroadcastReceiver()
     {
@@ -186,7 +191,7 @@ class FriendInfoActivity: AppCompatActivity()
         // Observe USB audio connection for receive button visibility
         coroutineScope.launch {
             viewModel.canReceiveRadio.collect { canReceive ->
-                binding.btnReceiveRadio.visibility = if (canReceive) View.VISIBLE else View.GONE
+                binding.receiveRadioContainer.visibility = if (canReceive) View.VISIBLE else View.GONE
             }
         }
 
@@ -196,58 +201,146 @@ class FriendInfoActivity: AppCompatActivity()
                 binding.sendViaSerial.visibility = if (canSend) View.VISIBLE else View.GONE
             }
         }
+
+        // Observe receive session state for indicator
+        coroutineScope.launch {
+            viewModel.receiveSessionState.collect { state ->
+                updateReceiveSessionIndicator(state)
+            }
+        }
+
+        // Observe message received flag - save messages when received
+        coroutineScope.launch {
+            viewModel.messageJustReceived.collect { received ->
+                if (received) {
+                    // The ViewModel has already decrypted, but we need to save
+                    // Note: encryptedBytes come via the callback in startReceiveSession
+                    // This observer is mainly for UI refresh
+                    setupViewByStatus()
+                }
+            }
+        }
     }
 
     /**
-     * Updates visibility of the receive radio button based on connection and friend status.
+     * Updates visibility of the receive radio container based on connection and friend status.
      */
     private fun updateReceiveButtonVisibility()
     {
         val shouldShow = viewModel.usbAudioConnection.value != null &&
                 (thisFriend.status == FriendStatus.Verified || thisFriend.status == FriendStatus.Approved)
 
-        binding.btnReceiveRadio.visibility = if (shouldShow) View.VISIBLE else View.GONE
+        binding.receiveRadioContainer.visibility = if (shouldShow) View.VISIBLE else View.GONE
+    }
+
+    /**
+     * Updates the receive session indicator based on session state.
+     * Shows a pulsing badge when a session is active.
+     */
+    private fun updateReceiveSessionIndicator(state: ReceiveSessionState)
+    {
+        when (state) {
+            is ReceiveSessionState.Running,
+            is ReceiveSessionState.WaitingForWindow -> {
+                // Show indicator with pulse animation
+                binding.receiveSessionIndicator.visibility = View.VISIBLE
+                startIndicatorPulseAnimation()
+
+                // Tint the button to indicate active state
+                binding.btnReceiveRadio.drawable?.setTint(
+                    ContextCompat.getColor(this, R.color.caribbeanGreen)
+                )
+            }
+
+            is ReceiveSessionState.Idle,
+            is ReceiveSessionState.Stopped -> {
+                // Hide indicator and stop animation
+                stopIndicatorAnimation()
+                binding.receiveSessionIndicator.visibility = View.GONE
+
+                // Reset button tint
+                binding.btnReceiveRadio.drawable?.setTint(
+                    ContextCompat.getColor(this, R.color.white)
+                )
+            }
+        }
+    }
+
+    /**
+     * Starts a pulse animation on the session indicator.
+     */
+    private fun startIndicatorPulseAnimation()
+    {
+        // Cancel any existing animation
+        indicatorAnimator?.cancel()
+
+        indicatorAnimator = ObjectAnimator.ofFloat(
+            binding.receiveSessionIndicator,
+            "alpha",
+            1f, 0.3f, 1f
+        ).apply {
+            duration = 1500
+            repeatCount = ValueAnimator.INFINITE
+            repeatMode = ValueAnimator.RESTART
+            interpolator = LinearInterpolator()
+            start()
+        }
+    }
+
+    /**
+     * Stops the indicator animation.
+     */
+    private fun stopIndicatorAnimation()
+    {
+        indicatorAnimator?.cancel()
+        indicatorAnimator = null
+        binding.receiveSessionIndicator.alpha = 1f
     }
 
     /**
      * Handles the receive via radio button click.
      * Opens the ReceiveRadioBottomSheetFragment.
+     * If a session is already active, reopens the sheet.
      */
     private fun receiveViaRadioClicked()
     {
-        val connection = viewModel.usbAudioConnection.value
-        if (connection == null) {
-            showAlert(getString(R.string.usb_audio_not_connected))
-            return
+        // Check if sheet is already showing
+        val existingSheet = supportFragmentManager.findFragmentByTag("ReceiveRadioBottomSheet")
+        if (existingSheet != null)
+        {
+            return // Already showing
         }
 
-        if (thisFriend.publicKeyEncoded == null) {
-            showAlert(getString(R.string.alert_text_verified_friends_only))
-            return
-        }
-
-        val bottomSheet = ReceiveRadioBottomSheetFragment.newInstance(
-            connection = connection,
-            friend = thisFriend,
-            onMessageReceived = { encryptedBytes ->
-                // Handle received message - encryptedBytes is cipher text
-                handleReceivedRadioMessage(encryptedBytes)
+        // If no active session, validate prerequisites before starting
+        if (!viewModel.isSessionActive())
+        {
+            val connection = viewModel.usbAudioConnection.value
+            if (connection == null) {
+                showAlert(getString(R.string.usb_audio_not_connected))
+                return
             }
-        )
 
+            if (thisFriend.publicKeyEncoded == null) {
+                showAlert(getString(R.string.alert_text_verified_friends_only))
+                return
+            }
+        }
+
+        // Show the bottom sheet - it will start or resume session via ViewModel
+        val bottomSheet = ReceiveRadioBottomSheetFragment()
         bottomSheet.show(supportFragmentManager, "ReceiveRadioBottomSheet")
     }
 
     /**
-     * Handles a successfully received radio message.
+     * Called by ReceiveRadioBottomSheetFragment when a message is successfully received.
      * The bytes are encrypted (cipher text) - saveMessage stores them as-is.
      * Decryption happens at display time.
      */
-    private fun handleReceivedRadioMessage(encryptedBytes: ByteArray)
+    fun onRadioMessageReceived(encryptedBytes: ByteArray)
     {
         runOnUiThread {
             saveMessage(encryptedBytes, thisFriend, false)
-            setupViewByStatus() // Refresh to show new message
+            setupViewByStatus()
         }
     }
 
@@ -292,7 +385,7 @@ class FriendInfoActivity: AppCompatActivity()
                 // Button visibility now handled by canSendViaSerial flow observer
 
                 // Only show disconnected message if we were previously connected
-                if (binding.serialStatusContainer.visibility == View.VISIBLE) {
+                if (binding.serialStatusContainer.isVisible) {
                     binding.serialStatusText.text = "✗ Disconnected"
                     coroutineScope.launch {
                         delay(2000)
@@ -421,14 +514,14 @@ class FriendInfoActivity: AppCompatActivity()
                         hideSoftKeyboard(binding.messageEditText)
 
                         // Pulsing animation
-                        val pulseAnimator = android.animation.ObjectAnimator.ofFloat(
+                        val pulseAnimator = ObjectAnimator.ofFloat(
                             binding.sendViaSerial,
                             "alpha",
                             1f, 0.5f, 1f
                         ).apply {
                             duration = 800
-                            repeatCount = android.animation.ObjectAnimator.INFINITE
-                            repeatMode = android.animation.ObjectAnimator.REVERSE
+                            repeatCount = ObjectAnimator.INFINITE
+                            repeatMode = ObjectAnimator.REVERSE
                             start()
                         }
 
@@ -728,7 +821,7 @@ class FriendInfoActivity: AppCompatActivity()
                 ft.commit()
                 binding.btnImportImage.isVisible = true
                 binding.btnImportText.isVisible = true
-                binding.btnReceiveRadio.isVisible = viewModel.usbAudioConnection.value != null
+                binding.receiveRadioContainer.isVisible = viewModel.usbAudioConnection.value != null
                 binding.btnResendInvite.isVisible = false
                 binding.sendMessageContainer.isVisible = true
                 binding.verifiedStatusIconImageView.isVisible = true
@@ -740,7 +833,7 @@ class FriendInfoActivity: AppCompatActivity()
                 ft.commit()
                 binding.btnImportImage.isVisible = true
                 binding.btnImportText.isVisible = true
-                binding.btnReceiveRadio.isVisible = viewModel.usbAudioConnection.value != null
+                binding.receiveRadioContainer.isVisible = viewModel.usbAudioConnection.value != null
                 binding.btnResendInvite.isVisible = false
                 binding.sendMessageContainer.isVisible = true
             }
@@ -1443,6 +1536,8 @@ class FriendInfoActivity: AppCompatActivity()
     override fun onDestroy()
     {
         super.onDestroy()
+
+        stopIndicatorAnimation()
 
         try
         {
