@@ -35,6 +35,7 @@ import org.nahoft.nahoft.models.FriendStatus
 import org.nahoft.nahoft.models.LoginStatus
 import org.nahoft.nahoft.models.slideNameAbout
 import org.nahoft.nahoft.models.slideNameAboutAndFriends
+import org.nahoft.nahoft.services.UpdateService
 import org.nahoft.nahoft.viewmodels.FriendViewModel
 import org.nahoft.nahoft.viewmodels.MessageViewModel
 import org.nahoft.util.RequestCodes

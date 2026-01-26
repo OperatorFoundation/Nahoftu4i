@@ -6,6 +6,7 @@ import android.content.Intent
 import android.util.Log
 import org.nahoft.codex.LOGOUT_TIMER_VAL
 import org.nahoft.nahoft.models.LoginStatus
+import org.nahoft.nahoft.services.UpdateService
 
 class ScreenLockReceiver: BroadcastReceiver() {
     override fun onReceive(context: Context?, intent: Intent?) {

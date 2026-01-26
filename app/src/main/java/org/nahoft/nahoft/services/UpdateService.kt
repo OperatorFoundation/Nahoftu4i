@@ -1,4 +1,4 @@
-package org.nahoft.nahoft
+package org.nahoft.nahoft.services
 
 import android.app.Service
 import android.content.BroadcastReceiver
@@ -6,7 +6,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.os.IBinder
 import android.util.Log
-
+import org.nahoft.nahoft.ScreenLockReceiver
 
 class UpdateService : Service() {
     var receiver: BroadcastReceiver? = null

@@ -7,6 +7,7 @@ import androidx.lifecycle.*
 import org.nahoft.codex.LOGOUT_TIMER_VAL
 import org.nahoft.nahoft.Persist.Companion.status
 import org.nahoft.nahoft.models.LoginStatus
+import org.nahoft.nahoft.services.UpdateService
 import timber.log.Timber
 
 class Nahoft: Application(), LifecycleObserver
