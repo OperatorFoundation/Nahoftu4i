@@ -14,7 +14,6 @@ import android.hardware.usb.UsbManager
 import android.net.Uri
 import android.os.Bundle
 import android.os.Parcelable
-import android.provider.MediaStore
 import android.text.Layout
 import android.text.SpannableString
 import android.text.style.AlignmentSpan
@@ -26,6 +25,8 @@ import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -119,6 +120,25 @@ class FriendInfoActivity: AppCompatActivity()
         }
     }
 
+    // Image picker for saving encoded image locally
+    private val pickImageForSavingLauncher: ActivityResultLauncher<PickVisualMediaRequest> =
+        registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+            uri?.let { handlePickedImageForEncoding(it, saveImage = true) }
+        }
+
+    // Image picker for sharing encoded image
+    private val pickImageForSharingLauncher: ActivityResultLauncher<PickVisualMediaRequest> =
+        registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+            uri?.let { handlePickedImageForEncoding(it, saveImage = false) }
+        }
+
+    // Image picker for importing/decoding
+    private val pickImageForImportLauncher: ActivityResultLauncher<PickVisualMediaRequest> =
+        registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+            uri?.let { decodeImage(it) }
+        }
+
+    @OptIn(ExperimentalUnsignedTypes::class)
     override fun onCreate(savedInstanceState: Bundle?)
     {
         super.onCreate(savedInstanceState)
@@ -1200,60 +1220,26 @@ class FriendInfoActivity: AppCompatActivity()
 
     private fun pickImageFromGallery(saveImage: Boolean)
     {
-        // Calling GetContent contract
-        val pickImageIntent =
-            Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI)
-        if (saveImage)
-        {
-            startActivityForResult(pickImageIntent, RequestCodes.selectImageForSavingCode)
-        }
-        else
-        {
-            startActivityForResult(pickImageIntent, RequestCodes.selectImageForSharingCode)
-        }
+        val request = PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+        if (saveImage) pickImageForSavingLauncher.launch(request)
+        else pickImageForSharingLauncher.launch(request)
     }
 
     private fun handleImageImport()
     {
-        val intent = Intent(Intent.ACTION_PICK)
-        intent.type = "image/*"
-        startActivityForResult(intent, RequestCodes.selectImageForImport)
+        val request = PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+        pickImageForImportLauncher.launch(request)
     }
 
     @ExperimentalUnsignedTypes
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?)
+    private fun handlePickedImageForEncoding(imageUri: Uri, saveImage: Boolean)
     {
-        super.onActivityResult(requestCode, resultCode, data)
-
-        if (resultCode == RESULT_OK)
-        {
-            if (requestCode == RequestCodes.selectImageForImport)
-            {
-                // get data?.data as URI
-                val imageURI = data?.data
-                imageURI?.let {
-                    decodeImage(it)
-                }
-            }
-            else if (requestCode == RequestCodes.selectImageForSharingCode || requestCode == RequestCodes.selectImageForSavingCode) {
-                // We can only share an image if a recipient with a public key has been selected
-                thisFriend.publicKeyEncoded?.let {
-                    // Get the message text
-                    val message = binding.messageEditText.text.toString()
-                    // get data?.data as URI
-                    val imageURI = data?.data
-                    imageURI?.let {
-                        binding.imageImportProgressBar.visibility = View.VISIBLE
-                        shareOrSaveAsImage(
-                            imageURI,
-                            message,
-                            thisFriend.publicKeyEncoded!!,
-                            requestCode == RequestCodes.selectImageForSavingCode
-                        )
-                        binding.messageEditText.text?.clear()
-                    }
-                }
-            }
+        // We can only share/save an image if a recipient with a public key has been selected
+        thisFriend.publicKeyEncoded?.let { publicKey ->
+            val message = binding.messageEditText.text.toString()
+            binding.imageImportProgressBar.visibility = View.VISIBLE
+            shareOrSaveAsImage(imageUri, message, publicKey, saveImage)
+            binding.messageEditText.text?.clear()
         }
     }
 
