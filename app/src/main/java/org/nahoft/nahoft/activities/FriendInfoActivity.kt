@@ -232,15 +232,11 @@ class FriendInfoActivity: AppCompatActivity()
             }
         }
 
-        // Observe message received flag - save messages when received
+        // Observe received messages and save them
         coroutineScope.launch {
-            viewModel.messageJustReceived.collect { received ->
-                if (received) {
-                    // The ViewModel has already decrypted, but we need to save
-                    // Note: encryptedBytes come via the callback in startReceiveSession
-                    // This observer is mainly for UI refresh
-                    setupViewByStatus()
-                }
+            viewModel.lastReceivedMessage.collect { encryptedBytes ->
+                saveMessage(encryptedBytes, thisFriend, false)
+                setupViewByStatus()
             }
         }
     }
@@ -344,19 +340,6 @@ class FriendInfoActivity: AppCompatActivity()
         // Show the bottom sheet - it will start or resume session via ViewModel
         val bottomSheet = ReceiveRadioBottomSheetFragment()
         bottomSheet.show(supportFragmentManager, "ReceiveRadioBottomSheet")
-    }
-
-    /**
-     * Called by ReceiveRadioBottomSheetFragment when a message is successfully received.
-     * The bytes are encrypted (cipher text) - saveMessage stores them as-is.
-     * Decryption happens at display time.
-     */
-    fun onRadioMessageReceived(encryptedBytes: ByteArray)
-    {
-        runOnUiThread {
-            saveMessage(encryptedBytes, thisFriend, false)
-            setupViewByStatus()
-        }
     }
 
     /**

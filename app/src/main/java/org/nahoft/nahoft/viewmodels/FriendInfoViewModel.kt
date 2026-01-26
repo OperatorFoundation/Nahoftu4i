@@ -56,6 +56,8 @@ class FriendInfoViewModel(application: Application) : AndroidViewModel(applicati
     private var decryptionAttempts = 0
     private var _messageJustReceived = MutableStateFlow(false)
     val messageJustReceived: StateFlow<Boolean> = _messageJustReceived.asStateFlow()
+    private val _lastReceivedMessage = MutableSharedFlow<ByteArray>(replay = 0)
+    val lastReceivedMessage: SharedFlow<ByteArray> = _lastReceivedMessage.asSharedFlow()
 
     // Timing
     private var sessionStartTimeMs = 0L
@@ -75,9 +77,6 @@ class FriendInfoViewModel(application: Application) : AndroidViewModel(applicati
     private val _audioLevel = MutableStateFlow(0f)
     val audioLevel: StateFlow<Float> = _audioLevel.asStateFlow()
 
-    // Callback for when a message is successfully decrypted
-    private var onMessageDecrypted: ((ByteArray) -> Unit)? = null
-
     // ==================== Friend State ====================
 
     private val _friend = MutableStateFlow<Friend?>(null)
@@ -88,39 +87,6 @@ class FriendInfoViewModel(application: Application) : AndroidViewModel(applicati
         if (_friend.value == null)
         {
             _friend.value = friend
-        }
-    }
-
-    /**
-     * Updates the friend's status locally.
-     * Caller is responsible for persisting via Persist.updateFriend().
-     */
-    fun updateFriendStatus(newStatus: FriendStatus)
-    {
-        _friend.update { currentFriend ->
-            currentFriend?.copy(status = newStatus)
-        }
-    }
-
-    /**
-     * Updates the friend's public key locally.
-     * Caller is responsible for persisting via Persist.updateFriend().
-     */
-    fun updateFriendPublicKey(encodedKey: ByteArray?)
-    {
-        _friend.update { currentFriend ->
-            currentFriend?.copy(publicKeyEncoded = encodedKey)
-        }
-    }
-
-    /**
-     * Updates the friend's name locally.
-     * Caller is responsible for persisting via Persist.updateFriend().
-     */
-    fun updateFriendName(newName: String)
-    {
-        _friend.update { currentFriend ->
-            currentFriend?.copy(name = newName)
         }
     }
 
@@ -178,7 +144,7 @@ class FriendInfoViewModel(application: Application) : AndroidViewModel(applicati
         if (serialConnection == null && !isConnecting)
         {
             viewModelScope.launch {
-                kotlinx.coroutines.delay(500) // Let USB stabilize
+                delay(500) // Let USB stabilize
                 checkForSerialDevices()
             }
         }
@@ -302,10 +268,8 @@ class FriendInfoViewModel(application: Application) : AndroidViewModel(applicati
     /**
      * Starts a new receive session.
      * If entered mid-cycle, waits for the next fresh window before collecting.
-     *
-     * @param onMessageReceived Callback when a message is successfully decrypted
      */
-    fun startReceiveSession(onMessageReceived: (ByteArray) -> Unit)
+    fun startReceiveSession()
     {
         if (_receiveSessionState.value != ReceiveSessionState.Idle &&
             _receiveSessionState.value != ReceiveSessionState.Stopped) {
@@ -319,7 +283,6 @@ class FriendInfoViewModel(application: Application) : AndroidViewModel(applicati
             return
         }
 
-        onMessageDecrypted = onMessageReceived
         sessionStartTimeMs = System.currentTimeMillis()
         _messageJustReceived.value = false
         decryptionAttempts = 0
@@ -339,7 +302,7 @@ class FriendInfoViewModel(application: Application) : AndroidViewModel(applicati
     /**
      * Waits for the next WSPR window, then starts the station.
      */
-    private fun waitForNextWindowAndStart(connection: org.operatorfoundation.signalbridge.UsbAudioConnection)
+    private fun waitForNextWindowAndStart(connection: UsbAudioConnection)
     {
         waitForWindowJob = viewModelScope.launch {
             while (isActive && _receiveSessionState.value == ReceiveSessionState.WaitingForWindow) {
@@ -361,7 +324,7 @@ class FriendInfoViewModel(application: Application) : AndroidViewModel(applicati
     /**
      * Creates and starts the WSPR station.
      */
-    private fun startWSPRStation(connection: org.operatorfoundation.signalbridge.UsbAudioConnection)
+    private fun startWSPRStation(connection: UsbAudioConnection)
     {
         sessionJob = viewModelScope.launch {
             try {
@@ -425,7 +388,6 @@ class FriendInfoViewModel(application: Application) : AndroidViewModel(applicati
         }
 
         _receiveSessionState.value = ReceiveSessionState.Stopped
-        onMessageDecrypted = null
     }
 
     /**
@@ -548,7 +510,9 @@ class FriendInfoViewModel(application: Application) : AndroidViewModel(applicati
             Timber.d("Attempting decryption of ${encryptedBytes.size} bytes")
 
             val friendPublicKey = org.libsodium.jni.keys.PublicKey(friendKeyBytes)
-            val decryptedText = org.nahoft.codex.Encryption().decrypt(friendPublicKey, encryptedBytes)
+
+            // Validate decryption succeeds (throws SecurityException if invalid/incomplete)
+            org.nahoft.codex.Encryption().decrypt(friendPublicKey, encryptedBytes)
 
             Timber.i("Successfully decrypted message from ${_receivedMessages.size} WSPR messages")
 
@@ -558,11 +522,17 @@ class FriendInfoViewModel(application: Application) : AndroidViewModel(applicati
             _receivedMessages.clear()
             decryptionAttempts = 0
 
-            onMessageDecrypted?.invoke(encryptedBytes)
+            viewModelScope.launch {
+                _lastReceivedMessage.emit(encryptedBytes)
+            }
 
-        } catch (e: SecurityException) {
+        }
+        catch (e: SecurityException)
+        {
             Timber.d("Decryption attempt failed (may need more messages): ${e.message}")
-        } catch (e: Exception) {
+        }
+        catch (e: Exception)
+        {
             Timber.w(e, "Error during decryption attempt")
         }
     }
@@ -699,9 +669,9 @@ class FriendInfoViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
-    private suspend fun observeAudioLevels(connection: org.operatorfoundation.signalbridge.UsbAudioConnection)
+    private suspend fun observeAudioLevels(connection: UsbAudioConnection)
     {
-        connection.getAudioLevel()?.collect { levelInfo ->
+        connection.getAudioLevel().collect { levelInfo ->
             _audioLevel.value = levelInfo.currentLevel
         }
     }

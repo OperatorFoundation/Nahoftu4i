@@ -19,7 +19,6 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import org.nahoft.nahoft.activities.FriendInfoActivity
 import org.nahoft.nahoft.R
 import org.nahoft.nahoft.databinding.FragmentBottomSheetReceiveRadioBinding
 import org.nahoft.nahoft.models.WSPRSpotItem
@@ -80,13 +79,11 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
         startElapsedTimeUpdates()
 
         // Start session if not already running
-        if (!viewModel.isSessionActive()) {
+        if (!viewModel.isSessionActive())
+        {
             val friend = viewModel.friend.value
             if (friend?.publicKeyEncoded != null) {
-                viewModel.startReceiveSession { encryptedBytes ->
-                    // Handle received message
-                    handleReceivedMessage(encryptedBytes)
-                }
+                viewModel.startReceiveSession()
             }
         }
     }
@@ -227,16 +224,6 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
                 updateStatus(state::class.simpleName ?: "Unknown")
             }
         }
-    }
-
-    /**
-     * Handles a received message from the ViewModel.
-     * Delegates to the Activity for persistence.
-     */
-    private fun handleReceivedMessage(encryptedBytes: ByteArray)
-    {
-        Timber.d("Message received callback triggered, delegating to Activity")
-        (activity as? FriendInfoActivity)?.onRadioMessageReceived(encryptedBytes)
     }
 
     /**
