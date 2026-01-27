@@ -334,6 +334,16 @@ class FriendInfoActivity: AppCompatActivity()
                 startButtonPulseAnimation()
             }
 
+            is ReceiveSessionState.TimedOut -> {
+                // Reset button state
+                stopButtonAnimation()
+                binding.btnReceiveRadio.drawable?.setTint(
+                    ContextCompat.getColor(this, R.color.white)
+                )
+                // Show timeout dialog
+                showSessionTimeoutDialog(state.spotsReceived, state.messagesDecrypted)
+            }
+
             is ReceiveSessionState.Idle,
             is ReceiveSessionState.Stopped -> {
                 // Reset to white and stop animation
@@ -450,6 +460,45 @@ class FriendInfoActivity: AppCompatActivity()
         builder.setNeutralButton(getString(R.string.continue_without)) { dialog, _ ->
             dialog.dismiss()
             showReceiveBottomSheet()
+        }
+
+        builder.create().show()
+    }
+
+    private fun showSessionTimeoutDialog(spotsReceived: Int, messagesDecrypted: Int)
+    {
+        val builder = AlertDialog.Builder(ContextThemeWrapper(this, R.style.AppTheme_AddFriendAlertDialog))
+
+        val title = SpannableString(getString(R.string.session_timeout_title))
+        title.setSpan(
+            AlignmentSpan.Standard(Layout.Alignment.ALIGN_CENTER),
+            0,
+            title.length,
+            0
+        )
+        builder.setTitle(title)
+
+        val container = LinearLayout(this)
+        container.orientation = LinearLayout.VERTICAL
+        container.setPadding(50, 40, 50, 20)
+
+        val summaryText = when
+        {
+            messagesDecrypted > 0 -> getString(R.string.timeout_with_messages, messagesDecrypted)
+            spotsReceived > 0 -> getString(R.string.timeout_with_spots, spotsReceived)
+            else -> getString(R.string.timeout_no_signals)
+        }
+
+        val textView = TextView(this)
+        textView.text = "$summaryText\n\n${getString(R.string.session_timeout_explanation)}"
+        textView.setTextColor(ContextCompat.getColor(this, R.color.royalBlueDark))
+        container.addView(textView)
+
+        builder.setView(container)
+
+        builder.setPositiveButton(getString(R.string.ok)) { dialog, _ ->
+            dialog.dismiss()
+            viewModel.resetSession()
         }
 
         builder.create().show()

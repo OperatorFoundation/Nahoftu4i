@@ -636,6 +636,15 @@ After pressing this (+) sign, you must first enter your friend\'s name. You can 
     <string name="session_stopped">Session stopped</string>
     <string name="receiving_indicator">Receiving message</string>
 
+    <!-- Session timeout -->
+    <string name="session_timeout_title">Session Timed Out</string>
+    <string name="session_timeout_explanation">The 20-minute session limit was reached. You can start a new session to continue listening.</string>
+    <string name="session_timed_out">Session timed out</string>
+    <string name="timeout_with_messages">Successfully received %d message(s) before timeout.</string>
+    <string name="timeout_with_spots">Received %d signal(s) but no complete messages.</string>
+    <string name="timeout_no_signals">No signals were received during this session.</string>
+    <string name="ok">OK</string>
+
     <!-- Radio session notification permission -->
     <string name="radio_session_notification_title">Session Notification</string>
     <string name="radio_session_notification_explanation">Radio message reception can take 10 minutes or longer.\n\nA notification allows you to:\n\n• See session progress while using other apps\n• Keep the session active when your phone locks\n• Return to the session if you navigate away\n\nThis notification only appears during active radio sessions and contains no message content.</string>

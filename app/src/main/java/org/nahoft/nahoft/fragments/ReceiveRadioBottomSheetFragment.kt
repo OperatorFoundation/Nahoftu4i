@@ -184,20 +184,35 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
     {
         if (_binding == null) return
 
-        when (state) {
+        when (state)
+        {
             is ReceiveSessionState.Idle -> {
                 updateStatus(getString(R.string.status_waiting))
             }
+
             is ReceiveSessionState.WaitingForWindow -> {
                 updateStatus(getString(R.string.waiting_for_next_window))
                 updateStateIcon(R.drawable.ic_access_time, R.color.coolGrey, AnimationType.NONE)
             }
+
             is ReceiveSessionState.Running -> {
                 // Station state observer will handle the specific status
             }
+
             is ReceiveSessionState.Stopped -> {
                 updateStatus(getString(R.string.session_stopped))
                 updateStateIcon(R.drawable.ic_sync, R.color.coolGrey, AnimationType.NONE)
+            }
+
+            is ReceiveSessionState.TimedOut -> {
+                updateStatus(getString(R.string.session_timed_out))
+                updateStateIcon(R.drawable.ic_access_time, R.color.tangerine, AnimationType.NONE)
+
+                // Update status card to show timeout
+                binding.tvStatusSubtitle.text = getString(R.string.session_timed_out)
+                binding.tvStatusSubtitle.setTextColor(
+                    ContextCompat.getColor(requireContext(), R.color.tangerine)
+                )
             }
         }
 

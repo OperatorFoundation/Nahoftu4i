@@ -757,46 +757,124 @@ class ReceiveSessionService : Service()
             if (isSessionActive())
             {
                 Timber.d("Session timeout reached")
-                stopSession()
-                stopSelf()
+                handleSessionTimeout()
             }
         }
+    }
+
+    private fun handleSessionTimeout()
+    {
+        val spotsReceived = _receivedSpots.value.size
+        val messagesDecrypted = _receivedSpots.value.count {
+            it.nahoftStatus is NahoftSpotStatus.Decrypted
+        }
+
+        // Mark pending spots as incomplete
+        if (receivedMessages.isNotEmpty())
+        {
+            markCurrentGroupAsFailed(FailureReason.INCOMPLETE)
+        }
+
+        // Cancel jobs
+        waitForWindowJob?.cancel()
+        sessionJob?.cancel()
+        notificationUpdateJob?.cancel()
+
+        // Cleanup WSPR components
+        serviceScope.launch {
+            try
+            {
+                wsprStation?.stopStation()
+                audioSource?.cleanup()
+                usbAudioConnection?.disconnect()
+            }
+            catch (e: Exception)
+            {
+                Timber.w(e, "Error during timeout cleanup")
+            }
+
+            wsprStation = null
+            audioSource = null
+            usbAudioConnection = null
+        }
+
+        // Set timed out state (before stopping service)
+        _receiveSessionState.value = ReceiveSessionState.TimedOut(spotsReceived, messagesDecrypted)
+
+        // Show timeout notification
+        showTimeoutNotification(spotsReceived, messagesDecrypted)
+
+        // Clear friend context
+        val timedOutFriendName = friendName
+        friendName = null
+        friendPublicKey = null
+        _currentFriendName.value = null
+
+        // Stop foreground but don't stop service immediately - let notification show
+        stopForeground(STOP_FOREGROUND_DETACH)
+
+        // Stop service after brief delay to ensure notification posts
+        serviceScope.launch {
+            delay(500)
+            stopSelf()
+        }
+    }
+
+    private fun showTimeoutNotification(spotsReceived: Int, messagesDecrypted: Int)
+    {
+        val contentIntent = Intent(this, FriendInfoActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            this, 0, contentIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val summaryText = when
+        {
+            messagesDecrypted > 0 -> "Received $messagesDecrypted message(s)"
+            spotsReceived > 0 -> "$spotsReceived spots received, no complete messages"
+            else -> "No signals received"
+        }
+
+        val notification = NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_radio)
+            .setContentTitle(getString(R.string.session_timeout_title))
+            .setContentText(summaryText)
+            .setStyle(NotificationCompat.BigTextStyle()
+                .bigText("$summaryText\n\n${getString(R.string.session_timeout_explanation)}"))
+            .setContentIntent(pendingIntent)
+            .setAutoCancel(true)
+            .setCategory(NotificationCompat.CATEGORY_STATUS)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .build()
+
+        notificationManager.notify(NOTIFICATION_ID + 1, notification)  // Different ID so it persists
     }
 
     // ==================== Notification ====================
 
     private fun createNotificationChannel()
     {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
-        {
-            val channel = NotificationChannel(
-                NOTIFICATION_CHANNEL_ID,
-                "WSPR Receive Session",
-                NotificationManager.IMPORTANCE_LOW
-            ).apply {
-                description = "Shows progress of WSPR radio message reception"
-                setShowBadge(false)
-            }
-            notificationManager.createNotificationChannel(channel)
+        val channel = NotificationChannel(
+            NOTIFICATION_CHANNEL_ID,
+            "WSPR Receive Session",
+            NotificationManager.IMPORTANCE_LOW
+        ).apply {
+            description = "Shows progress of WSPR radio message reception"
+            setShowBadge(false)
         }
+
+        notificationManager.createNotificationChannel(channel)
     }
 
     private fun startForegroundWithNotification()
     {
-        val notification = buildNotification()
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q)
-        {
-            startForeground(
-                NOTIFICATION_ID,
-                notification,
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
-            )
-        }
-        else
-        {
-            startForeground(NOTIFICATION_ID, notification)
-        }
+        startForeground(
+            NOTIFICATION_ID,
+            buildNotification(),
+            ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
+        )
     }
 
     private fun buildNotification(): Notification
@@ -870,7 +948,7 @@ class ReceiveSessionService : Service()
 
     private fun acquireWakeLock()
     {
-        val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+        val powerManager = getSystemService(POWER_SERVICE) as PowerManager
         wakeLock = powerManager.newWakeLock(
             PowerManager.PARTIAL_WAKE_LOCK,
             "Nahoft:ReceiveSessionWakeLock"
@@ -907,6 +985,9 @@ sealed class ReceiveSessionState
     /** Actively collecting and decoding WSPR signals */
     object Running : ReceiveSessionState()
 
-    /** Session stopped (manually or by timeout) */
+    /** Session stopped (manually) */
     object Stopped : ReceiveSessionState()
+
+    /** Session ended due to timeout */
+    data class TimedOut(val spotsReceived: Int, val messagesDecrypted: Int) : ReceiveSessionState()
 }
