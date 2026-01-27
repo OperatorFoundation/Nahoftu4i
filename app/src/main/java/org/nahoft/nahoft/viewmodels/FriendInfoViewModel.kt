@@ -181,97 +181,20 @@ class FriendInfoViewModel(application: Application) : AndroidViewModel(applicati
     // ==================== USB Audio Connection (for UI visibility) ====================
 
     private val usbAudioManager = UsbAudioManager.create(application)
-
-    private val _usbAudioConnection = MutableStateFlow<UsbAudioConnection?>(null)
-    val usbAudioConnection: StateFlow<UsbAudioConnection?> = _usbAudioConnection.asStateFlow()
-
-    /** Connection status from the audio manager */
-    val audioConnectionStatus: Flow<ConnectionStatus> = usbAudioManager.getConnectionStatus()
-
-    // Jobs for audio device discovery and status observation
+    private val _usbAudioAvailable = MutableStateFlow(false)
+    val usbAudioAvailable: StateFlow<Boolean> = _usbAudioAvailable.asStateFlow()
     private var audioDeviceDiscoveryJob: Job? = null
-    private var audioConnectionStatusJob: Job? = null
 
     /**
      * Starts discovery of USB audio devices.
-     * Automatically connects to the first device found.
+     * Only tracks availability, does not connect.
      */
     fun startAudioDeviceDiscovery()
     {
         audioDeviceDiscoveryJob = viewModelScope.launch {
             usbAudioManager.discoverDevices().collect { devices ->
                 Timber.d("Discovered ${devices.size} USB audio device(s)")
-
-                // Auto-connect to first device if not already connected
-                if (devices.isNotEmpty() && _usbAudioConnection.value == null)
-                {
-                    connectToAudioDevice(devices.first())
-                }
-            }
-        }
-    }
-
-    /**
-     * Connects to a USB audio device.
-     *
-     * @param device The device to connect to
-     * @param onPermissionNeeded Callback if RECORD_AUDIO permission is required
-     */
-    fun connectToAudioDevice(
-        device: UsbAudioDevice,
-        onPermissionNeeded: (() -> Unit)? = null
-    ) {
-        viewModelScope.launch {
-            Timber.d("Attempting to connect to USB audio device: ${device.displayName}")
-
-            val result = usbAudioManager.connectToDevice(device)
-
-            if (result.isSuccess)
-            {
-                _usbAudioConnection.value = result.getOrNull()
-                Timber.i("USB Audio connected: ${device.displayName}")
-            }
-            else
-            {
-                val exception = result.exceptionOrNull()
-                Timber.e(exception, "Failed to connect to USB audio device")
-
-                // Check if it's a permission issue
-                if (exception?.message?.contains("permission", ignoreCase = true) == true)
-                {
-                    onPermissionNeeded?.invoke()
-                }
-            }
-        }
-    }
-
-    /**
-     * Starts observing audio connection status.
-     * Updates internal state when connection/disconnection occurs.
-     */
-    fun observeAudioConnectionStatus()
-    {
-        audioConnectionStatusJob = viewModelScope.launch {
-            audioConnectionStatus.collect { status ->
-                Timber.d("USB Audio connection status: $status")
-
-                when (status)
-                {
-                    is ConnectionStatus.Connected -> {
-                        Timber.i("USB Audio connected")
-                    }
-                    is ConnectionStatus.Disconnected -> {
-                        Timber.d("USB Audio disconnected")
-                        _usbAudioConnection.value = null
-                    }
-                    is ConnectionStatus.Connecting -> {
-                        Timber.d("USB Audio connecting...")
-                    }
-                    is ConnectionStatus.Error -> {
-                        Timber.e("USB Audio error: ${status.message}")
-                        _usbAudioConnection.value = null
-                    }
-                }
+                _usbAudioAvailable.value = devices.isNotEmpty()
             }
         }
     }
@@ -339,9 +262,9 @@ class FriendInfoViewModel(application: Application) : AndroidViewModel(applicati
             return
         }
 
-        if (_usbAudioConnection.value == null)
+        if (!_usbAudioAvailable.value)
         {
-            Timber.w("Cannot start session: no USB audio connection")
+            Timber.w("Cannot start session: no USB audio available")
             return
         }
 
@@ -496,14 +419,13 @@ class FriendInfoViewModel(application: Application) : AndroidViewModel(applicati
      * Whether the receive via radio button should be visible.
      * True when: audio connected AND friend is Verified or Approved.
      */
-    val canReceiveRadio: Flow<Boolean> = combine(
-        _usbAudioConnection,
-        _friend
-    ) { audioConnection, friend ->
-        val isConnected = audioConnection != null
-        val hasValidStatus = friend?.status == FriendStatus.Verified ||
-                friend?.status == FriendStatus.Approved
-        isConnected && hasValidStatus
+    val canReceiveRadio: Flow<Boolean> = combine(_usbAudioAvailable, _friend)
+    { audioAvailable, friend ->
+
+        val hasValidStatus =
+            friend?.status == FriendStatus.Verified || friend?.status == FriendStatus.Approved
+
+        audioAvailable && hasValidStatus
     }
 
     // ==================== Cleanup ====================
@@ -517,20 +439,6 @@ class FriendInfoViewModel(application: Application) : AndroidViewModel(applicati
         unbindFromService()
 
         audioDeviceDiscoveryJob?.cancel()
-        audioConnectionStatusJob?.cancel()
-
-        viewModelScope.launch {
-            try
-            {
-                _usbAudioConnection.value?.disconnect()
-                usbAudioManager.cleanup()
-            }
-            catch (e: Exception)
-            {
-                Timber.w(e, "Error cleaning up USB audio")
-            }
-        }
-
         serialConnection?.close()
         connectionFactory.disconnect()
     }

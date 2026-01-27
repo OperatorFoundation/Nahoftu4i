@@ -107,14 +107,10 @@ class FriendInfoActivity: AppCompatActivity()
     // Audio permission launcher (for USB audio recording)
     private val audioPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
-    ) { isGranted ->
+    )
+    { isGranted ->
 
-        if (isGranted)
-        {
-            Timber.d("RECORD_AUDIO permission granted, retrying audio device discovery")
-            viewModel.startAudioDeviceDiscovery()
-        }
-        else
+        if (!isGranted)
         {
             Timber.w("RECORD_AUDIO permission denied")
             Toast.makeText(this, "Microphone permission is required for USB audio", Toast.LENGTH_LONG).show()
@@ -235,15 +231,16 @@ class FriendInfoActivity: AppCompatActivity()
 
         setupConnectionObservers()
         viewModel.checkForSerialDevices()
-        viewModel.observeAudioConnectionStatus()
 
-        // Before starting audio discovery, check permission
+        // Start audio device discovery (doesn't require permission)
+        viewModel.startAudioDeviceDiscovery()
+
+        // Request RECORD_AUDIO permission if needed (service will need it for recording)
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
             != PackageManager.PERMISSION_GRANTED)
         {
             audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
         }
-        else { viewModel.startAudioDeviceDiscovery() }
     }
 
     override fun onResume() {
@@ -315,7 +312,7 @@ class FriendInfoActivity: AppCompatActivity()
      */
     private fun updateReceiveButtonVisibility()
     {
-        val shouldShow = viewModel.usbAudioConnection.value != null &&
+        val shouldShow = viewModel.usbAudioAvailable.value &&
                 (thisFriend.status == FriendStatus.Verified || thisFriend.status == FriendStatus.Approved)
 
         binding.btnReceiveRadio.visibility = if (shouldShow) View.VISIBLE else View.GONE
@@ -388,8 +385,7 @@ class FriendInfoActivity: AppCompatActivity()
         // If no active session, validate prerequisites
         if (!viewModel.isSessionActive())
         {
-            val connection = viewModel.usbAudioConnection.value
-            if (connection == null)
+            if (!viewModel.usbAudioAvailable.value)
             {
                 showAlert(getString(R.string.usb_audio_not_connected))
                 return
@@ -854,11 +850,8 @@ class FriendInfoActivity: AppCompatActivity()
     private fun returnButtonPressed()
     {
         val lastFragment = supportFragmentManager.fragments.last()
-        if (lastFragment.tag == menuFragmentTag) {
-            setupViewByStatus()
-        } else {
-            finish()
-        }
+        if (lastFragment.tag == menuFragmentTag) setupViewByStatus()
+        else finish()
     }
 
     private fun showMenuFragment() {
@@ -936,7 +929,7 @@ class FriendInfoActivity: AppCompatActivity()
                 ft.commit()
                 binding.btnImportImage.isVisible = true
                 binding.btnImportText.isVisible = true
-                binding.btnReceiveRadio.isVisible = viewModel.usbAudioConnection.value != null
+                binding.btnReceiveRadio.isVisible = viewModel.usbAudioAvailable.value
                 binding.btnResendInvite.isVisible = false
                 binding.sendMessageContainer.isVisible = true
                 binding.verifiedStatusIconImageView.isVisible = true
@@ -948,7 +941,7 @@ class FriendInfoActivity: AppCompatActivity()
                 ft.commit()
                 binding.btnImportImage.isVisible = true
                 binding.btnImportText.isVisible = true
-                binding.btnReceiveRadio.isVisible = viewModel.usbAudioConnection.value != null
+                binding.btnReceiveRadio.isVisible = viewModel.usbAudioAvailable.value
                 binding.btnResendInvite.isVisible = false
                 binding.sendMessageContainer.isVisible = true
             }
