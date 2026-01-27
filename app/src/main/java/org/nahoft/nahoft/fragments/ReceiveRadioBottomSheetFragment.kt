@@ -22,8 +22,8 @@ import kotlinx.coroutines.launch
 import org.nahoft.nahoft.R
 import org.nahoft.nahoft.databinding.FragmentBottomSheetReceiveRadioBinding
 import org.nahoft.nahoft.models.WSPRSpotItem
+import org.nahoft.nahoft.services.ReceiveSessionState
 import org.nahoft.nahoft.viewmodels.FriendInfoViewModel
-import org.nahoft.nahoft.viewmodels.ReceiveSessionState
 import org.operatorfoundation.audiocoder.models.WSPRCycleInformation
 import org.operatorfoundation.audiocoder.models.WSPRStationState
 import timber.log.Timber
@@ -85,6 +85,11 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
             if (friend?.publicKeyEncoded != null) {
                 viewModel.startReceiveSession()
             }
+        }
+        else
+        {
+            // Resuming existing session - show indicator until flows connect
+            binding.tvStatus.text = "Resuming session..."
         }
     }
 
@@ -154,6 +159,19 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
                 if (received) {
                     showMessageReceivedCelebration()
                     viewModel.clearMessageReceivedFlag()
+                }
+            }
+        }
+
+        // Observe service connection for loading state
+        uiScope.launch {
+            viewModel.serviceConnected.collect { connected ->
+                if (_binding == null) return@collect
+
+                if (!connected && viewModel.isSessionActive())
+                {
+                    // Service running but not yet bound - show connecting state
+                    updateStatus("Connecting to session...")
                 }
             }
         }

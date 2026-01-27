@@ -1,8 +1,10 @@
 package org.nahoft.nahoft.adapters
 
 import android.view.LayoutInflater
+import android.view.View
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
+import org.nahoft.nahoft.R
 import org.nahoft.nahoft.databinding.FriendRecyclerviewItemRowBinding
 import org.nahoft.nahoft.models.Friend
 

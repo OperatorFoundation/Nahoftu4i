@@ -128,11 +128,49 @@ class FriendInfoActivity: AppCompatActivity()
         if (isGranted)
         {
             Timber.d("POST_NOTIFICATIONS permission granted")
+            showReceiveBottomSheet()
         }
         else
         {
-            Timber.w("POST_NOTIFICATIONS permission denied - notifications won't show")
+            Timber.d("POST_NOTIFICATIONS permission denied, proceeding anyway")
+            showNotificationDeniedWarning()
         }
+    }
+
+    private fun showNotificationDeniedWarning()
+    {
+        val builder = AlertDialog.Builder(ContextThemeWrapper(this, R.style.AppTheme_AddFriendAlertDialog))
+
+        val title = SpannableString(getString(R.string.notification_denied_title))
+        title.setSpan(
+            AlignmentSpan.Standard(Layout.Alignment.ALIGN_CENTER),
+            0,
+            title.length,
+            0
+        )
+        builder.setTitle(title)
+
+        val container = LinearLayout(this)
+        container.orientation = LinearLayout.VERTICAL
+        container.setPadding(50, 40, 50, 20)
+
+        val textView = TextView(this)
+        textView.text = getString(R.string.notification_denied_warning)
+        textView.setTextColor(ContextCompat.getColor(this, R.color.royalBlueDark))
+        container.addView(textView)
+
+        builder.setView(container)
+
+        builder.setPositiveButton(getString(R.string.continue_anyway)) { dialog, _ ->
+            dialog.dismiss()
+            showReceiveBottomSheet()
+        }
+
+        builder.setNeutralButton(getString(R.string.stop_button)) { dialog, _ ->
+            dialog.cancel()
+        }
+
+        builder.create().show()
     }
 
     // Image picker for saving encoded image locally
@@ -206,16 +244,6 @@ class FriendInfoActivity: AppCompatActivity()
             audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
         }
         else { viewModel.startAudioDeviceDiscovery() }
-
-        // Request notification permission for Android 13+
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
-        {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
-                != PackageManager.PERMISSION_GRANTED)
-            {
-                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-            }
-        }
     }
 
     override fun onResume() {
@@ -373,27 +401,63 @@ class FriendInfoActivity: AppCompatActivity()
                 return
             }
 
-            // Check notification permission before starting (Android 13+)
+            // Check notification permission (Android 13+)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
             {
                 if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
                     != PackageManager.PERMISSION_GRANTED)
                 {
-                    notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                    Toast.makeText(
-                        this,
-                        "Enable notifications to see session progress",
-                        Toast.LENGTH_LONG
-                    ).show()
+                    showNotificationPermissionExplanation()
+                    return
                 }
             }
         }
 
         // Show the bottom sheet
+        showReceiveBottomSheet()
+    }
+
+    private fun showReceiveBottomSheet()
+    {
         val bottomSheet = ReceiveRadioBottomSheetFragment()
         bottomSheet.show(supportFragmentManager, "ReceiveRadioBottomSheet")
     }
 
+    private fun showNotificationPermissionExplanation()
+    {
+        val builder = AlertDialog.Builder(ContextThemeWrapper(this, R.style.AppTheme_AddFriendAlertDialog))
+
+        val title = SpannableString(getString(R.string.radio_session_notification_title))
+        title.setSpan(
+            AlignmentSpan.Standard(Layout.Alignment.ALIGN_CENTER),
+            0,
+            title.length,
+            0
+        )
+        builder.setTitle(title)
+
+        val container = LinearLayout(this)
+        container.orientation = LinearLayout.VERTICAL
+        container.setPadding(50, 40, 50, 20)
+
+        val textView = TextView(this)
+        textView.text = getString(R.string.radio_session_notification_explanation)
+        textView.setTextColor(ContextCompat.getColor(this, R.color.royalBlueDark))
+        container.addView(textView)
+
+        builder.setView(container)
+
+        builder.setPositiveButton(getString(R.string.enable_notification)) { _, _ ->
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+
+        builder.setNeutralButton(getString(R.string.continue_without)) { dialog, _ ->
+            dialog.dismiss()
+            showReceiveBottomSheet()
+        }
+
+        builder.create().show()
+    }
 
     /**
      * Handles serial connection state changes and updates UI accordingly.

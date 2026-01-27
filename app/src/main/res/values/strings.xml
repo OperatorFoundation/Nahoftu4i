@@ -636,6 +636,17 @@ After pressing this (+) sign, you must first enter your friend\'s name. You can 
     <string name="session_stopped">Session stopped</string>
     <string name="receiving_indicator">Receiving message</string>
 
+    <!-- Radio session notification permission -->
+    <string name="radio_session_notification_title">Session Notification</string>
+    <string name="radio_session_notification_explanation">Radio message reception can take 10 minutes or longer.\n\nA notification allows you to:\n\n• See session progress while using other apps\n• Keep the session active when your phone locks\n• Return to the session if you navigate away\n\nThis notification only appears during active radio sessions and contains no message content.</string>
+    <string name="enable_notification">Enable</string>
+    <string name="continue_without">Skip</string>
+
+    <!-- Notification denied warning -->
+    <string name="notification_denied_title">Limited Background Operation</string>
+    <string name="notification_denied_warning">Without notifications, your phone may stop the radio session when the screen locks or you switch apps.\n\nYou can enable notifications later in system settings if needed.</string>
+    <string name="continue_anyway">Continue</string>
+
     <!-- WSPR Spots Dialog -->
     <string name="wspr_spots_title">WSPR Activity</string>
     <string name="spot_count_format">(%d spots)</string>
