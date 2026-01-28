@@ -45,6 +45,7 @@ import org.nahoft.nahoft.services.UpdateService
 import org.nahoft.nahoft.viewmodels.FriendViewModel
 import org.nahoft.nahoft.viewmodels.MessageViewModel
 import org.nahoft.util.RequestCodes
+import org.nahoft.util.applySecureFlag
 import org.nahoft.util.showAlert
 import java.io.File
 
@@ -100,7 +101,7 @@ class HomeActivity : AppCompatActivity()
         binding = ActivityHomeBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
+        window.applySecureFlag()
 
         registerReceiverCompat(receiver, IntentFilter().apply {
             addAction(LOGOUT_TIMER_VAL)

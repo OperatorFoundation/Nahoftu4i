@@ -24,6 +24,7 @@ import org.nahoft.nahoft.Persist.Companion.sharedPrefSecondaryPasscodeKey
 import org.nahoft.nahoft.Persist.Companion.status
 import org.nahoft.nahoft.R
 import org.nahoft.nahoft.databinding.ActivityLogInBinding
+import org.nahoft.util.applySecureFlag
 import org.nahoft.util.showAlert
 import java.util.concurrent.Executor
 import java.util.concurrent.TimeUnit
@@ -56,8 +57,7 @@ class LogInActivity : AppCompatActivity()
         binding = ActivityLogInBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        window.setFlags(WindowManager.LayoutParams.FLAG_SECURE,
-                        WindowManager.LayoutParams.FLAG_SECURE)
+        window.applySecureFlag()
 
         registerReceiverCompat(receiver, IntentFilter().apply {
             addAction(LOGOUT_TIMER_VAL)

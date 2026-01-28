@@ -61,6 +61,7 @@ import org.nahoft.nahoft.models.Message
 import org.nahoft.nahoft.models.slideNameChat
 import org.nahoft.nahoft.services.ReceiveSessionState
 import org.nahoft.nahoft.viewmodels.FriendInfoViewModel
+import org.nahoft.util.applySecureFlag
 import org.operatorfoundation.audiocoder.WSPREncoder
 import org.operatorfoundation.codex.symbols.WSPRMessageSequence
 import org.operatorfoundation.ion.storage.NounType
@@ -199,8 +200,7 @@ class FriendInfoActivity: AppCompatActivity()
         setContentView(binding.root)
         viewModel = ViewModelProvider(this)[FriendInfoViewModel::class.java]
 
-        window.setFlags(WindowManager.LayoutParams.FLAG_SECURE,
-                        WindowManager.LayoutParams.FLAG_SECURE)
+        window.applySecureFlag()
 
         if (!Persist.accessIsAllowed()) { sendToLogin() }
 

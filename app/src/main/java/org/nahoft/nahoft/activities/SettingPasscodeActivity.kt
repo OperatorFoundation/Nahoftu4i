@@ -21,6 +21,7 @@ import org.nahoft.nahoft.Persist
 import org.nahoft.nahoft.R
 import org.nahoft.nahoft.databinding.ActivitySettingPasscodeBinding
 import org.nahoft.nahoft.models.slideNameSetting
+import org.nahoft.util.applySecureFlag
 import org.nahoft.util.showAlert
 
 
@@ -40,8 +41,7 @@ class SettingPasscodeActivity : AppCompatActivity()
         binding = ActivitySettingPasscodeBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        window.setFlags(WindowManager.LayoutParams.FLAG_SECURE,
-                        WindowManager.LayoutParams.FLAG_SECURE)
+        window.applySecureFlag()
 
         registerReceiverCompat(receiver, IntentFilter().apply {
             addAction(LOGOUT_TIMER_VAL)
