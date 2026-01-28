@@ -163,6 +163,9 @@ class ReceiveSessionService : Service()
     // Wake lock
     private var wakeLock: PowerManager.WakeLock? = null
 
+    // Foreground tracking - timeout only runs when app is backgrounded
+    private var isBound = false
+
     // Notification
     private lateinit var notificationManager: NotificationManager
 
@@ -217,12 +220,17 @@ class ReceiveSessionService : Service()
     override fun onBind(intent: Intent?): IBinder
     {
         Timber.d("Service bound")
+        isBound = true
+        cancelTimeoutIfRunning()
         return binder
     }
 
     override fun onUnbind(intent: Intent?): Boolean
     {
         Timber.d("Service unbound")
+        isBound = false
+        startTimeoutIfBackgrounded()
+
         // Return true to receive onRebind() calls
         return true
     }
@@ -230,6 +238,8 @@ class ReceiveSessionService : Service()
     override fun onRebind(intent: Intent?)
     {
         Timber.d("Service rebound")
+        isBound = true
+        cancelTimeoutIfRunning()
     }
 
     override fun onDestroy()
@@ -311,8 +321,12 @@ class ReceiveSessionService : Service()
                 waitForNextWindowAndStart(connection)
             }
 
-            // Start timeout monitor
-            startTimeoutMonitor()
+            // Start timeout monitor only if app is not in foreground
+            if (!isBound)
+            {
+                Timber.d("Session started while backgrounded - timeout active")
+                startTimeoutMonitor()
+            }
 
             // Start notification updates
             startNotificationUpdates()
@@ -748,6 +762,36 @@ class ReceiveSessionService : Service()
     }
 
     // ==================== Timeout ====================
+
+    // ==================== Timeout ====================
+
+    /**
+     * Cancels the timeout countdown if running.
+     * Called when app returns to foreground.
+     */
+    private fun cancelTimeoutIfRunning()
+    {
+        timeoutJob?.let { job ->
+            if (job.isActive)
+            {
+                Timber.d("Timeout cancelled - app in foreground")
+                job.cancel()
+                timeoutJob = null
+            }
+        }
+    }
+
+    /**
+     * Starts timeout countdown if session is active and app is backgrounded.
+     */
+    private fun startTimeoutIfBackgrounded()
+    {
+        if (isSessionActive() && timeoutJob?.isActive != true)
+        {
+            Timber.d("App backgrounded - starting ${SESSION_TIMEOUT_MS / 60000} minute timeout")
+            startTimeoutMonitor()
+        }
+    }
 
     private fun startTimeoutMonitor()
     {

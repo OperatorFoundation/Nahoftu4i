@@ -23,6 +23,7 @@ import org.nahoft.nahoft.services.ReceiveSessionState
 import org.operatorfoundation.audiocoder.models.WSPRCycleInformation
 import org.operatorfoundation.audiocoder.models.WSPRStationState
 import org.operatorfoundation.signalbridge.UsbAudioConnection
+import org.operatorfoundation.signalbridge.UsbAudioDeviceMonitor
 import org.operatorfoundation.signalbridge.UsbAudioManager
 import org.operatorfoundation.signalbridge.models.ConnectionStatus
 import org.operatorfoundation.signalbridge.models.UsbAudioDevice
@@ -180,21 +181,22 @@ class FriendInfoViewModel(application: Application) : AndroidViewModel(applicati
 
     // ==================== USB Audio Connection (for UI visibility) ====================
 
-    private val usbAudioManager = UsbAudioManager.create(application)
     private val _usbAudioAvailable = MutableStateFlow(false)
     val usbAudioAvailable: StateFlow<Boolean> = _usbAudioAvailable.asStateFlow()
-    private var audioDeviceDiscoveryJob: Job? = null
 
     /**
-     * Starts discovery of USB audio devices.
-     * Only tracks availability, does not connect.
+     * Starts monitoring USB audio input device availability.
+     * Uses lightweight monitor - does not create connections.
      */
     fun startAudioDeviceDiscovery()
     {
-        audioDeviceDiscoveryJob = viewModelScope.launch {
-            usbAudioManager.discoverDevices().collect { devices ->
-                Timber.d("Discovered ${devices.size} USB audio device(s)")
-                _usbAudioAvailable.value = devices.isNotEmpty()
+        viewModelScope.launch {
+            UsbAudioDeviceMonitor.observeAvailability(
+                context = getApplication(),
+                requireInput = true  // WSPR receive needs input capability
+            ).collect { available ->
+                Timber.d("USB audio input available: $available")
+                _usbAudioAvailable.value = available
             }
         }
     }
@@ -438,7 +440,6 @@ class FriendInfoViewModel(application: Application) : AndroidViewModel(applicati
         // Just unbind
         unbindFromService()
 
-        audioDeviceDiscoveryJob?.cancel()
         serialConnection?.close()
         connectionFactory.disconnect()
     }
