@@ -54,18 +54,22 @@ class ReceiveSessionService : Service()
         // Intent actions
         const val ACTION_START_SESSION = "org.nahoft.nahoft.action.START_SESSION"
         const val ACTION_STOP_SESSION = "org.nahoft.nahoft.action.STOP_SESSION"
+        const val ACTION_EXTEND_SESSION = "org.nahoft.nahoft.action.EXTEND_SESSION"
 
         // Intent extras
         const val EXTRA_FRIEND_NAME = "friend_name"
         const val EXTRA_FRIEND_PUBLIC_KEY = "friend_public_key"
 
-        // Notification
-        private const val NOTIFICATION_CHANNEL_ID = "nahoft_receive_session"
-        private const val NOTIFICATION_ID = 1001
-
         // Timing
         private const val SESSION_TIMEOUT_MS = 20 * 60 * 1000L  // 20 minutes
+        private const val TIMEOUT_WARNING_MS = 3 * 60 * 1000L   // 3 minutes before timeout
         private const val NOTIFICATION_UPDATE_INTERVAL_MS = 1000L
+
+        // Notification
+        private const val NOTIFICATION_CHANNEL_ID = "nahoft_receive_session"
+        private const val WARNING_CHANNEL_ID = "nahoft_session_warning"
+        private const val NOTIFICATION_ID = 1001
+        private const val WARNING_NOTIFICATION_ID = 1002
 
         /**
          * Creates an Intent to start a receive session.
@@ -90,6 +94,16 @@ class ReceiveSessionService : Service()
         {
             return Intent(context, ReceiveSessionService::class.java).apply {
                 action = ACTION_STOP_SESSION
+            }
+        }
+
+        /**
+         * Creates an Intent to extend the current session timeout.
+         */
+        fun createExtendIntent(context: Context): Intent
+        {
+            return Intent(context, ReceiveSessionService::class.java).apply {
+                action = ACTION_EXTEND_SESSION
             }
         }
     }
@@ -155,9 +169,11 @@ class ReceiveSessionService : Service()
 
     // Timing
     private var sessionStartTimeMs = 0L
+    private var timeoutStartTimeMs = 0L  // When current timeout countdown began (0 if not running)
     private var sessionJob: Job? = null
     private var waitForWindowJob: Job? = null
     private var timeoutJob: Job? = null
+    private var warningJob: Job? = null
     private var notificationUpdateJob: Job? = null
 
     // Wake lock
@@ -207,6 +223,10 @@ class ReceiveSessionService : Service()
             ACTION_STOP_SESSION -> {
                 stopSession()
                 stopSelf()
+            }
+
+            ACTION_EXTEND_SESSION -> {
+                extendSession()
             }
 
             else -> {
@@ -347,7 +367,11 @@ class ReceiveSessionService : Service()
         waitForWindowJob?.cancel()
         sessionJob?.cancel()
         timeoutJob?.cancel()
+        warningJob?.cancel()
         notificationUpdateJob?.cancel()
+
+        // Dismiss warning notification
+        notificationManager.cancel(WARNING_NOTIFICATION_ID)
 
         // Cleanup WSPR components
         serviceScope.launch {
@@ -763,7 +787,38 @@ class ReceiveSessionService : Service()
 
     // ==================== Timeout ====================
 
-    // ==================== Timeout ====================
+    /**
+     * Extends the session by resetting the timeout countdown.
+     * Called from notification action or UI.
+     */
+    private fun extendSession()
+    {
+        if (!isSessionActive())
+        {
+            Timber.d("Cannot extend - no active session")
+            return
+        }
+
+        Timber.d("Session extended - resetting timeout")
+
+        // Cancel existing timeout and warning
+        timeoutJob?.cancel()
+        timeoutJob = null
+        warningJob?.cancel()
+        warningJob = null
+        timeoutStartTimeMs = 0L
+
+        // Dismiss warning notification if showing
+        notificationManager.cancel(WARNING_NOTIFICATION_ID)
+
+        // Restart timeout if still backgrounded
+        if (!isBound)
+        {
+            startTimeoutMonitor()
+        }
+
+        updateNotification()
+    }
 
     /**
      * Cancels the timeout countdown if running.
@@ -777,8 +832,17 @@ class ReceiveSessionService : Service()
                 Timber.d("Timeout cancelled - app in foreground")
                 job.cancel()
                 timeoutJob = null
+                timeoutStartTimeMs = 0L
             }
         }
+
+        warningJob?.cancel()
+        warningJob = null
+
+        // Dismiss warning notification if showing
+        notificationManager.cancel(WARNING_NOTIFICATION_ID)
+
+        updateNotification()
     }
 
     /**
@@ -795,15 +859,46 @@ class ReceiveSessionService : Service()
 
     private fun startTimeoutMonitor()
     {
+        timeoutJob?.cancel()
+        warningJob?.cancel()
+        timeoutStartTimeMs = System.currentTimeMillis()
+
+        // Schedule warning notification
+        val warningDelayMs = SESSION_TIMEOUT_MS - TIMEOUT_WARNING_MS
+        warningJob = serviceScope.launch {
+            delay(warningDelayMs)
+            if (isSessionActive() && !isBound)
+            {
+                showTimeoutWarningNotification()
+            }
+        }
+
+        // Schedule actual timeout
         timeoutJob = serviceScope.launch {
             delay(SESSION_TIMEOUT_MS)
 
             if (isSessionActive())
             {
                 Timber.d("Session timeout reached")
+                timeoutStartTimeMs = 0L
                 handleSessionTimeout()
             }
         }
+    }
+
+    /**
+     * Returns remaining timeout in milliseconds, or null if no timeout is active.
+     */
+    private fun getRemainingTimeoutMs(): Long?
+    {
+        if (timeoutStartTimeMs == 0L || timeoutJob?.isActive != true)
+        {
+            return null
+        }
+
+        val elapsed = System.currentTimeMillis() - timeoutStartTimeMs
+        val remaining = SESSION_TIMEOUT_MS - elapsed
+        return if (remaining > 0) remaining else null
     }
 
     private fun handleSessionTimeout()
@@ -896,11 +991,53 @@ class ReceiveSessionService : Service()
         notificationManager.notify(NOTIFICATION_ID + 1, notification)  // Different ID so it persists
     }
 
+    private fun showTimeoutWarningNotification()
+    {
+        Timber.d("Showing timeout warning notification")
+
+        val contentIntent = Intent(this, FriendInfoActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            this, 0, contentIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val extendIntent = createExtendIntent(this)
+        val extendPendingIntent = PendingIntent.getService(
+            this, 2, extendIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val stopIntent = createStopIntent(this)
+        val stopPendingIntent = PendingIntent.getService(
+            this, 1, stopIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val warningMinutes = (TIMEOUT_WARNING_MS / 60000).toInt()
+
+        val notification = NotificationCompat.Builder(this, WARNING_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_radio)
+            .setContentTitle("Session ending soon")
+            .setContentText("WSPR receive will timeout in $warningMinutes minutes")
+            .setContentIntent(pendingIntent)
+            .addAction(R.drawable.ic_radio, "Extend", extendPendingIntent)
+            .addAction(R.drawable.btn_close_small_24, "Stop", stopPendingIntent)
+            .setAutoCancel(false)
+            .setCategory(NotificationCompat.CATEGORY_ALARM)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .build()
+
+        notificationManager.notify(WARNING_NOTIFICATION_ID, notification)
+    }
+
     // ==================== Notification ====================
 
     private fun createNotificationChannel()
     {
-        val channel = NotificationChannel(
+        // Ongoing session channel (low priority, silent)
+        val sessionChannel = NotificationChannel(
             NOTIFICATION_CHANNEL_ID,
             "WSPR Receive Session",
             NotificationManager.IMPORTANCE_LOW
@@ -909,7 +1046,19 @@ class ReceiveSessionService : Service()
             setShowBadge(false)
         }
 
-        notificationManager.createNotificationChannel(channel)
+        // Warning channel (high priority, sound + vibration)
+        val warningChannel = NotificationChannel(
+            WARNING_CHANNEL_ID,
+            "Session Timeout Warning",
+            NotificationManager.IMPORTANCE_HIGH
+        ).apply {
+            description = "Alerts before a WSPR session times out"
+            enableVibration(true)
+            setShowBadge(true)
+        }
+
+        notificationManager.createNotificationChannel(sessionChannel)
+        notificationManager.createNotificationChannel(warningChannel)
     }
 
     private fun startForegroundWithNotification()
@@ -954,9 +1103,19 @@ class ReceiveSessionService : Service()
             else -> "Session active"
         }
 
-        val contentText = "$statusText • $spots spots • $parts parts • $elapsedText"
+        // Build content text with optional timeout warning
+        val remainingMs = getRemainingTimeoutMs()
+        val contentText = if (remainingMs != null)
+        {
+            val remainingMin = (remainingMs / 60000).toInt() + 1  // Round up
+            "$statusText • $spots spots • $parts parts • $elapsedText • Timeout in ${remainingMin}m"
+        }
+        else
+        {
+            "$statusText • $spots spots • $parts parts • $elapsedText"
+        }
 
-        return NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
+        val builder = NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_radio)
             .setContentTitle("Receiving from ${friendName ?: "friend"}")
             .setContentText(contentText)
@@ -966,7 +1125,19 @@ class ReceiveSessionService : Service()
             .addAction(R.drawable.btn_close_small_24, "Stop", stopPendingIntent)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .setPriority(NotificationCompat.PRIORITY_LOW)
-            .build()
+
+        // Add Extend action only when timeout is active
+        if (remainingMs != null)
+        {
+            val extendIntent = createExtendIntent(this)
+            val extendPendingIntent = PendingIntent.getService(
+                this, 2, extendIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            builder.addAction(R.drawable.ic_radio, "Extend", extendPendingIntent)
+        }
+
+        return builder.build()
     }
 
     private fun updateNotification()
