@@ -24,6 +24,8 @@ class SlideActivity : AppCompatActivity() {
     var pagerAdapter: SlideViewPagerAdapter? = null
     var isExitWithBack: Boolean = true
 
+    @Deprecated("Deprecated in Java")
+    @Suppress("MissingSuperCall")
     override fun onBackPressed() {
         if (isExitWithBack)
             finish()

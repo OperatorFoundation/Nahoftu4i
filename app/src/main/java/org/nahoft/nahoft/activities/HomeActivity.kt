@@ -13,7 +13,6 @@ import android.os.Parcelable
 import android.text.*
 import android.text.style.AlignmentSpan
 import android.view.View
-import android.view.WindowManager
 import android.widget.EditText
 import android.widget.LinearLayout
 import androidx.appcompat.app.AlertDialog
@@ -87,12 +86,14 @@ class HomeActivity : AppCompatActivity()
         }
     }
 
+    @Deprecated("Deprecated in Java")
+    @Suppress("MissingSuperCall")
     override fun onBackPressed()
     {
         finishAffinity()
     }
 
-    @SuppressLint("UnspecifiedRegisterReceiverFlag")
+    @SuppressLint("UnspecifiedRegisterReceiverFlag", "NotifyDataSetChanged")
     @ExperimentalUnsignedTypes
     override fun onCreate(savedInstanceState: Bundle?)
     {
@@ -196,7 +197,7 @@ class HomeActivity : AppCompatActivity()
             {
                 unbindService(serviceConnection)
             }
-            catch (e: Exception)
+            catch (_: Exception)
             {
                 // Already unbound
             }
@@ -207,7 +208,7 @@ class HomeActivity : AppCompatActivity()
         {
             unregisterReceiver(receiver)
         }
-        catch (e: Exception)
+        catch (_: Exception)
         {
             //Nothing to unregister
         }
@@ -236,6 +237,8 @@ class HomeActivity : AppCompatActivity()
     {
         filteredFriendList.clear()
         filteredFriendList.addAll(Persist.friendList.filter { f -> f.name.contains(binding.searchFriends.text, true) } as ArrayList<Friend>)
+
+        @Suppress("NotifyDataSetChanged")
         adapter.notifyDataSetChanged()
         setupHelpText()
     }
@@ -243,7 +246,7 @@ class HomeActivity : AppCompatActivity()
     private fun showFriendsList()
     {
         linearLayoutManager = LinearLayoutManager(this)
-        filteredFriendList = Persist.friendList.clone() as ArrayList<Friend>
+        filteredFriendList = ArrayList(Persist.friendList)
         adapter = FriendsRecyclerAdapter(filteredFriendList)
         binding.friendsRecyclerView.layoutManager = linearLayoutManager
         binding.friendsRecyclerView.adapter = adapter
@@ -283,7 +286,7 @@ class HomeActivity : AppCompatActivity()
                     }
                     else if (intent.type?.startsWith("image/") == true)
                     {
-                        val extraStream = intent.getParcelableExtra<Parcelable>(Intent.EXTRA_STREAM)
+                        val extraStream = intent.getParcelableExtra(Intent.EXTRA_STREAM, Parcelable::class.java)
                         if (extraStream != null)
                         {
                             try
@@ -295,7 +298,7 @@ class HomeActivity : AppCompatActivity()
                                     friendInfoIntent.putExtra(Intent.EXTRA_STREAM, extraUri)
                                 }
                             }
-                            catch (e: Exception)
+                            catch (_: Exception)
                             {
                                 showAlert(getString(R.string.alert_text_unable_to_process_request))
                             }
@@ -307,7 +310,7 @@ class HomeActivity : AppCompatActivity()
                 else
                 {
                     val extraString = intent.getStringExtra(Intent.EXTRA_TEXT)
-                    val extraStream = intent.getParcelableExtra<Parcelable>(Intent.EXTRA_STREAM)
+                    val extraStream = intent.getParcelableExtra(Intent.EXTRA_STREAM, Parcelable::class.java)
 
                     when {
                         extraString != null // Check to see if we received a string message share
@@ -315,7 +318,7 @@ class HomeActivity : AppCompatActivity()
                             try {
                                 // Received string message
                                 friendInfoIntent.putExtra(Intent.EXTRA_TEXT, extraString)
-                            } catch (e: Exception) {
+                            } catch (_: Exception) {
                                 // Something went wrong, don't share this extra
                             }
 
@@ -324,7 +327,7 @@ class HomeActivity : AppCompatActivity()
                         -> {
                             try {
                                 friendInfoIntent.putExtra(Intent.EXTRA_STREAM, extraStream)
-                            } catch (e: NullPointerException) {
+                            } catch (_: NullPointerException) {
                                 // Something went wrong, don't share this extra
                             }
                         }
@@ -365,7 +368,7 @@ class HomeActivity : AppCompatActivity()
                         val extraUri = Uri.parse(extraStream)
                         loginIntent.putExtra(Intent.EXTRA_STREAM, extraUri)
                     }
-                    catch (e: Exception)
+                    catch (_: Exception)
                     {
                         // The string was not a url don't try to share it
                     }
@@ -540,6 +543,8 @@ class HomeActivity : AppCompatActivity()
             Persist.friendList.add(newFriend)
             Persist.saveFriendsToFile(this)
             filteredFriendList.add(newFriend)
+
+            @Suppress("NotifyDataSetChanged")
             adapter.notifyDataSetChanged()
             setupHelpText()
             return newFriend

@@ -5,13 +5,15 @@ import android.content.BroadcastReceiver
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.IBinder
-import android.util.Log
 import org.nahoft.nahoft.ScreenLockReceiver
+import timber.log.Timber
 
-class UpdateService : Service() {
+class UpdateService : Service()
+{
     var receiver: BroadcastReceiver? = null
 
-    override fun onCreate() {
+    override fun onCreate()
+    {
         super.onCreate()
         // register receiver that handles screen on and screen off logic
         val filter = IntentFilter(Intent.ACTION_SCREEN_OFF)
@@ -19,9 +21,10 @@ class UpdateService : Service() {
         registerReceiver(receiver, filter)
     }
 
-    override fun onDestroy() {
+    override fun onDestroy()
+    {
         unregisterReceiver(receiver)
-        Log.i("onDestroy Receiver", "Called")
+        Timber.i("onDestroy Receiver Called")
         super.onDestroy()
     }
 

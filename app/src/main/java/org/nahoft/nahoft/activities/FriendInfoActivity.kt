@@ -12,7 +12,6 @@ import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.hardware.usb.UsbManager
 import android.net.Uri
-import android.os.Build
 import android.os.Bundle
 import android.os.Parcelable
 import android.text.Layout
@@ -20,7 +19,6 @@ import android.text.SpannableString
 import android.text.style.AlignmentSpan
 import android.view.Gravity
 import android.view.View
-import android.view.WindowManager
 import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
 import android.widget.LinearLayout
@@ -205,7 +203,7 @@ class FriendInfoActivity: AppCompatActivity()
         if (!Persist.accessIsAllowed()) { sendToLogin() }
 
         // Get our pending friend
-        val maybeFriend = intent.getSerializableExtra(RequestCodes.friendExtraTaskDescription) as? Friend
+        val maybeFriend = intent.getSerializableExtra(RequestCodes.friendExtraTaskDescription, Friend::class.java)
 
         if (maybeFriend == null)
         { // this should never happen, get out of this activity.
@@ -300,7 +298,7 @@ class FriendInfoActivity: AppCompatActivity()
 
         // Observe received messages and save them
         coroutineScope.launch {
-            viewModel.lastReceivedMessage.collect { encryptedBytes ->
+            viewModel.lastReceivedMessage.collect { _ ->
                 // Message already saved by service, just refresh UI
                 setupViewByStatus()
             }
@@ -407,15 +405,11 @@ class FriendInfoActivity: AppCompatActivity()
                 return
             }
 
-            // Check notification permission (Android 13+)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+                != PackageManager.PERMISSION_GRANTED)
             {
-                if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
-                    != PackageManager.PERMISSION_GRANTED)
-                {
-                    showNotificationPermissionExplanation()
-                    return
-                }
+                showNotificationPermissionExplanation()
+                return
             }
         }
 
@@ -590,11 +584,11 @@ class FriendInfoActivity: AppCompatActivity()
             decodeStringMessage(it)
         }
 
-        intent.getParcelableExtra<Parcelable>(Intent.EXTRA_STREAM)?.let {
+        intent.getParcelableExtra(Intent.EXTRA_STREAM, Parcelable::class.java)?.let {
             try
             {
                 // See if we received an image message
-                val extraStream = intent.getParcelableExtra<Parcelable>(Intent.EXTRA_STREAM)
+                val extraStream = intent.getParcelableExtra(Intent.EXTRA_STREAM, Parcelable::class.java)
                 if (extraStream != null)
                 {
                     (extraStream as? Uri)?.let {
@@ -602,15 +596,17 @@ class FriendInfoActivity: AppCompatActivity()
                     }
                 }
             }
-            catch (e:Exception)
+            catch (_:Exception)
             {
                 showAlert(getString(R.string.alert_text_unable_to_process_request))
             }
         }
     }
 
-
-    override fun onBackPressed() {
+    @Deprecated("Deprecated in Java")
+    @Suppress("MissingSuperCall")
+    override fun onBackPressed()
+    {
         returnButtonPressed()
     }
 
@@ -930,9 +926,9 @@ class FriendInfoActivity: AppCompatActivity()
     {
         binding.tvFriendName.text =
             if (thisFriend.name.length <= 10) thisFriend.name
-            else thisFriend.name.substring(0, 8) + "..."
+            else thisFriend.name.take(8) + "..."
 
-        binding.profilePicture.text = thisFriend.name.substring(0, 1)
+        binding.profilePicture.text = thisFriend.name.take(1)
 
         binding.sendViaSerial.visibility =
             if ((thisFriend.status == FriendStatus.Verified || thisFriend.status == FriendStatus.Approved) && viewModel.serialConnection != null) View.VISIBLE
@@ -1421,7 +1417,7 @@ class FriendInfoActivity: AppCompatActivity()
                 }
             }
 
-        } catch (exception: SecurityException) {
+        } catch (_: SecurityException) {
             applicationContext.showAlert(applicationContext.getString(R.string.alert_text_unable_to_process_request))
             print("Unable to send message as photo, we were unable to encrypt the mess56age.")
             return
@@ -1455,7 +1451,7 @@ class FriendInfoActivity: AppCompatActivity()
                     showAlert(getString(R.string.alert_text_unable_to_decode_message))
                 }
             }
-            catch (e: Exception)
+            catch (_: Exception)
             {
                 noMoreWaiting()
                 showAlert(getString(R.string.alert_text_unable_to_decode_message))
@@ -1638,17 +1634,11 @@ class FriendInfoActivity: AppCompatActivity()
     fun changeFriendsName(newName: String)
     {
         Persist.updateFriend(this, thisFriend, newName)
-        thisFriend.name = if (newName.length <= 10) newName else newName.substring(0, 8) + "..."
+        thisFriend.name = if (newName.length <= 10) newName else newName.take(8) + "..."
         binding.tvFriendName.text = thisFriend.name
-        binding.profilePicture.text = thisFriend.name.substring(0, 1)
+        binding.profilePicture.text = thisFriend.name.take(1)
         showAlert("New name saved")
     }
-
-//    fun changeFriendsPhone(newPhoneNumber: String) {
-//        Persist.updateFriendsPhone(this, thisFriend, newPhoneNumber)
-//        thisFriend.phone = newPhoneNumber
-//        showAlert("New phone number saved")
-//    }
 
     fun Activity.hideSoftKeyboard(editText: EditText) {
         (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).apply {
@@ -1668,7 +1658,7 @@ class FriendInfoActivity: AppCompatActivity()
         {
             unregisterReceiver(usbReceiver)
         }
-        catch (e: Exception)
+        catch (_: Exception)
         {
             // Receiver wasn't registered
         }

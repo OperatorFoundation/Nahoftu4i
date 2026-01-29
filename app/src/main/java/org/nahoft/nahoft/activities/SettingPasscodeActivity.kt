@@ -55,11 +55,15 @@ class SettingPasscodeActivity : AppCompatActivity()
         setDefaultView()
     }
 
-    override fun onBackPressed() {
+    @Deprecated("Deprecated in Java")
+    @Suppress("MissingSuperCall")
+    override fun onBackPressed()
+    {
         Persist.saveLoginStatus()
     }
 
-    override fun onDestroy() {
+    override fun onDestroy()
+    {
         Persist.saveLoginStatus()
 
         try

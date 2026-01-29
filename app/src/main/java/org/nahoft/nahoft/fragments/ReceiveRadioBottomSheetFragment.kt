@@ -26,7 +26,6 @@ import org.nahoft.nahoft.services.ReceiveSessionState
 import org.nahoft.nahoft.viewmodels.FriendInfoViewModel
 import org.operatorfoundation.audiocoder.models.WSPRCycleInformation
 import org.operatorfoundation.audiocoder.models.WSPRStationState
-import timber.log.Timber
 
 /**
  * BottomSheet for receiving encrypted messages via WSPR radio.

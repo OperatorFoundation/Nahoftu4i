@@ -22,11 +22,7 @@ import org.nahoft.nahoft.services.ReceiveSessionService
 import org.nahoft.nahoft.services.ReceiveSessionState
 import org.operatorfoundation.audiocoder.models.WSPRCycleInformation
 import org.operatorfoundation.audiocoder.models.WSPRStationState
-import org.operatorfoundation.signalbridge.UsbAudioConnection
 import org.operatorfoundation.signalbridge.UsbAudioDeviceMonitor
-import org.operatorfoundation.signalbridge.UsbAudioManager
-import org.operatorfoundation.signalbridge.models.ConnectionStatus
-import org.operatorfoundation.signalbridge.models.UsbAudioDevice
 import org.operatorfoundation.transmission.SerialConnection
 import org.operatorfoundation.transmission.SerialConnectionFactory
 import timber.log.Timber

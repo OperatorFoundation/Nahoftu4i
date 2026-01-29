@@ -5,7 +5,6 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.os.Bundle
 import android.os.Parcelable
-import android.view.WindowManager
 import android.view.inputmethod.EditorInfo
 import androidx.appcompat.app.AppCompatActivity
 import androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_STRONG
@@ -44,7 +43,10 @@ class LogInActivity : AppCompatActivity()
         }
     }
 
-    override fun onBackPressed() {
+    @Deprecated("Deprecated in Java")
+    @Suppress("MissingSuperCall")
+    override fun onBackPressed()
+    {
         // User should not be able to back out of this activity
     }
 
@@ -91,7 +93,7 @@ class LogInActivity : AppCompatActivity()
         {
             unregisterReceiver(receiver)
         }
-        catch (e: Exception)
+        catch (_: Exception)
         {
             //Nothing to unregister
         }
@@ -138,21 +140,18 @@ class LogInActivity : AppCompatActivity()
         val statusString =
             Persist.encryptedSharedPreferences.getString(Persist.sharedPrefLoginStatusKey, null)
 
-        if (statusString != null)
+        status = if (statusString != null)
         {
             try
             {
-                status = LoginStatus.valueOf(statusString)
+                LoginStatus.valueOf(statusString)
             }
-            catch (error: Exception)
+            catch (_: Exception)
             {
-                status = LoginStatus.LoggedOut
+                LoginStatus.LoggedOut
             }
         }
-        else
-        {
-            status = LoginStatus.NotRequired
-        }
+        else LoginStatus.NotRequired
     }
 
     private fun saveStatus()
@@ -172,7 +171,8 @@ class LogInActivity : AppCompatActivity()
             LoginStatus.LoggedIn, LoginStatus.NotRequired ->
             {
                 val extraString = intent.getStringExtra(Intent.EXTRA_TEXT)
-                val extraStream = intent.getParcelableExtra<Parcelable>(Intent.EXTRA_STREAM)
+                val extraStream = intent.getParcelableExtra(Intent.EXTRA_STREAM,
+                    Parcelable::class.java)
 
                 val homeActivityIntent = Intent(this, HomeActivity::class.java)
                 when {
@@ -183,7 +183,7 @@ class LogInActivity : AppCompatActivity()
                             // Received string message
                             homeActivityIntent.putExtra(Intent.EXTRA_TEXT, extraString)
                         }
-                        catch (e: Exception)
+                        catch (_: Exception)
                         {
                             // Something went wrong, don't share this extra
                         }
@@ -193,7 +193,7 @@ class LogInActivity : AppCompatActivity()
                     -> {
                         try {
                             homeActivityIntent.putExtra(Intent.EXTRA_STREAM, extraStream)
-                        } catch (e: NullPointerException) {
+                        } catch (_: NullPointerException) {
                             // Something went wrong, don't share this extra
                         }
                     }

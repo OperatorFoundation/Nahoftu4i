@@ -9,7 +9,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Binder
-import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
 import androidx.core.app.NotificationCompat
@@ -193,7 +192,7 @@ class ReceiveSessionService : Service()
         Timber.d("ReceiveSessionService created")
 
         usbAudioManager = UsbAudioManager.create(applicationContext)
-        notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
 
         createNotificationChannel()
         acquireWakeLock()
@@ -944,7 +943,6 @@ class ReceiveSessionService : Service()
         showTimeoutNotification(spotsReceived, messagesDecrypted)
 
         // Clear friend context
-        val timedOutFriendName = friendName
         friendName = null
         friendPublicKey = null
         _currentFriendName.value = null
