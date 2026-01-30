@@ -19,6 +19,7 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.view.ContextThemeWrapper
 import androidx.core.content.ContextCompat
+import androidx.core.net.toUri
 import androidx.core.view.isVisible
 import androidx.core.view.setPadding
 import androidx.core.widget.doOnTextChanged
@@ -365,17 +366,13 @@ class HomeActivity : AppCompatActivity()
                 {
                     try
                     {
-                        val extraUri = Uri.parse(extraStream)
+                        val extraUri = extraStream.toUri()
                         loginIntent.putExtra(Intent.EXTRA_STREAM, extraUri)
                     }
                     catch (_: Exception)
                     {
                         // The string was not a url don't try to share it
                     }
-                }
-                else
-                {
-                    println("Extra Stream is Null")
                 }
             }
             else

@@ -1,11 +1,13 @@
 package org.nahoft.nahoft.fragments
 
 import android.app.Dialog
+import android.graphics.Color
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.view.Window
+import androidx.core.graphics.drawable.toDrawable
 import androidx.fragment.app.DialogFragment
 import androidx.recyclerview.widget.LinearLayoutManager
 import org.nahoft.nahoft.R
@@ -81,6 +83,7 @@ class WSPRSpotsDialogFragment : DialogFragment()
         dialog?.window?.let { window ->
             val width = (resources.displayMetrics.widthPixels * 0.9).toInt()
             window.setLayout(width, ViewGroup.LayoutParams.WRAP_CONTENT)
+            window.setBackgroundDrawable(Color.TRANSPARENT.toDrawable())
         }
     }
 
