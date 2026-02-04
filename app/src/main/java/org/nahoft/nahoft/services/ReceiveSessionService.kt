@@ -568,65 +568,47 @@ class ReceiveSessionService : Service()
 
         for (result in results)
         {
-            val isNahoftMessage = WSPRMessage.isEncodedMessage(result.callsign)
             val timestamp = System.currentTimeMillis()
 
-            if (isNahoftMessage)
+            // Attempt to parse as Nahoft message
+            try
             {
-                try
-                {
-                    val message = WSPRMessage.fromWSPRFields(
-                        result.callsign,
-                        result.gridSquare,
-                        result.powerLevelDbm
-                    )
+                val message = WSPRMessage.fromWSPRFields(
+                    result.callsign,
+                    result.gridSquare,
+                    result.powerLevelDbm
+                )
 
-                    val isDuplicate = receivedMessages.any { existing ->
-                        existing.toWSPRFields() == message.toWSPRFields()
-                    }
-
-                    if (!isDuplicate)
-                    {
-                        receivedMessages.add(message)
-                        Timber.d("Added new WSPR message: ${message.toWSPRFields()}")
-                    }
-
-                    val partNumber = receivedMessages.size
-
-                    val spot = WSPRSpotItem(
-                        callsign = result.callsign,
-                        gridSquare = result.gridSquare,
-                        powerDbm = result.powerLevelDbm,
-                        snrDb = result.signalToNoiseRatioDb,
-                        timestamp = timestamp,
-                        nahoftStatus = NahoftSpotStatus.Pending(
-                            groupId = currentNahoftGroupId,
-                            partNumber = partNumber
-                        )
-                    )
-                    currentSpots.add(0, spot)
+                val isDuplicate = receivedMessages.any { existing ->
+                    existing.toWSPRFields() == message.toWSPRFields()
                 }
-                catch (e: Exception)
-                {
-                    Timber.w(e, "Failed to parse WSPR message: ${result.callsign}")
 
-                    val spot = WSPRSpotItem(
-                        callsign = result.callsign,
-                        gridSquare = result.gridSquare,
-                        powerDbm = result.powerLevelDbm,
-                        snrDb = result.signalToNoiseRatioDb,
-                        timestamp = timestamp,
-                        nahoftStatus = NahoftSpotStatus.Failed(
-                            groupId = currentNahoftGroupId,
-                            partNumber = receivedMessages.size + 1,
-                            reason = FailureReason.PARSE_ERROR
-                        )
-                    )
-                    currentSpots.add(0, spot)
+                if (!isDuplicate)
+                {
+                    receivedMessages.add(message)
+                    Timber.d("Added WSPR message #${receivedMessages.size}: ${message.toWSPRFields()}")
                 }
+
+                val partNumber = receivedMessages.size
+
+                val spot = WSPRSpotItem(
+                    callsign = result.callsign,
+                    gridSquare = result.gridSquare,
+                    powerDbm = result.powerLevelDbm,
+                    snrDb = result.signalToNoiseRatioDb,
+                    timestamp = timestamp,
+                    nahoftStatus = NahoftSpotStatus.Pending(
+                        groupId = currentNahoftGroupId,
+                        partNumber = partNumber
+                    )
+                )
+                currentSpots.add(0, spot)
             }
-            else
+            catch (e: Exception)
             {
+                // Failed to parse - wrong format
+                Timber.d("Spot not Nahoft format: ${result.callsign} - ${e.message}")
+
                 val spot = WSPRSpotItem(
                     callsign = result.callsign,
                     gridSquare = result.gridSquare,
@@ -641,8 +623,8 @@ class ReceiveSessionService : Service()
 
         _receivedSpots.value = currentSpots
 
-        // Attempt decryption if we have at least 2 Nahoft messages
-        if (receivedMessages.size >= 2)
+        // Attempt decryption if we have at least 8 Nahoft messages
+        if (receivedMessages.size >= 8)
         {
             attemptDecryption()
         }
@@ -659,6 +641,8 @@ class ReceiveSessionService : Service()
 
         decryptionAttempts++
 
+        Timber.d("Decryption attempt #$decryptionAttempts with ${receivedMessages.size} spots")
+
         try
         {
             val sequence = org.operatorfoundation.codex.symbols.WSPRMessageSequence.fromMessages(
@@ -667,14 +651,14 @@ class ReceiveSessionService : Service()
             val numericValue = sequence.decode()
             val encryptedBytes = bigIntegerToByteArray(numericValue)
 
-            Timber.d("Attempting decryption of ${encryptedBytes.size} bytes")
+            Timber.d("Attempt #$decryptionAttempts: ${receivedMessages.size} spots -> ${encryptedBytes.size} bytes")
 
             val friendPubKey = PublicKey(keyBytes)
 
             // Validate decryption succeeds
             Encryption().decrypt(friendPubKey, encryptedBytes)
 
-            Timber.i("Successfully decrypted message from ${receivedMessages.size} WSPR messages")
+            Timber.i("SUCCESS: Decrypted message from ${receivedMessages.size} WSPR spots on attempt #$decryptionAttempts")
 
             _messageJustReceived.value = true
             markCurrentGroupAsDecrypted(receivedMessages.size)
@@ -693,11 +677,11 @@ class ReceiveSessionService : Service()
         }
         catch (e: SecurityException)
         {
-            Timber.d("Decryption attempt failed (may need more messages): ${e.message}")
+            Timber.d("Attempt #$decryptionAttempts failed (${receivedMessages.size} spots): ${e.message}")
         }
         catch (e: Exception)
         {
-            Timber.w(e, "Error during decryption attempt")
+            Timber.w(e, "Attempt #$decryptionAttempts error (${receivedMessages.size} spots)")
         }
     }
 
