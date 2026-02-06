@@ -50,6 +50,8 @@ class ReceiveSessionService : Service()
 {
     companion object
     {
+        const val MIN_SPOTS_FOR_DECRYPTION = 8
+
         // Intent actions
         const val ACTION_START_SESSION = "org.nahoft.nahoft.action.START_SESSION"
         const val ACTION_STOP_SESSION = "org.nahoft.nahoft.action.STOP_SESSION"
@@ -624,7 +626,7 @@ class ReceiveSessionService : Service()
         _receivedSpots.value = currentSpots
 
         // Attempt decryption if we have at least 8 Nahoft messages
-        if (receivedMessages.size >= 8)
+        if (receivedMessages.size >= MIN_SPOTS_FOR_DECRYPTION)
         {
             attemptDecryption()
         }

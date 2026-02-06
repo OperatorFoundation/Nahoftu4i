@@ -22,6 +22,7 @@ import kotlinx.coroutines.launch
 import org.nahoft.nahoft.R
 import org.nahoft.nahoft.databinding.FragmentBottomSheetReceiveRadioBinding
 import org.nahoft.nahoft.models.WSPRSpotItem
+import org.nahoft.nahoft.services.ReceiveSessionService
 import org.nahoft.nahoft.services.ReceiveSessionState
 import org.nahoft.nahoft.viewmodels.FriendInfoViewModel
 import org.operatorfoundation.audiocoder.models.WSPRCycleInformation
@@ -289,7 +290,7 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
                     PorterDuff.Mode.SRC_IN
                 )
                 binding.tvStatusTitle.text = getString(R.string.status)
-                binding.tvStatusSubtitle.text = getString(R.string.status_incomplete)
+                binding.tvStatusSubtitle.text = getString(R.string.status_incomplete, decryptionAttempts)
                 binding.tvStatusSubtitle.setTextColor(
                     ContextCompat.getColor(context, R.color.coolGrey)
                 )
@@ -466,13 +467,31 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
 
     /**
      * Updates spots-related UI elements.
+     *
+     * The middle card shows dual-mode progress:
+     * - Pre-threshold: candidate count toward minimum needed for decryption
+     * - Post-threshold: number of decryption attempts made
      */
     private fun updateSpotsUI(spots: List<WSPRSpotItem>)
     {
         if (_binding == null) return
 
         binding.tvSpotsCount.text = spots.size.toString()
-        binding.tvMessagesReceived.text = viewModel.receivedMessageCount.toString()
+
+        val candidates = viewModel.receivedMessageCount
+        val attempts = viewModel.getDecryptionAttempts()
+        val threshold = ReceiveSessionService.MIN_SPOTS_FOR_DECRYPTION
+
+        if (candidates < threshold)
+        {
+            binding.tvMessagesReceived.text = "$candidates / $threshold"
+            binding.tvMessagesLabel.text = getString(R.string.signals_toward_threshold)
+        }
+        else
+        {
+            binding.tvMessagesReceived.text = attempts.toString()
+            binding.tvMessagesLabel.text = getString(R.string.decrypt_attempts_label)
+        }
 
         // Update dialog if open
         spotsDialog?.updateSpots(spots)

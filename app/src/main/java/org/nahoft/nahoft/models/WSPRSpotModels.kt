@@ -140,7 +140,7 @@ data class WSPRSpotItem(
     val partNumberDisplay: String?
         get() = when (val status = nahoftStatus) {
             is NahoftSpotStatus.Spotted -> null
-            is NahoftSpotStatus.Pending -> "[${status.partNumber}/?]"
+            is NahoftSpotStatus.Pending -> "#\${partNumber}"
             is NahoftSpotStatus.Decrypted -> "[${status.partNumber}/${status.totalParts}]"
             is NahoftSpotStatus.Failed -> "[${status.partNumber}/?]"
         }
@@ -157,7 +157,7 @@ data class WSPRSpotItem(
     val statusDisplay: String?
         get() = when (val status = nahoftStatus) {
             is NahoftSpotStatus.Spotted -> null
-            is NahoftSpotStatus.Pending -> "Pending..."
+            is NahoftSpotStatus.Pending -> "Candidate"
             is NahoftSpotStatus.Decrypted -> "✓ Decrypted"
             is NahoftSpotStatus.Failed -> when (status.reason) {
                 FailureReason.PARSE_ERROR -> "✗ Parse error"

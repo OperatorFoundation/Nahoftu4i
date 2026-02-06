@@ -624,10 +624,10 @@ After pressing this (+) sign, you must first enter your friend\'s name. You can 
     <string name="receive_cancelled">Receive cancelled</string>
     <string name="waiting_for_next_window">Waiting for next transmission window…</string>
     <string name="wspr_spots">WSPR Spots</string>
-    <string name="message_parts">Message Parts</string>
+    <string name="message_parts">Progress</string>
     <string name="status">Status</string>
-    <string name="status_waiting">Waiting for parts</string>
-    <string name="status_incomplete">Incomplete, more parts needed</string>
+    <string name="status_waiting">Listening</string>
+    <string name="status_incomplete">Decrypting (attempt #%1$d)</string>
     <string name="status_received">✓ Received!</string>
     <string name="session_label">Session:</string>
     <string name="tap_for_details">Tap for details</string>
@@ -635,6 +635,8 @@ After pressing this (+) sign, you must first enter your friend\'s name. You can 
     <string name="stop_session">Stop Session</string>
     <string name="session_stopped">Session stopped</string>
     <string name="receiving_indicator">Receiving message</string>
+    <string name="signals_toward_threshold">Signals</string>
+    <string name="decrypt_attempts_label">Attempts</string>
 
     <!-- Session timeout -->
     <string name="session_timeout_title">Session Timed Out</string>
