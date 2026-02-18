@@ -20,6 +20,7 @@ import org.nahoft.nahoft.models.FriendStatus
 import org.nahoft.nahoft.models.WSPRSpotItem
 import org.nahoft.nahoft.services.ReceiveSessionService
 import org.nahoft.nahoft.services.ReceiveSessionState
+import org.operatorfoundation.audiocoder.WSPRTimingCoordinator
 import org.operatorfoundation.audiocoder.models.WSPRCycleInformation
 import org.operatorfoundation.audiocoder.models.WSPRStationState
 import org.operatorfoundation.signalbridge.UsbAudioDeviceMonitor
@@ -29,8 +30,11 @@ import timber.log.Timber
 
 class FriendInfoViewModel(application: Application) : AndroidViewModel(application)
 {
-    // ==================== Service Binding ====================
+    private val timingCoordinator = WSPRTimingCoordinator()
 
+    fun getMillisUntilNextEvenMinute(): Long = timingCoordinator.getMillisUntilNextEvenMinute()
+
+    // ==================== Service Binding ====================
     private var receiveService: ReceiveSessionService? = null
     private var serviceBound = false
 

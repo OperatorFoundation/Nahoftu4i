@@ -60,6 +60,7 @@ import org.nahoft.nahoft.models.slideNameChat
 import org.nahoft.nahoft.services.ReceiveSessionState
 import org.nahoft.nahoft.viewmodels.FriendInfoViewModel
 import org.nahoft.util.applySecureFlag
+import org.operatorfoundation.audiocoder.WSPRBandplan
 import org.operatorfoundation.audiocoder.WSPREncoder
 import org.operatorfoundation.codex.symbols.WSPRMessageSequence
 import org.operatorfoundation.ion.storage.NounType
@@ -1179,7 +1180,7 @@ class FriendInfoActivity: AppCompatActivity()
                             callsign,
                             gridSquare,
                             powerDbm,
-                            14095600, // 20m WSPR calling frequency
+                            (WSPRBandplan.getDefaultFrequency() * 1_000_000).toInt(),  // 20m WSPR calling frequency MHz → Hz
                             false
                         )
                     ).toList()
@@ -1199,7 +1200,7 @@ class FriendInfoActivity: AppCompatActivity()
                     for(frequencyArray in frequencyArrays)
                     {
                         Timber.d("Waiting until even minute...")
-                        Thread.sleep(millisUntilEvenMinute())
+                        Thread.sleep(viewModel.getMillisUntilNextEvenMinute())
                         Timber.d("It's go time!")
 
                         var first = true
@@ -1213,12 +1214,18 @@ class FriendInfoActivity: AppCompatActivity()
                             {
                                 first = false
 
+                                // Tell the radio to switch to TX mode (tell the relay to switch the antenna to the transmitter chip)
+                                Word.to_conn(connection, Word.make(2, NounType.INTEGER.value))
+
                                 // Turn on transmitter after setting initial frequency
                                 Word.to_conn(connection, Word.make(1, NounType.INTEGER.value))
                             }
 
                             Thread.sleep(683) // Wait for tone duration
                         }
+
+                        // Switch the antenna back to RX chip
+                        Word.to_conn(connection, Word.make(3, NounType.INTEGER.value))
 
                         // Turn off transmitter after waiting for last tone
                         Word.to_conn(connection, Word.make(0, NounType.INTEGER.value))
@@ -1274,16 +1281,6 @@ class FriendInfoActivity: AppCompatActivity()
                 false
             }
         }
-    }
-
-    fun millisUntilEvenMinute(): Long {
-        val now = LocalDateTime.now()
-        val nextEvenMinute = now
-            .plusMinutes(1)
-            .withSecond(0)
-            .withNano(0)
-
-        return ChronoUnit.MILLIS.between(now, nextEvenMinute)
     }
 
     // FIXME: Move to CodexKotlin once tested
