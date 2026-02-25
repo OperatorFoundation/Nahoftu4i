@@ -225,7 +225,7 @@ class FriendInfoViewModel(application: Application) : AndroidViewModel(applicati
         return currentEden.startReceiving(frequencyKHz)
     }
 
-    suspend fun transmitWSPR(symbolFrequenciesCHz: LongArray, onSymbolSent: ((Int, Int) -> Unit)? = null): Boolean
+    suspend fun transmitWSPR(messages: List<LongArray>, onSymbolSent: ((Int, Int) -> Unit)? = null): Boolean
     {
         val currentEden = eden
 
@@ -235,11 +235,23 @@ class FriendInfoViewModel(application: Application) : AndroidViewModel(applicati
             return false
         }
 
-        return withContext(Dispatchers.IO) {
-            Timber.d("Waiting for next even minute...")
-            Thread.sleep(timingCoordinator.getMillisUntilNextEvenMinute())
-            Timber.d("Transmitting WSPR message")
-            currentEden.transmitWSPR(symbolFrequenciesCHz, onSymbolSent)
+        return withContext(Dispatchers.IO)
+        {
+            messages.forEachIndexed { index, symbolFrequencies ->
+                Timber.d("Waiting for even minute (message ${index + 1} of ${messages.size})...")
+                Thread.sleep(timingCoordinator.getMillisUntilNextEvenMinute())
+                Timber.d("Transmitting message ${index + 1} of ${messages.size}")
+
+                val success = currentEden.transmitWSPR(symbolFrequencies, onSymbolSent)
+
+                if (!success)
+                {
+                    Timber.e("Transmission failed on message ${index + 1}")
+                    return@withContext false
+                }
+            }
+
+            true
         }
     }
 

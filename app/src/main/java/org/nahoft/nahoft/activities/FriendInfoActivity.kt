@@ -62,6 +62,9 @@ import org.nahoft.util.applySecureFlag
 import org.operatorfoundation.audiocoder.WSPREncoder
 import org.operatorfoundation.codex.symbols.WSPRMessageSequence
 
+import org.operatorfoundation.Codex.encodeDataToWSPRMessages
+import org.operatorfoundation.Codex.WSPRMessageFields
+
 import timber.log.Timber
 import java.math.BigInteger
 
@@ -1251,32 +1254,26 @@ class FriendInfoActivity: AppCompatActivity()
         }
 
         // Encode encrypted bytes to WSPR symbol frequencies
-        val wsprMessages = encodeDataToWSPRMessages(encryptedMessage)
-
-        if (wsprMessages == null)
-        {
-            withContext(Dispatchers.Main) {
-                showAlert("Failed to encode message - data too large")
+        val wsprMessages: List<WSPRMessageFields> = encodeDataToWSPRMessages(encryptedMessage)
+            ?: run {
+                withContext(Dispatchers.Main) {
+                    showAlert("Failed to encode message - data too large")
+                }
+                return false
             }
-            return false
-        }
 
-        // Flatten all WSPR messages into a single frequency array
-        // Each WSPRMessage produces 162 symbols; transmitWSPR handles timing
-        val allFrequencies = wsprMessages.flatMap { (callsign, gridSquare, powerDbm) ->
+        val messageFrequencies: List<LongArray> = wsprMessages.map { msg ->
             WSPREncoder.encodeToFrequencies(
                 WSPREncoder.WSPRMessage(
-                    callsign,
-                    gridSquare,
-                    powerDbm,
+                    msg.callsign,
+                    msg.gridSquare,
+                    msg.powerDbm,
                     viewModel.getTxFrequencyKHz() * 1000
                 )
-            ).toList()
-        }.toLongArray()
+            )
+        }
 
-        // Transmit
-        val success = viewModel.transmitWSPR(allFrequencies) { symbolIndex, total ->
-            // TODO: update UI progress here if needed
+        val success = viewModel.transmitWSPR(messageFrequencies) { symbolIndex, total ->
             Timber.d("TX progress: $symbolIndex / $total")
         }
 
@@ -1297,71 +1294,6 @@ class FriendInfoActivity: AppCompatActivity()
         }
 
         return success
-    }
-
-    // FIXME: Move to CodexKotlin once tested
-    /**
-     * Encodes binary data into WSPR message format with automatic message count detection.
-     *
-     * Finds the minimum number of WSPR messages needed to encode the data by starting
-     * with a low estimate and incrementing until encoding succeeds.
-     *
-     * @param data Binary data to encode (typically encrypted message bytes)
-     * @return List of WSPR messages (callsign, gridSquare, powerDbm), or null if encoding fails
-     */
-    private fun encodeDataToWSPRMessages(data: ByteArray): List<Triple<String, String, Int>>?
-    {
-        try
-        {
-            Timber.d("=== WSPR Encoding Debug ===")
-            Timber.d("Input data: ${data.size} bytes")
-            Timber.d("Input hex: ${data.joinToString("") { "%02x".format(it) }}")
-
-            // Convert encrypted bytes to BigInteger (unsigned)
-            val numericValue = BigInteger(1, data)
-
-            Timber.d("BigInteger value: $numericValue")
-            Timber.d("BigInteger bits: ${numericValue.bitLength()}")
-
-            // Calculate bits needed
-            val bitsNeeded = numericValue.bitLength()
-
-            // Each WSPR message provides ~50 bits of capacity (rough estimate)
-            // Start with a reasonable minimum based on data size
-            val estimatedMessages = maxOf(1, (bitsNeeded / 50) + 1)
-
-            Timber.d("Data: ${data.size} bytes, $bitsNeeded bits → estimated $estimatedMessages WSPR messages")
-
-            // Try encoding with increasing message counts until successful
-            val maxAttempts = 20 // Reasonable upper limit
-            var messageCount = estimatedMessages
-
-            while (messageCount <= maxAttempts)
-            {
-                try
-                {
-                    val encoded = WSPRMessageSequence.encode(numericValue)
-                    // Encoding succeeded! Now parse into individual WSPR messages
-                    val wsprMessages = encoded.toWSPRFields()
-
-                    return wsprMessages
-                }
-                catch (e: Exception)
-                {
-                    // Encoding failed, try more messages
-                    Timber.d("Failed with $messageCount messages: ${e.message}")
-                    messageCount++
-                }
-            }
-
-            Timber.e("Could not encode data even with $maxAttempts WSPR messages")
-            return null
-        }
-        catch (e: Exception)
-        {
-            Timber.e(e, "Error encoding data to WSPR messages")
-            return null
-        }
     }
 
     private fun pickImageFromGallery(saveImage: Boolean)

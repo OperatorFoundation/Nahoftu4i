@@ -82,7 +82,8 @@ class Eden(private val connection: SerialConnection)
         currentMode = Mode.RX
 
         val frequencyCHz = frequencyKHz.toCentihertz()
-        if (!sendFrequency(frequencyCHz)) return false
+        sendFrequency(frequencyCHz)
+        if (awaitAck() == null) return false
 
         Timber.i("Eden: RX mode active at ${frequencyKHz} kHz")
         return true
@@ -103,6 +104,7 @@ class Eden(private val connection: SerialConnection)
      * @param onSymbolSent Optional progress callback, called with (symbolIndex, total)
      * @return True if all symbols were sent and Eden acknowledged each
      */
+
     suspend fun transmitWSPR(symbolFrequenciesCHz: LongArray, onSymbolSent: ((Int, Int) -> Unit)? = null): Boolean = withContext(Dispatchers.IO)
     {
         require(symbolFrequenciesCHz.size == 162)
@@ -112,7 +114,6 @@ class Eden(private val connection: SerialConnection)
 
         Timber.d("Eden: beginning WSPR transmission (${symbolFrequenciesCHz.size} symbols)")
 
-        // Switch relay to TX (also mutes USB audio on Eden side)
         if (!sendControlCode(CONTROL_TX)) return@withContext false
         currentMode = Mode.TX
 
@@ -120,13 +121,18 @@ class Eden(private val connection: SerialConnection)
 
         for ((index, frequencyCHz) in symbolFrequenciesCHz.withIndex())
         {
-            if (!sendFrequency(frequencyCHz)) return@withContext false
+            sendFrequency(frequencyCHz)
 
             if (firstSymbol)
             {
+                // Eden is idle before TX starts — wait for frequency ack,
+                // then enable the oscillator output.
+                if (awaitAck() == null) return@withContext false
                 if (!sendControlCode(CONTROL_ON)) return@withContext false
                 firstSymbol = false
             }
+
+            // Mid-transmission: Eden updates the tone silently, no ack.
 
             onSymbolSent?.invoke(index, symbolFrequenciesCHz.size)
 
@@ -179,22 +185,23 @@ class Eden(private val connection: SerialConnection)
     }
 
     /**
-     * Sends a frequency value in centihertz and waits for acknowledgement.
+     * Sends a frequency value in centihertz. Fire-and-forget — does not wait
+     * for acknowledgement. Callers are responsible for calling awaitAck() when
+     * a response is expected (i.e. before transmission starts).
      *
      * FIXME: Word.make() takes Int. Frequencies above ~21 MHz expressed in cHz
+     * will overflow.
      */
-    private suspend fun sendFrequency(frequencyCHz: Long): Boolean = withContext(Dispatchers.IO)
+    private suspend fun sendFrequency(frequencyCHz: Long) = withContext(Dispatchers.IO)
     {
         Timber.d("Eden: sending frequency ${frequencyCHz} cHz")
         try
         {
             Word.to_conn(connection, Word.make(frequencyCHz.toInt(), NounType.INTEGER.value))
-            awaitAck() != null
         }
         catch (e: Exception)
         {
             Timber.e(e, "Eden: failed to send frequency ${frequencyCHz} cHz")
-            false
         }
     }
 
