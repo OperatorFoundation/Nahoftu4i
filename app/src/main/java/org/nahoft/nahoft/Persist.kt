@@ -42,7 +42,8 @@ class Persist
         val sharedPrefLockoutExpiryKey = "NahoftLockoutExpiry"
         val sharedPrefLockoutElapsedKey = "NahoftLockoutElapsed"
 
-//        val sharedPrefUseSmsAsDefaultKey = "NahoftUseSmsAsDefault"
+        const val sharedPrefTxFrequencyKHzKey = "NahoftTxFrequencyKHz"
+        const val sharedPrefRxFrequencyKHzKey = "NahoftRxFrequencyKHz"
         val sharedPrefAlreadySeeTutorialKey = "NahoftAlreadySeeTutorial"
 
         val sharedPrefFilename = "NahoftEncryptedPreferences"
@@ -279,6 +280,17 @@ class Persist
 
         fun loadBooleanKey(key: String): Boolean {
             return encryptedSharedPreferences.getBoolean(key, false)
+        }
+
+        fun saveIntKey(key: String, value: Int) {
+            encryptedSharedPreferences
+                .edit()
+                .putInt(key, value)
+                .apply()
+        }
+
+        fun loadIntKey(key: String, default: Int): Int {
+            return encryptedSharedPreferences.getInt(key, default)
         }
 
         // Remove something from Encrypted Shared Preferences

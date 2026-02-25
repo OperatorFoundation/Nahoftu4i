@@ -81,14 +81,13 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
         // Start session if not already running
         if (!viewModel.isSessionActive())
         {
-            val friend = viewModel.friend.value
-            if (friend?.publicKeyEncoded != null) {
-                viewModel.startReceiveSession()
-            }
+            // Show frequency input, wait for user to confirm before starting
+            showFrequencyInput()
         }
         else
         {
-            // Resuming existing session - show indicator until flows connect
+            // Session already running — hide input, show live state
+            hideFrequencyInput()
             binding.tvStatus.text = "Resuming session..."
         }
     }
@@ -110,6 +109,21 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
         // Spots card opens dialog
         binding.cardSpots.setOnClickListener {
             showSpotsDialog()
+        }
+
+        // Pre-fill frequency input from saved preference
+        binding.etRxFrequency.setText(viewModel.getRxFrequencyKHz().toString())
+
+        binding.btnRxFreqMinus.setOnClickListener {
+            val current = binding.etRxFrequency.text.toString().toIntOrNull()
+                ?: viewModel.getRxFrequencyKHz()
+            binding.etRxFrequency.setText((current - 1).toString())
+        }
+
+        binding.btnRxFreqPlus.setOnClickListener {
+            val current = binding.etRxFrequency.text.toString().toIntOrNull()
+                ?: viewModel.getRxFrequencyKHz()
+            binding.etRxFrequency.setText((current + 1).toString())
         }
     }
 
@@ -191,12 +205,14 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
             }
 
             is ReceiveSessionState.WaitingForWindow -> {
+                hideFrequencyInput()
                 updateStatus(getString(R.string.waiting_for_next_window))
                 updateStateIcon(R.drawable.ic_access_time, R.color.coolGrey, AnimationType.NONE)
             }
 
             is ReceiveSessionState.Running -> {
-                // Station state observer will handle the specific status
+                // Station state observer will handle the status
+                hideFrequencyInput()
             }
 
             is ReceiveSessionState.Stopped -> {
@@ -514,6 +530,55 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
         spotsDialog = WSPRSpotsDialogFragment.newInstance().also { dialog ->
             dialog.updateSpots(viewModel.receivedSpots.value)
             dialog.show(childFragmentManager, "WSPRSpotsDialog")
+        }
+    }
+
+    /**
+     * Shows the frequency input section and wires the Start button.
+     * The session does not start until the user confirms the frequency.
+     */
+    private fun showFrequencyInput()
+    {
+        binding.rxFrequencySection.visibility = View.VISIBLE
+
+        // Repurpose btnStop as a "Start" action while frequency input is showing
+        binding.btnStop.text = getString(R.string.start_session)
+        binding.btnStop.setOnClickListener {
+            val freqKHz = binding.etRxFrequency.text.toString().toIntOrNull()
+                ?: viewModel.getRxFrequencyKHz()
+
+            // Save preference
+            viewModel.saveRxFrequencyKHz(freqKHz)
+
+            // Set Eden to RX mode at the chosen frequency (if a serial device is connected)
+            uiScope.launch {
+                viewModel.startReceiving(freqKHz)
+            }
+
+            // Start the WSPR receive session
+            val friend = viewModel.friend.value
+            if (friend?.publicKeyEncoded != null)
+            {
+                viewModel.startReceiveSession()
+            }
+
+            hideFrequencyInput()
+        }
+    }
+
+    /**
+     * Hides the frequency input section and restores the Stop button to its
+     * normal behaviour for an active session.
+     */
+    private fun hideFrequencyInput()
+    {
+        binding.rxFrequencySection.visibility = View.GONE
+
+        binding.btnStop.text = getString(R.string.stop_session)
+        binding.btnStop.setOnClickListener {
+            viewModel.stopReceiveSession()
+            viewModel.resetSession()
+            dismissAllowingStateLoss()
         }
     }
 

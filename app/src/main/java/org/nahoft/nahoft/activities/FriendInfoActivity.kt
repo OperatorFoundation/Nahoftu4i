@@ -51,7 +51,6 @@ import org.nahoft.util.ShareUtil
 import org.nahoft.util.showAlert
 
 import org.operatorfoundation.transmission.SerialConnectionFactory
-import org.operatorfoundation.transmission.SerialConnection
 import org.nahoft.nahoft.fragments.ReceiveRadioBottomSheetFragment
 import org.nahoft.nahoft.models.Friend
 import org.nahoft.nahoft.models.FriendStatus
@@ -60,16 +59,11 @@ import org.nahoft.nahoft.models.slideNameChat
 import org.nahoft.nahoft.services.ReceiveSessionState
 import org.nahoft.nahoft.viewmodels.FriendInfoViewModel
 import org.nahoft.util.applySecureFlag
-import org.operatorfoundation.audiocoder.WSPRBandplan
 import org.operatorfoundation.audiocoder.WSPREncoder
 import org.operatorfoundation.codex.symbols.WSPRMessageSequence
-import org.operatorfoundation.ion.storage.NounType
-import org.operatorfoundation.ion.storage.Word
 
 import timber.log.Timber
 import java.math.BigInteger
-import java.time.LocalDateTime
-import java.time.temporal.ChronoUnit
 
 class FriendInfoActivity: AppCompatActivity()
 {
@@ -500,6 +494,124 @@ class FriendInfoActivity: AppCompatActivity()
     }
 
     /**
+     * Shows a dialog for the user to set the TX frequency before sending.
+     *
+     * Displays the last-used frequency pre-filled. The user can type a value
+     * directly or use − / + to step in 1 kHz increments. Confirming saves
+     * the frequency to preferences and invokes [onConfirm] with the value.
+     */
+    private fun showTxFrequencyDialog(onConfirm: (Int) -> Unit)
+    {
+        val builder = AlertDialog.Builder(
+            ContextThemeWrapper(this, R.style.AppTheme_AddFriendAlertDialog)
+        )
+
+        val title = SpannableString(getString(R.string.tx_frequency_title))
+        title.setSpan(
+            AlignmentSpan.Standard(Layout.Alignment.ALIGN_CENTER), 0, title.length, 0
+        )
+        builder.setTitle(title)
+
+        // ── Layout ──────────────────────────────────────────────────────────────
+
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(50, 40, 50, 20)
+        }
+
+        // Hint label
+        val hint = TextView(this).apply {
+            text = getString(R.string.tx_frequency_hint)
+            setTextColor(ContextCompat.getColor(this@FriendInfoActivity, R.color.royalBlueDark))
+            textSize = 14f
+        }
+        container.addView(hint)
+
+        // Row: [−]  [EditText kHz]  [+]
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            val topMargin = (16 * resources.displayMetrics.density).toInt()
+            setPadding(0, topMargin, 0, 0)
+        }
+
+        val btnMinus = android.widget.Button(this).apply {
+            text = "−"
+            textSize = 20f
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        }
+
+        val freqInput = EditText(this).apply {
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER
+            gravity = Gravity.CENTER
+            textSize = 18f
+            setText(viewModel.getTxFrequencyKHz().toString())
+            layoutParams = LinearLayout.LayoutParams(
+                0,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                1f  // fill remaining space between buttons
+            )
+        }
+
+        val btnPlus = android.widget.Button(this).apply {
+            text = "+"
+            textSize = 20f
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        }
+
+        row.addView(btnMinus)
+        row.addView(freqInput)
+        row.addView(btnPlus)
+        container.addView(row)
+
+        // Unit label
+        val unitLabel = TextView(this).apply {
+            text = getString(R.string.frequency_unit_khz)
+            setTextColor(ContextCompat.getColor(this@FriendInfoActivity, R.color.royalBlueDark))
+            textSize = 12f
+            gravity = Gravity.CENTER
+            val topMargin = (4 * resources.displayMetrics.density).toInt()
+            setPadding(0, topMargin, 0, 0)
+        }
+        container.addView(unitLabel)
+
+        builder.setView(container)
+
+        // ── Stepper logic ────────────────────────────────────────────────────────
+
+        fun currentValue(): Int = freqInput.text.toString().toIntOrNull()
+            ?: viewModel.getTxFrequencyKHz()
+
+        btnMinus.setOnClickListener {
+            freqInput.setText((currentValue() - 1).toString())
+        }
+
+        btnPlus.setOnClickListener {
+            freqInput.setText((currentValue() + 1).toString())
+        }
+
+        // ── Buttons ──────────────────────────────────────────────────────────────
+
+        builder.setPositiveButton(getString(R.string.send)) { _, _ ->
+            val freq = currentValue()
+            viewModel.saveTxFrequencyKHz(freq)
+            onConfirm(freq)
+        }
+
+        builder.setNeutralButton(getString(R.string.stop_button)) { dialog, _ ->
+            dialog.cancel()
+        }
+
+        builder.create().show()
+    }
+
+    /**
      * Handles serial connection state changes and updates UI accordingly.
      * Called from setupConnectionObservers() when state flow emits.
      */
@@ -514,9 +626,6 @@ class FriendInfoActivity: AppCompatActivity()
                 Timber.d("🔔 FriendInfoActivity received state: $state")
 
                 viewModel.onSerialConnectionStateSettled()
-
-                // Button visibility now handled by canSendViaSerial flow observer
-
                 binding.serialStatusContainer.visibility = View.VISIBLE
                 binding.serialStatusText.text = "✔ Serial Connected"
                 Timber.d("Serial connected successfully")
@@ -631,13 +740,13 @@ class FriendInfoActivity: AppCompatActivity()
                 if (binding.messageEditText.text.length > 5000)
                 {
                     showAlert(getString(R.string.alert_text_message_too_long))
-                } else {
+                }
+                else
+                {
                     val decodeResult = Codex().decode(binding.messageEditText.text.toString())
-                    if (decodeResult != null) {
-                        showConfirmationForImport()
-                    } else {
-                        trySendingOrSavingMessage(isImage = false, saveImage = false)
-                    }
+
+                    if (decodeResult != null) showConfirmationForImport()
+                    else trySendingOrSavingMessage(isImage = false, saveImage = false)
                 }
             }
             else
@@ -657,10 +766,7 @@ class FriendInfoActivity: AppCompatActivity()
                 {
                     val decodeResult = Codex().decode(binding.messageEditText.text.toString())
 
-                    if (decodeResult != null)
-                    {
-                        showConfirmationForImport()
-                    }
+                    if (decodeResult != null) showConfirmationForImport()
                     else
                     {
                         // Disable button and text field immediately for visual feedback
@@ -682,24 +788,26 @@ class FriendInfoActivity: AppCompatActivity()
                             start()
                         }
 
-                        coroutineScope.launch {
-                            try
-                            {
-                                val success = sendViaSerial(binding.messageEditText.text.toString())
-                                if (success)
+                        showTxFrequencyDialog { _->
+                            coroutineScope.launch {
+                                try
                                 {
-                                    // Only clear on successful send
-                                    binding.messageEditText.text?.clear()
+                                    val success = sendViaSerial(binding.messageEditText.text.toString())
+                                    if (success)
+                                    {
+                                        // Only clear on successful send
+                                        binding.messageEditText.text?.clear()
+                                    }
                                 }
-                            }
-                            finally
-                            {
-                                pulseAnimator.cancel()
-                                binding.sendViaSerial.alpha = 1f
+                                finally
+                                {
+                                    pulseAnimator.cancel()
+                                    binding.sendViaSerial.alpha = 1f
 
-                                // Always re-enable button and text field
-                                binding.sendViaSerial.isEnabled = true
-                                binding.messageEditText.isEnabled = true
+                                    // Always re-enable button and text field
+                                    binding.sendViaSerial.isEnabled = true
+                                    binding.messageEditText.isEnabled = true
+                                }
                             }
                         }
                     }
@@ -931,10 +1039,6 @@ class FriendInfoActivity: AppCompatActivity()
 
         binding.profilePicture.text = thisFriend.name.take(1)
 
-        binding.sendViaSerial.visibility =
-            if ((thisFriend.status == FriendStatus.Verified || thisFriend.status == FriendStatus.Approved) && viewModel.serialConnection != null) View.VISIBLE
-            else View.GONE
-
         val ft = supportFragmentManager.beginTransaction()
 
         when (thisFriend.status)
@@ -1132,155 +1236,67 @@ class FriendInfoActivity: AppCompatActivity()
 
     private suspend fun sendViaSerial(message: String): Boolean
     {
-        // Encryption must happen outside the IO coroutine
+        // Encrypt outside IO coroutine
         val encryptedMessage = try
         {
             Encryption().encrypt(thisFriend.publicKeyEncoded!!, message)
         }
-        catch (error: Exception)
+        catch (e: Exception)
         {
             withContext(Dispatchers.Main) {
                 showAlert(getString(R.string.alert_text_unable_to_process_request))
             }
-            Timber.e(error, "Failed to encrypt message for broadcast")
+            Timber.e(e, "Failed to encrypt message for serial send")
             return false
         }
 
-        // Switch to IO thread for serial communication
-        return withContext(Dispatchers.IO) {
-            val connection: SerialConnection? = viewModel.serialConnection
+        // Encode encrypted bytes to WSPR symbol frequencies
+        val wsprMessages = encodeDataToWSPRMessages(encryptedMessage)
 
-            if (connection == null)
-            {
-                withContext(Dispatchers.Main) {
-                    showAlert(getString(R.string.alert_text_serial_not_connected))
-                }
-                return@withContext false
+        if (wsprMessages == null)
+        {
+            withContext(Dispatchers.Main) {
+                showAlert("Failed to encode message - data too large")
             }
+            return false
+        }
 
-            try
+        // Flatten all WSPR messages into a single frequency array
+        // Each WSPRMessage produces 162 symbols; transmitWSPR handles timing
+        val allFrequencies = wsprMessages.flatMap { (callsign, gridSquare, powerDbm) ->
+            WSPREncoder.encodeToFrequencies(
+                WSPREncoder.WSPRMessage(
+                    callsign,
+                    gridSquare,
+                    powerDbm,
+                    viewModel.getTxFrequencyKHz() * 1000
+                )
+            ).toList()
+        }.toLongArray()
+
+        // Transmit
+        val success = viewModel.transmitWSPR(allFrequencies) { symbolIndex, total ->
+            // TODO: update UI progress here if needed
+            Timber.d("TX progress: $symbolIndex / $total")
+        }
+
+        withContext(Dispatchers.Main)
+        {
+            if (success)
             {
-                // Encode encrypted message to WSPR messages
-                val wsprMessages = encodeDataToWSPRMessages(encryptedMessage)
-
-                if (wsprMessages == null)
-                {
-                    withContext(Dispatchers.Main) {
-                        showAlert("Failed to encode message - data too large")
-                    }
-                    return@withContext false
-                }
-
-                Timber.d("Successfully encoded ${encryptedMessage.size} bytes to ${wsprMessages.size} WSPR message(s)")
-
-                // Convert WSPR messages to frequency arrays
-                val frequencyArrays = wsprMessages.map { (callsign, gridSquare, powerDbm) ->
-                    WSPREncoder.encodeToFrequencies(
-                        WSPREncoder.WSPRMessage(
-                            callsign,
-                            gridSquare,
-                            powerDbm,
-                            (WSPRBandplan.getDefaultFrequency() * 1_000_000).toInt(),  // 20m WSPR calling frequency MHz → Hz
-                            false
-                        )
-                    ).toList()
-                }
-
-                if (frequencyArrays.any { it.isEmpty() })
-                {
-                    withContext(Dispatchers.Main) {
-                        showAlert("Failed to encode frequencies")
-                    }
-                    return@withContext false
-                }
-
-                // Serialize and send using ion
-                val sent = try
-                {
-                    for(frequencyArray in frequencyArrays)
-                    {
-                        Timber.d("Waiting until even minute...")
-                        Thread.sleep(viewModel.getMillisUntilNextEvenMinute())
-                        Timber.d("It's go time!")
-
-                        var first = true
-
-                        for(frequency in frequencyArray)
-                        {
-                            val ionFrequency = Word.make(frequency.toInt(), NounType.INTEGER.value)
-                            Word.to_conn(connection, ionFrequency)
-
-                            if(first)
-                            {
-                                first = false
-
-                                // Tell the radio to switch to TX mode (tell the relay to switch the antenna to the transmitter chip)
-                                Word.to_conn(connection, Word.make(2, NounType.INTEGER.value))
-
-                                // Turn on transmitter after setting initial frequency
-                                Word.to_conn(connection, Word.make(1, NounType.INTEGER.value))
-                            }
-
-                            Thread.sleep(683) // Wait for tone duration
-                        }
-
-                        // Switch the antenna back to RX chip
-                        Word.to_conn(connection, Word.make(3, NounType.INTEGER.value))
-
-                        // Turn off transmitter after waiting for last tone
-                        Word.to_conn(connection, Word.make(0, NounType.INTEGER.value))
-                    }
-                    true
-                }
-                catch (e: Exception)
-                {
-                    Timber.e(e, "IotaList serialization failed")
-                    false
-                }
-
-                if (!sent)
-                {
-                    withContext(Dispatchers.Main) { showAlert("Failed to write to Serial device.") }
-                    return@withContext false
-                }
-
-                // Wait for response
-                val response = waitForAnyResponse(connection, timeoutMs = 3000)
-
-                withContext(Dispatchers.Main)
-                {
-                    if (response != null)
-                    {
-                        // Only save if we got a response
-                        saveMessage(encryptedMessage, thisFriend, true)
-                        binding.serialStatusText.text = "✓ Sent ${wsprMessages.size} WSPR message(s)"
-                        Timber.d("Sent ${wsprMessages.size} WSPR message(s), response: \n$response")
-                    }
-                    else
-                    {
-                        showAlert("No response from radio device. Message not sent.")
-                        binding.serialStatusText.text = "Message sent (no response)"
-                        Timber.d("Message sent to serial device (no response)")
-                    }
-
-                    // Reset status after delay
-                    delay(3000)
-                    binding.serialStatusContainer.visibility = View.GONE
-                }
-
-                response != null
+                saveMessage(encryptedMessage, thisFriend, true)
+                binding.serialStatusContainer.visibility = View.VISIBLE
+                binding.serialStatusText.text = "✓ Sent ${wsprMessages.size} WSPR message(s)"
+                delay(3000)
+                binding.serialStatusContainer.visibility = View.GONE
             }
-            catch (e: Exception)
+            else
             {
-                Timber.e(e, "Error sending message via serial")
-
-                withContext(Dispatchers.Main) {
-                    showAlert("Serial transmission error: ${e.message}")
-                }
-
-                false
+                showAlert("Transmission failed.")
             }
         }
+
+        return success
     }
 
     // FIXME: Move to CodexKotlin once tested
@@ -1548,60 +1564,6 @@ class FriendInfoActivity: AppCompatActivity()
             }
             else ->
                 this.showAlert(getString(R.string.alert_text_unable_to_update_friend_status))
-        }
-    }
-
-    private suspend fun waitForAnyResponse(connection: SerialConnection, timeoutMs: Long): String?
-    {
-        return withContext(Dispatchers.IO) {
-            withTimeoutOrNull(timeoutMs) {
-                val buffer = StringBuilder()
-                val startTime = System.currentTimeMillis()
-                var lastDataTime = startTime
-
-                while (System.currentTimeMillis() - startTime < timeoutMs)
-                {
-                    try
-                    {
-                        val data = connection.readAvailable()
-
-                        if (data != null && data.isNotEmpty())
-                        {
-                            lastDataTime = System.currentTimeMillis()
-
-                            for (byte in data)
-                            {
-                                val char = byte.toInt().toChar()
-                                if (char.isISOControl().not() && char != '\u0000')
-                                {
-                                    buffer.append(char)
-                                }
-                            }
-                        }
-                        else
-                        {
-                            // If we have data and haven't received more for 200ms, consider it complete
-                            if (buffer.isNotEmpty() &&
-                                System.currentTimeMillis() - lastDataTime > 200)
-                            {
-                                return@withTimeoutOrNull buffer.toString().trim()
-                            }
-
-                            delay(50)
-                        }
-
-                    }
-                    catch (e: Exception)
-                    {
-                        Timber.w("Error while waiting for any response: ${e.message}")
-                        delay(100)
-                    }
-                }
-
-                // Return whatever we got
-                if (buffer.isNotEmpty()) buffer.toString().trim()
-                else null
-            }
         }
     }
 

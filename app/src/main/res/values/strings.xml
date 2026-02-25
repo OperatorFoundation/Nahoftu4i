@@ -603,7 +603,7 @@ After pressing this (+) sign, you must first enter your friend\'s name. You can 
     <string name="click_to_set">Click to set</string>
     <string name="send_via_radio">Button for sending the message via radio.</string>
 
-    <!-- Receive Radio Feature -->
+    <!-- Radio Features -->
     <string name="receive_via_radio">Receive via Radio</string>
     <string name="waiting_for_wspr_window">Waiting for WSPR window…</string>
     <string name="cycle_progress">Cycle Progress</string>
@@ -637,6 +637,12 @@ After pressing this (+) sign, you must first enter your friend\'s name. You can 
     <string name="receiving_indicator">Receiving message</string>
     <string name="signals_toward_threshold">Signals</string>
     <string name="decrypt_attempts_label">Attempts</string>
+    <string name="tx_frequency_title">TX Frequency</string>
+    <string name="tx_frequency_hint">Enter the transmit dial frequency</string>
+    <string name="rx_frequency_title">RX Frequency</string>
+    <string name="frequency_unit_khz">kHz</string>
+    <string name="start_session">Start Session</string>
+    <string name="send">Send</string>
 
     <!-- Session timeout -->
     <string name="session_timeout_title">Session Timed Out</string>

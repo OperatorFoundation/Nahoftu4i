@@ -31,6 +31,85 @@
         app:layout_constraintStart_toEndOf="@id/btn_close"
         app:layout_constraintTop_toTopOf="@id/btn_close" />
 
+    <!--
+    RX Frequency input section.
+
+    Shown when no session is active. Hidden once the session starts.
+    The fragment code manages visibility via showFrequencyInput() /
+    hideFrequencyInput().
+    -->
+    <LinearLayout
+        android:id="@+id/rx_frequency_section"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:background="@drawable/btn_bkgd_light_grey_outline_8"
+        android:orientation="vertical"
+        android:padding="12dp"
+        android:visibility="visible"
+        app:layout_constraintTop_toBottomOf="@id/btn_close">
+
+        <!-- Label -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/rx_frequency_title"
+            android:textColor="@color/white"
+            android:textSize="14sp"
+            android:layout_marginBottom="8dp" />
+
+        <!-- Stepper row: [−] [EditText] [+] -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/btn_rx_freq_minus"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:text="−"
+                android:textSize="20sp"
+                android:padding="0dp"
+                android:background="@drawable/btn_bkgd_transparent_56" />
+
+            <EditText
+                android:id="@+id/et_rx_frequency"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginHorizontal="8dp"
+                android:gravity="center"
+                android:inputType="number"
+                android:textColor="@color/white"
+                android:textSize="18sp"
+                android:background="@drawable/btn_bkgd_light_grey_outline_8"
+                android:padding="8dp" />
+
+            <Button
+                android:id="@+id/btn_rx_freq_plus"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:text="+"
+                android:textSize="20sp"
+                android:padding="0dp"
+                android:background="@drawable/btn_bkgd_transparent_56" />
+
+        </LinearLayout>
+
+        <!-- Unit label -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:gravity="center"
+            android:text="@string/frequency_unit_khz"
+            android:textColor="@color/coolGrey"
+            android:textSize="12sp" />
+
+    </LinearLayout>
+
     <!-- State Icon - changes based on current operation -->
     <ImageView
         android:id="@+id/iv_state_icon"
@@ -41,7 +120,7 @@
         android:src="@drawable/ic_radio"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/btn_close"
+        app:layout_constraintTop_toBottomOf="@id/rx_frequency_section"
         app:tint="@color/caribbeanGreen" />
 
     <!-- Status message -->

@@ -15,6 +15,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.nahoft.nahoft.Eden
+import org.nahoft.nahoft.Persist
 import org.nahoft.nahoft.models.Friend
 import org.nahoft.nahoft.models.FriendStatus
 import org.nahoft.nahoft.models.WSPRSpotItem
@@ -24,7 +26,6 @@ import org.operatorfoundation.audiocoder.WSPRTimingCoordinator
 import org.operatorfoundation.audiocoder.models.WSPRCycleInformation
 import org.operatorfoundation.audiocoder.models.WSPRStationState
 import org.operatorfoundation.signalbridge.UsbAudioDeviceMonitor
-import org.operatorfoundation.transmission.SerialConnection
 import org.operatorfoundation.transmission.SerialConnectionFactory
 import timber.log.Timber
 
@@ -33,6 +34,17 @@ class FriendInfoViewModel(application: Application) : AndroidViewModel(applicati
     private val timingCoordinator = WSPRTimingCoordinator()
 
     fun getMillisUntilNextEvenMinute(): Long = timingCoordinator.getMillisUntilNextEvenMinute()
+    fun getTxFrequencyKHz(): Int =
+        Persist.loadIntKey(Persist.sharedPrefTxFrequencyKHzKey, 14095)
+
+    fun saveTxFrequencyKHz(frequencyKHz: Int) =
+        Persist.saveIntKey(Persist.sharedPrefTxFrequencyKHzKey, frequencyKHz)
+
+    fun getRxFrequencyKHz(): Int =
+        Persist.loadIntKey(Persist.sharedPrefRxFrequencyKHzKey, 14095)
+
+    fun saveRxFrequencyKHz(frequencyKHz: Int) =
+        Persist.saveIntKey(Persist.sharedPrefRxFrequencyKHzKey, frequencyKHz)
 
     // ==================== Service Binding ====================
     private var receiveService: ReceiveSessionService? = null
@@ -112,12 +124,34 @@ class FriendInfoViewModel(application: Application) : AndroidViewModel(applicati
     val serialConnectionState: StateFlow<SerialConnectionFactory.ConnectionState> =
         connectionFactory.connectionState
 
-    /** Convenience accessor for the active connection, if any */
-    val serialConnection: SerialConnection?
-        get() = (serialConnectionState.value as? SerialConnectionFactory.ConnectionState.Connected)?.connection
+    private val _eden = MutableStateFlow<Eden?>(null)
+    val eden: Eden? get() = _eden.value
 
     // Flag to prevent duplicate connection attempts
     private var isConnecting = false
+
+    init
+    {
+        viewModelScope.launch {
+            serialConnectionState.collect { state ->
+                when (state)
+                {
+                    is SerialConnectionFactory.ConnectionState.Connected -> {
+                        _eden.value?.close()
+                        _eden.value = Eden(state.connection)
+                        Timber.d("Eden instance created")
+                    }
+                    is SerialConnectionFactory.ConnectionState.Disconnected,
+                    is SerialConnectionFactory.ConnectionState.Error -> {
+                        _eden.value?.close()
+                        _eden.value = null
+                        Timber.d("Eden instance released")
+                    }
+                    else -> { /* Connecting / RequestingPermission — no action */ }
+                }
+            }
+        }
+    }
 
     /**
      * Checks for available serial devices and initiates connection if found.
@@ -135,7 +169,7 @@ class FriendInfoViewModel(application: Application) : AndroidViewModel(applicati
                 connectionFactory.findAvailableDevices()
             }
 
-            if (devices.isNotEmpty() && serialConnection == null && !isConnecting)
+            if (devices.isNotEmpty() && eden == null && !isConnecting)
             {
                 Timber.d("Found ${devices.size} serial device(s), initiating connection...")
                 isConnecting = true
@@ -155,7 +189,7 @@ class FriendInfoViewModel(application: Application) : AndroidViewModel(applicati
 
     fun onUsbDeviceAttached()
     {
-        if (serialConnection == null && !isConnecting)
+        if (eden == null && !isConnecting)
         {
             viewModelScope.launch {
                 delay(500) // Let USB stabilize
@@ -177,6 +211,36 @@ class FriendInfoViewModel(application: Application) : AndroidViewModel(applicati
     fun onSerialConnectionStateSettled()
     {
         isConnecting = false
+    }
+
+    suspend fun startReceiving(frequencyKHz: Int): Boolean
+    {
+        val currentEden = eden
+        if (currentEden == null)
+        {
+            Timber.d("startReceiving: no Eden device connected, skipping frequency set")
+            return false
+        }
+
+        return currentEden.startReceiving(frequencyKHz)
+    }
+
+    suspend fun transmitWSPR(symbolFrequenciesCHz: LongArray, onSymbolSent: ((Int, Int) -> Unit)? = null): Boolean
+    {
+        val currentEden = eden
+
+        if (currentEden == null)
+        {
+            Timber.w("transmitWSPR: no Eden device connected")
+            return false
+        }
+
+        return withContext(Dispatchers.IO) {
+            Timber.d("Waiting for next even minute...")
+            Thread.sleep(timingCoordinator.getMillisUntilNextEvenMinute())
+            Timber.d("Transmitting WSPR message")
+            currentEden.transmitWSPR(symbolFrequenciesCHz, onSymbolSent)
+        }
     }
 
     // ==================== USB Audio Connection (for UI visibility) ====================
@@ -408,13 +472,12 @@ class FriendInfoViewModel(application: Application) : AndroidViewModel(applicati
      * True when: serial connected AND friend is Verified or Approved.
      */
     val canSendViaSerial: Flow<Boolean> = combine(
-        serialConnectionState,
+        _eden,
         _friend
-    ) { connectionState, friend ->
-        val isConnected = connectionState is SerialConnectionFactory.ConnectionState.Connected
+    ) { edenInstance, friend ->
         val hasValidStatus = friend?.status == FriendStatus.Verified ||
                 friend?.status == FriendStatus.Approved
-        isConnected && hasValidStatus
+        edenInstance != null && hasValidStatus
     }
 
     /**
@@ -440,7 +503,8 @@ class FriendInfoViewModel(application: Application) : AndroidViewModel(applicati
         // Just unbind
         unbindFromService()
 
-        serialConnection?.close()
+        _eden.value?.close()
+        _eden.value = null
         connectionFactory.disconnect()
     }
 }
