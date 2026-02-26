@@ -29,6 +29,7 @@ import org.operatorfoundation.audiocoder.models.WSPRStationState
 import org.operatorfoundation.codex.symbols.WSPRMessage
 import org.operatorfoundation.signalbridge.SignalBridgeWSPRAudioSource
 import org.operatorfoundation.signalbridge.UsbAudioConnection
+import org.operatorfoundation.signalbridge.UsbAudioDeviceMonitor
 import org.operatorfoundation.signalbridge.UsbAudioManager
 import org.operatorfoundation.signalbridge.models.AudioBufferConfiguration
 import timber.log.Timber
@@ -354,6 +355,19 @@ class ReceiveSessionService : Service()
         }
     }
 
+    private suspend fun observeUsbDisconnect()
+    {
+        UsbAudioDeviceMonitor
+            .observeAvailability(applicationContext)
+            .debounce(500L)
+            .filter { available -> !available }
+            .first()
+
+        Timber.w("USB audio device disconnected — stopping receive session")
+        stopSession()
+        stopSelf()
+    }
+
     fun stopSession()
     {
         Timber.d("Stopping receive session")
@@ -520,6 +534,7 @@ class ReceiveSessionService : Service()
                 launch { observeCycleInformation() }
                 launch { observeDecodeResults() }
                 launch { observeAudioLevels(connection) }
+                launch { observeUsbDisconnect() }
             }
             catch (e: Exception)
             {

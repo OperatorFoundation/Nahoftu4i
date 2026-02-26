@@ -77,6 +77,8 @@ class FriendInfoActivity: AppCompatActivity()
 
     private val parentJob = Job()
     private val coroutineScope = CoroutineScope(Dispatchers.Main + parentJob)
+    private var transmitJob: Job? = null
+
     private val menuFragmentTag = "MenuFragment"
     private var isShareImageButtonShow: Boolean = false
     private var indicatorAnimator: ObjectAnimator? = null
@@ -649,7 +651,9 @@ class FriendInfoActivity: AppCompatActivity()
             is SerialConnectionFactory.ConnectionState.Disconnected -> {
                 viewModel.onSerialConnectionStateSettled()
 
-                // Button visibility now handled by canSendViaSerial flow observer
+                // Cancel any in-progress transmission and clean up its UI
+                transmitJob?.cancel()
+                transmitJob = null
 
                 // Only show disconnected message if we were previously connected
                 if (binding.serialStatusContainer.isVisible) {
@@ -792,7 +796,7 @@ class FriendInfoActivity: AppCompatActivity()
                         }
 
                         showTxFrequencyDialog { _->
-                            coroutineScope.launch {
+                            transmitJob = coroutineScope.launch {
                                 try
                                 {
                                     val success = sendViaSerial(binding.messageEditText.text.toString())

@@ -235,24 +235,21 @@ class FriendInfoViewModel(application: Application) : AndroidViewModel(applicati
             return false
         }
 
-        return withContext(Dispatchers.IO)
-        {
-            messages.forEachIndexed { index, symbolFrequencies ->
-                Timber.d("Waiting for even minute (message ${index + 1} of ${messages.size})...")
-                Thread.sleep(timingCoordinator.getMillisUntilNextEvenMinute())
-                Timber.d("Transmitting message ${index + 1} of ${messages.size}")
+        messages.forEachIndexed { index, symbolFrequencies ->
+            Timber.d("Waiting for even minute (message ${index + 1} of ${messages.size})...")
+            delay(timingCoordinator.getMillisUntilNextEvenMinute())
+            Timber.d("Transmitting message ${index + 1} of ${messages.size}")
 
-                val success = currentEden.transmitWSPR(symbolFrequencies, onSymbolSent)
+            val success = currentEden.transmitWSPR(symbolFrequencies, onSymbolSent)
 
-                if (!success)
-                {
-                    Timber.e("Transmission failed on message ${index + 1}")
-                    return@withContext false
-                }
+            if (!success)
+            {
+                Timber.e("Transmission failed on message ${index + 1}")
+                return false
             }
-
-            true
         }
+
+        return true
     }
 
     // ==================== USB Audio Connection (for UI visibility) ====================
