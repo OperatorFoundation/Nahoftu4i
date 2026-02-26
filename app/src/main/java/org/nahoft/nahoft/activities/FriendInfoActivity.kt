@@ -763,6 +763,14 @@ class FriendInfoActivity: AppCompatActivity()
         }
 
         binding.sendViaSerial.setOnClickListener {
+
+            // Cannot transmit while a receive session is active
+            if (viewModel.isSessionActive())
+            {
+                showAlert(getString(R.string.alert_transmit_blocked_by_receive))
+                return@setOnClickListener
+            }
+
             if (binding.messageEditText.text.isNotEmpty())
             {
                 if (binding.messageEditText.text.length > 5000)

@@ -10,6 +10,8 @@ import android.view.animation.LinearInterpolator
 import androidx.core.animation.ValueAnimator
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.activityViewModels
+import com.google.android.material.bottomsheet.BottomSheetBehavior
+import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -72,6 +74,12 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
     {
         super.onViewCreated(view, savedInstanceState)
 
+        // Always open fully so the Stop button is immediately visible
+        (dialog as? BottomSheetDialog)?.behavior?.apply {
+            state = BottomSheetBehavior.STATE_EXPANDED
+            skipCollapsed = true  // prevents snapping to half-expanded on swipe down
+        }
+
         isCancelable = false
 
         setupClickListeners()
@@ -88,7 +96,6 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
         {
             // Session already running — hide input, show live state
             hideFrequencyInput()
-            binding.tvStatus.text = "Resuming session..."
         }
     }
 
@@ -541,21 +548,24 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
     {
         binding.rxFrequencySection.visibility = View.VISIBLE
 
-        // Repurpose btnStop as a "Start" action while frequency input is showing
+        // Nothing is running yet — show a neutral prompt instead of a session status
+        updateStatus(getString(R.string.status_set_frequency))
+
+        // Hide the Hide button — there is no running session to hide yet
+        binding.btnClose.visibility = View.GONE
+
+        // Start is the only action available at this point
         binding.btnStop.text = getString(R.string.start_session)
         binding.btnStop.setOnClickListener {
             val freqKHz = binding.etRxFrequency.text.toString().toIntOrNull()
                 ?: viewModel.getRxFrequencyKHz()
 
-            // Save preference
             viewModel.saveRxFrequencyKHz(freqKHz)
 
-            // Set Eden to RX mode at the chosen frequency (if a serial device is connected)
             uiScope.launch {
                 viewModel.startReceiving(freqKHz)
             }
 
-            // Start the WSPR receive session
             val friend = viewModel.friend.value
             if (friend?.publicKeyEncoded != null)
             {
@@ -573,6 +583,9 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
     private fun hideFrequencyInput()
     {
         binding.rxFrequencySection.visibility = View.GONE
+
+        // Session is now running — both actions make sense
+        binding.btnClose.visibility = View.VISIBLE
 
         binding.btnStop.text = getString(R.string.stop_session)
         binding.btnStop.setOnClickListener {
