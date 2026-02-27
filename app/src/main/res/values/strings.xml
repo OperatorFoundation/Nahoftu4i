@@ -645,6 +645,7 @@ After pressing this (+) sign, you must first enter your friend\'s name. You can 
     <string name="send">Send</string>
     <string name="status_set_frequency">Set frequency to begin</string>
     <string name="alert_transmit_blocked_by_receive">A receive session is active. Stop receiving before transmitting.</string>
+    <string name="rx_frequency_title_khz">RX Frequency in kHz</string>
 
     <!-- Session timeout -->
     <string name="session_timeout_title">Session Timed Out</string>

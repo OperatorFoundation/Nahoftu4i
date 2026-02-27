@@ -74,17 +74,17 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
     {
         super.onViewCreated(view, savedInstanceState)
 
-        // Always open fully so the Stop button is immediately visible
-        (dialog as? BottomSheetDialog)?.behavior?.apply {
-            state = BottomSheetBehavior.STATE_EXPANDED
-            skipCollapsed = true  // prevents snapping to half-expanded on swipe down
-        }
-
         isCancelable = false
 
         setupClickListeners()
         observeViewModel()
         startElapsedTimeUpdates()
+
+        (dialog as? BottomSheetDialog)?.behavior?.apply {
+            state = BottomSheetBehavior.STATE_EXPANDED
+            skipCollapsed = true
+            isHideable = true
+        }
 
         // Start session if not already running
         if (!viewModel.isSessionActive())
@@ -196,6 +196,19 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
                 }
             }
         }
+
+        uiScope.launch {
+            viewModel.usbAudioAvailable.collect { available ->
+                // Only relevant when frequency input is showing (no active session)
+                if (!viewModel.isSessionActive()) {
+                    binding.btnStop.isEnabled = available
+                    updateStatus(
+                        if (available) getString(R.string.status_set_frequency)
+                        else getString(R.string.usb_audio_not_connected)
+                    )
+                }
+            }
+        }
     }
 
     /**
@@ -225,6 +238,7 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
             is ReceiveSessionState.Stopped -> {
                 updateStatus(getString(R.string.session_stopped))
                 updateStateIcon(R.drawable.ic_sync, R.color.coolGrey, AnimationType.NONE)
+                showFrequencyInput() // resets button and shows frequency stepper
             }
 
             is ReceiveSessionState.TimedOut -> {
@@ -507,7 +521,7 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
 
         if (candidates < threshold)
         {
-            binding.tvMessagesReceived.text = "$candidates / $threshold"
+            binding.tvMessagesReceived.text = "$candidates / $threshold+"
             binding.tvMessagesLabel.text = getString(R.string.signals_toward_threshold)
         }
         else

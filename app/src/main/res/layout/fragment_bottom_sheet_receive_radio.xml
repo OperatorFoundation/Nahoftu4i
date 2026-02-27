@@ -1,488 +1,480 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content"
+    android:layout_height="match_parent"
     android:background="@drawable/bkgd_blue_rect"
+    android:orientation="vertical"
     android:padding="20dp">
 
-    <!-- Header with close button -->
-    <ImageButton
-        android:id="@+id/btn_close"
-        android:layout_width="40dp"
-        android:layout_height="40dp"
-        android:background="@android:color/transparent"
-        android:contentDescription="@string/stop_button"
-        android:src="@drawable/btn_close_small_24"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        app:tint="@color/white" />
-
-    <TextView
-        android:id="@+id/tv_title"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:gravity="center"
-        android:text="@string/receive_via_radio"
-        android:textColor="@color/white"
-        android:textSize="18sp"
-        android:textStyle="bold"
-        app:layout_constraintBottom_toBottomOf="@id/btn_close"
-        app:layout_constraintStart_toEndOf="@id/btn_close"
-        app:layout_constraintTop_toTopOf="@id/btn_close" />
-
-    <!--
-    RX Frequency input section.
-
-    Shown when no session is active. Hidden once the session starts.
-    The fragment code manages visibility via showFrequencyInput() /
-    hideFrequencyInput().
-    -->
+    <!-- ── Header ─────────────────────────────────────────────────────── -->
     <LinearLayout
-        android:id="@+id/rx_frequency_section"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:background="@drawable/btn_bkgd_light_grey_outline_8"
-        android:orientation="vertical"
-        android:padding="12dp"
-        android:visibility="visible"
-        app:layout_constraintTop_toBottomOf="@id/btn_close">
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
 
-        <!-- Label -->
+        <ImageButton
+            android:id="@+id/btn_close"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="@android:color/transparent"
+            android:contentDescription="@string/stop_button"
+            android:src="@drawable/btn_close_small_24"
+            app:tint="@color/white" />
+
         <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/rx_frequency_title"
-            android:textColor="@color/white"
-            android:textSize="14sp"
-            android:layout_marginBottom="8dp" />
-
-        <!-- Stepper row: [−] [EditText] [+] -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
-
-            <Button
-                android:id="@+id/btn_rx_freq_minus"
-                android:layout_width="44dp"
-                android:layout_height="44dp"
-                android:text="−"
-                android:textSize="20sp"
-                android:padding="0dp"
-                android:background="@drawable/btn_bkgd_transparent_56" />
-
-            <EditText
-                android:id="@+id/et_rx_frequency"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:layout_marginHorizontal="8dp"
-                android:gravity="center"
-                android:inputType="number"
-                android:textColor="@color/white"
-                android:textSize="18sp"
-                android:background="@drawable/btn_bkgd_light_grey_outline_8"
-                android:padding="8dp" />
-
-            <Button
-                android:id="@+id/btn_rx_freq_plus"
-                android:layout_width="44dp"
-                android:layout_height="44dp"
-                android:text="+"
-                android:textSize="20sp"
-                android:padding="0dp"
-                android:background="@drawable/btn_bkgd_transparent_56" />
-
-        </LinearLayout>
-
-        <!-- Unit label -->
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:gravity="center"
-            android:text="@string/frequency_unit_khz"
-            android:textColor="@color/coolGrey"
-            android:textSize="12sp" />
-
-    </LinearLayout>
-
-    <!-- State Icon - changes based on current operation -->
-    <ImageView
-        android:id="@+id/iv_state_icon"
-        android:layout_width="48dp"
-        android:layout_height="48dp"
-        android:layout_marginTop="24dp"
-        android:contentDescription="@string/listening_for_signals"
-        android:src="@drawable/ic_radio"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/rx_frequency_section"
-        app:tint="@color/caribbeanGreen" />
-
-    <!-- Status message -->
-    <TextView
-        android:id="@+id/tv_status"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
-        android:gravity="center"
-        android:text="@string/waiting_for_wspr_window"
-        android:textColor="@color/white"
-        android:textSize="16sp"
-        android:textStyle="bold"
-        app:layout_constraintTop_toBottomOf="@id/iv_state_icon" />
-
-    <!-- Cycle Progress Section -->
-    <LinearLayout
-        android:id="@+id/cycle_progress_section"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="24dp"
-        android:background="@drawable/btn_bkgd_light_grey_outline_8"
-        android:orientation="vertical"
-        android:padding="12dp"
-        app:layout_constraintTop_toBottomOf="@id/tv_status">
-
-        <!-- Cycle progress row -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
-
-            <ImageView
-                android:layout_width="16dp"
-                android:layout_height="16dp"
-                android:contentDescription="@string/cycle_progress"
-                android:src="@drawable/ic_access_time"
-                app:tint="@color/white" />
-
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
-                android:layout_weight="1"
-                android:text="@string/cycle_progress"
-                android:textColor="@color/white"
-                android:textSize="14sp" />
-
-            <TextView
-                android:id="@+id/tv_cycle_time"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="0s / 120s"
-                android:textColor="@color/white"
-                android:textSize="14sp"
-                android:textStyle="bold" />
-        </LinearLayout>
-
-        <ProgressBar
-            android:id="@+id/progress_cycle"
-            style="@style/Widget.AppCompat.ProgressBar.Horizontal"
-            android:layout_width="match_parent"
-            android:layout_height="12dp"
-            android:layout_marginTop="8dp"
-            android:max="120"
-            android:progress="0"
-            android:progressBackgroundTint="#40FFFFFF"
-            android:progressTint="@color/caribbeanGreen"
-            android:background="@drawable/btn_bkgd_light_grey_outline_8" />
-
-        <!-- Next window and Session row -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
-
-            <!-- Next decode window -->
-            <ImageView
-                android:layout_width="16dp"
-                android:layout_height="16dp"
-                android:contentDescription="@string/next_decode_window"
-                android:src="@drawable/ic_access_time"
-                app:tint="@color/coolGrey" />
-
-            <TextView
-                android:id="@+id/tv_next_window"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
-                android:layout_weight="1"
-                android:text="@string/next_decode_window_in"
-                android:textColor="@color/coolGrey"
-                android:textSize="14sp" />
-
-            <!-- Session elapsed time -->
-            <ImageView
-                android:layout_width="16dp"
-                android:layout_height="16dp"
-                android:layout_marginStart="16dp"
-                android:contentDescription="@string/session_label"
-                android:src="@drawable/ic_timer"
-                app:tint="@color/coolGrey" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
-                android:text="@string/session_label"
-                android:textColor="@color/coolGrey"
-                android:textSize="14sp" />
-
-            <TextView
-                android:id="@+id/tv_elapsed_time"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="4dp"
-                android:text="0:00"
-                android:textColor="@color/white"
-                android:textSize="14sp"
-                android:textStyle="bold" />
-
-        </LinearLayout>
-    </LinearLayout>
-
-    <!-- Audio Level Section -->
-    <LinearLayout
-        android:id="@+id/audio_level_section"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
-        android:background="@drawable/btn_bkgd_light_grey_outline_8"
-        android:orientation="vertical"
-        android:padding="12dp"
-        android:visibility="visible"
-        app:layout_constraintTop_toBottomOf="@id/cycle_progress_section">
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
-
-            <ImageView
-                android:layout_width="16dp"
-                android:layout_height="16dp"
-                android:contentDescription="@string/audio_level"
-                android:src="@drawable/ic_volume"
-                app:tint="@color/white" />
-
-            <TextView
-                android:id="@+id/tv_audio_label"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
-                android:layout_weight="1"
-                android:text="@string/audio_level"
-                android:textColor="@color/white"
-                android:textSize="14sp" />
-
-            <TextView
-                android:id="@+id/tv_audio_level_percent"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="0%"
-                android:textColor="@color/white"
-                android:textSize="14sp"
-                android:textStyle="bold" />
-        </LinearLayout>
-
-        <ProgressBar
-            android:id="@+id/progress_audio"
-            style="@style/Widget.AppCompat.ProgressBar.Horizontal"
-            android:layout_width="match_parent"
-            android:layout_height="12dp"
-            android:layout_marginTop="8dp"
-            android:max="100"
-            android:progress="0"
-            android:progressBackgroundTint="#40FFFFFF"
-            android:progressTint="@color/caribbeanGreen"
-            android:background="@drawable/btn_bkgd_light_grey_outline_8" />
-    </LinearLayout>
-
-    <!-- Statistics Cards Section -->
-    <!-- Statistics Cards Section - 3 cards -->
-    <LinearLayout
-        android:id="@+id/stats_container"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:orientation="horizontal"
-        android:baselineAligned="false"
-        app:layout_constraintTop_toBottomOf="@id/audio_level_section">
-
-        <!-- WSPR Spots Card - tappable to open spots dialog -->
-        <androidx.cardview.widget.CardView
-            android:id="@+id/card_spots"
+            android:id="@+id/tv_title"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginEnd="6dp"
             android:layout_weight="1"
-            android:foreground="?attr/selectableItemBackground"
-            app:cardBackgroundColor="@color/lightGrey"
-            app:cardCornerRadius="8dp"
-            app:cardElevation="2dp">
+            android:gravity="center"
+            android:text="@string/receive_via_radio"
+            android:textColor="@color/white"
+            android:textSize="18sp"
+            android:textStyle="bold" />
 
+        <!-- Spacer to balance close button and keep title truly centered -->
+        <View
+            android:layout_width="40dp"
+            android:layout_height="40dp" />
+
+    </LinearLayout>
+
+    <!-- ── Scrollable content ──────────────────────────────────────────── -->
+    <androidx.core.widget.NestedScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <!--
+                RX Frequency input section.
+                Shown before session starts. Hidden once session is running.
+                Managed by showFrequencyInput() / hideFrequencyInput().
+            -->
             <LinearLayout
+                android:id="@+id/rx_frequency_section"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:background="@drawable/btn_bkgd_light_grey_outline_8"
+                android:orientation="vertical"
+                android:padding="12dp"
+                android:visibility="visible">
+
+                <!-- Combined label: name + unit on one line -->
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="8dp"
+                    android:text="@string/rx_frequency_title_khz"
+                    android:textColor="@color/white"
+                    android:textSize="14sp" />
+
+                <!-- Stepper row: [−] [EditText] [+] -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <Button
+                        android:id="@+id/btn_rx_freq_minus"
+                        android:layout_width="44dp"
+                        android:layout_height="44dp"
+                        android:background="@drawable/btn_bkgd_transparent_56"
+                        android:padding="0dp"
+                        android:text="−"
+                        android:textSize="20sp" />
+
+                    <EditText
+                        android:id="@+id/et_rx_frequency"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginHorizontal="8dp"
+                        android:layout_weight="1"
+                        android:background="@drawable/btn_bkgd_light_grey_outline_8"
+                        android:gravity="center"
+                        android:inputType="number"
+                        android:padding="8dp"
+                        android:textColor="@color/white"
+                        android:textSize="18sp" />
+
+                    <Button
+                        android:id="@+id/btn_rx_freq_plus"
+                        android:layout_width="44dp"
+                        android:layout_height="44dp"
+                        android:background="@drawable/btn_bkgd_transparent_56"
+                        android:padding="0dp"
+                        android:text="+"
+                        android:textSize="20sp" />
+
+                </LinearLayout>
+
+            </LinearLayout>
+
+            <!-- ── State icon + status ───────────────────────────────────── -->
+            <ImageView
+                android:id="@+id/iv_state_icon"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_gravity="center_horizontal"
+                android:layout_marginTop="24dp"
+                android:contentDescription="@string/listening_for_signals"
+                android:src="@drawable/ic_radio"
+                app:tint="@color/caribbeanGreen" />
+
+            <TextView
+                android:id="@+id/tv_status"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
                 android:gravity="center"
-                android:minHeight="110dp"
+                android:text="@string/waiting_for_wspr_window"
+                android:textColor="@color/white"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+            <!-- ── Cycle progress ────────────────────────────────────────── -->
+            <LinearLayout
+                android:id="@+id/cycle_progress_section"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:background="@drawable/btn_bkgd_light_grey_outline_8"
                 android:orientation="vertical"
                 android:padding="12dp">
 
-                <!-- Icon row with tap indicator -->
                 <LinearLayout
-                    android:layout_width="wrap_content"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:gravity="center_vertical"
                     android:orientation="horizontal">
 
                     <ImageView
-                        android:layout_width="20dp"
-                        android:layout_height="20dp"
-                        android:contentDescription="@string/wspr_spots"
-                        android:src="@drawable/ic_radio"
-                        app:tint="@color/caribbeanGreen" />
+                        android:layout_width="16dp"
+                        android:layout_height="16dp"
+                        android:contentDescription="@string/cycle_progress"
+                        android:src="@drawable/ic_access_time"
+                        app:tint="@color/white" />
 
-                    <ImageView
-                        android:layout_width="12dp"
-                        android:layout_height="12dp"
-                        android:layout_marginStart="4dp"
-                        android:contentDescription="@string/tap_for_details"
-                        android:src="@drawable/ic_chevron_right"
-                        app:tint="@color/coolGrey" />
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:layout_weight="1"
+                        android:text="@string/cycle_progress"
+                        android:textColor="@color/white"
+                        android:textSize="14sp" />
 
+                    <TextView
+                        android:id="@+id/tv_cycle_time"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="0s / 120s"
+                        android:textColor="@color/white"
+                        android:textSize="14sp"
+                        android:textStyle="bold" />
                 </LinearLayout>
 
-                <TextView
-                    android:id="@+id/tv_spots_count"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
+                <ProgressBar
+                    android:id="@+id/progress_cycle"
+                    style="@style/Widget.AppCompat.ProgressBar.Horizontal"
+                    android:layout_width="match_parent"
+                    android:layout_height="12dp"
                     android:layout_marginTop="8dp"
-                    android:text="0"
-                    android:textColor="@color/white"
-                    android:textSize="24sp"
-                    android:textStyle="bold" />
+                    android:background="@drawable/btn_bkgd_light_grey_outline_8"
+                    android:max="120"
+                    android:progress="0"
+                    android:progressBackgroundTint="#40FFFFFF"
+                    android:progressTint="@color/caribbeanGreen" />
 
-                <TextView
-                    android:layout_width="wrap_content"
+                <LinearLayout
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:text="@string/wspr_spots"
-                    android:textColor="@color/white"
-                    android:textSize="11sp" />
+                    android:layout_marginTop="12dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
 
+                    <ImageView
+                        android:layout_width="16dp"
+                        android:layout_height="16dp"
+                        android:contentDescription="@string/next_decode_window"
+                        android:src="@drawable/ic_access_time"
+                        app:tint="@color/coolGrey" />
+
+                    <TextView
+                        android:id="@+id/tv_next_window"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:layout_weight="1"
+                        android:text="@string/next_decode_window_in"
+                        android:textColor="@color/coolGrey"
+                        android:textSize="14sp" />
+
+                    <ImageView
+                        android:layout_width="16dp"
+                        android:layout_height="16dp"
+                        android:layout_marginStart="16dp"
+                        android:contentDescription="@string/session_label"
+                        android:src="@drawable/ic_timer"
+                        app:tint="@color/coolGrey" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:text="@string/session_label"
+                        android:textColor="@color/coolGrey"
+                        android:textSize="14sp" />
+
+                    <TextView
+                        android:id="@+id/tv_elapsed_time"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="4dp"
+                        android:text="0:00"
+                        android:textColor="@color/white"
+                        android:textSize="14sp"
+                        android:textStyle="bold" />
+
+                </LinearLayout>
             </LinearLayout>
-        </androidx.cardview.widget.CardView>
 
-        <!-- Message Parts Card -->
-        <androidx.cardview.widget.CardView
-            android:id="@+id/card_message_parts"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginHorizontal="6dp"
-            android:layout_weight="1"
-            app:cardBackgroundColor="@color/lightGrey"
-            app:cardCornerRadius="8dp"
-            app:cardElevation="2dp">
-
+            <!-- ── Audio level ───────────────────────────────────────────── -->
             <LinearLayout
+                android:id="@+id/audio_level_section"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:gravity="center"
-                android:minHeight="110dp"
+                android:layout_marginTop="12dp"
+                android:background="@drawable/btn_bkgd_light_grey_outline_8"
                 android:orientation="vertical"
-                android:padding="12dp">
+                android:padding="12dp"
+                android:visibility="visible">
 
-                <ImageView
-                    android:layout_width="20dp"
-                    android:layout_height="20dp"
-                    android:contentDescription="@string/message_parts"
-                    android:src="@drawable/ic_message"
-                    app:tint="@color/caribbeanGreen" />
-
-                <TextView
-                    android:id="@+id/tv_messages_received"
-                    android:layout_width="wrap_content"
+                <LinearLayout
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <ImageView
+                        android:layout_width="16dp"
+                        android:layout_height="16dp"
+                        android:contentDescription="@string/audio_level"
+                        android:src="@drawable/ic_volume"
+                        app:tint="@color/white" />
+
+                    <TextView
+                        android:id="@+id/tv_audio_label"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:layout_weight="1"
+                        android:text="@string/audio_level"
+                        android:textColor="@color/white"
+                        android:textSize="14sp" />
+
+                    <TextView
+                        android:id="@+id/tv_audio_level_percent"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="0%"
+                        android:textColor="@color/white"
+                        android:textSize="14sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <ProgressBar
+                    android:id="@+id/progress_audio"
+                    style="@style/Widget.AppCompat.ProgressBar.Horizontal"
+                    android:layout_width="match_parent"
+                    android:layout_height="12dp"
                     android:layout_marginTop="8dp"
-                    android:text="0"
-                    android:textColor="@color/white"
-                    android:textSize="24sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:id="@+id/tv_messages_label"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:text="@string/message_parts"
-                    android:textColor="@color/white"
-                    android:textSize="11sp" />
-
+                    android:background="@drawable/btn_bkgd_light_grey_outline_8"
+                    android:max="100"
+                    android:progress="0"
+                    android:progressBackgroundTint="#40FFFFFF"
+                    android:progressTint="@color/caribbeanGreen" />
             </LinearLayout>
-        </androidx.cardview.widget.CardView>
 
-        <!-- Status Card -->
-        <androidx.cardview.widget.CardView
-            android:id="@+id/card_status"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="6dp"
-            android:layout_weight="1"
-            app:cardBackgroundColor="@color/lightGrey"
-            app:cardCornerRadius="8dp"
-            app:cardElevation="2dp">
-
+            <!-- ── Stat cards ─────────────────────────────────────────────── -->
             <LinearLayout
+                android:id="@+id/stats_container"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:gravity="center"
-                android:minHeight="110dp"
-                android:orientation="vertical"
-                android:padding="12dp">
+                android:layout_marginTop="16dp"
+                android:baselineAligned="false"
+                android:orientation="horizontal">
 
-                <ImageView
-                    android:id="@+id/iv_status_icon"
-                    android:layout_width="20dp"
-                    android:layout_height="20dp"
-                    android:contentDescription="@string/status"
-                    android:src="@drawable/ic_sync"
-                    app:tint="@color/coolGrey" />
+                <!-- WSPR Spots — tappable to open spots dialog -->
+                <androidx.cardview.widget.CardView
+                    android:id="@+id/card_spots"
+                    android:layout_width="0dp"
+                    android:layout_height="80dp"
+                    android:layout_marginEnd="6dp"
+                    android:layout_weight="1"
+                    android:foreground="?attr/selectableItemBackground"
+                    app:cardBackgroundColor="@color/lightGrey"
+                    app:cardCornerRadius="8dp"
+                    app:cardElevation="2dp">
 
-                <TextView
-                    android:id="@+id/tv_status_title"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:text="@string/status"
-                    android:textColor="@color/white"
-                    android:textSize="16sp"
-                    android:textStyle="bold" />
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:gravity="center"
+                        android:orientation="vertical"
+                        android:padding="8dp">
 
-                <TextView
-                    android:id="@+id/tv_status_subtitle"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:gravity="center"
-                    android:text="@string/status_waiting"
-                    android:textColor="@color/coolGrey"
-                    android:textSize="11sp" />
+                        <LinearLayout
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal">
+
+                            <ImageView
+                                android:layout_width="16dp"
+                                android:layout_height="16dp"
+                                android:contentDescription="@string/wspr_spots"
+                                android:src="@drawable/ic_radio"
+                                app:tint="@color/caribbeanGreen" />
+
+                            <ImageView
+                                android:layout_width="10dp"
+                                android:layout_height="10dp"
+                                android:layout_marginStart="4dp"
+                                android:contentDescription="@string/tap_for_details"
+                                android:src="@drawable/ic_chevron_right"
+                                app:tint="@color/coolGrey" />
+                        </LinearLayout>
+
+                        <TextView
+                            android:id="@+id/tv_spots_count"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:text="0"
+                            android:textColor="@color/white"
+                            android:textSize="20sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="@string/wspr_spots"
+                            android:textColor="@color/white"
+                            android:textSize="11sp" />
+                    </LinearLayout>
+                </androidx.cardview.widget.CardView>
+
+                <!-- Signal parts — shows x/8+ until threshold, then decrypt attempts -->
+                <androidx.cardview.widget.CardView
+                    android:id="@+id/card_message_parts"
+                    android:layout_width="0dp"
+                    android:layout_height="80dp"
+                    android:layout_marginHorizontal="6dp"
+                    android:layout_weight="1"
+                    app:cardBackgroundColor="@color/lightGrey"
+                    app:cardCornerRadius="8dp"
+                    app:cardElevation="2dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:gravity="center"
+                        android:orientation="vertical"
+                        android:padding="8dp">
+
+                        <ImageView
+                            android:layout_width="16dp"
+                            android:layout_height="16dp"
+                            android:contentDescription="@string/message_parts"
+                            android:src="@drawable/ic_message"
+                            app:tint="@color/caribbeanGreen" />
+
+                        <TextView
+                            android:id="@+id/tv_messages_received"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:text="0"
+                            android:textColor="@color/white"
+                            android:textSize="20sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/tv_messages_label"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="@string/message_parts"
+                            android:textColor="@color/white"
+                            android:textSize="11sp" />
+                    </LinearLayout>
+                </androidx.cardview.widget.CardView>
+
+                <!-- Status card -->
+                <androidx.cardview.widget.CardView
+                    android:id="@+id/card_status"
+                    android:layout_width="0dp"
+                    android:layout_height="80dp"
+                    android:layout_marginStart="6dp"
+                    android:layout_weight="1"
+                    app:cardBackgroundColor="@color/lightGrey"
+                    app:cardCornerRadius="8dp"
+                    app:cardElevation="2dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:gravity="center"
+                        android:orientation="vertical"
+                        android:padding="8dp">
+
+                        <ImageView
+                            android:id="@+id/iv_status_icon"
+                            android:layout_width="16dp"
+                            android:layout_height="16dp"
+                            android:contentDescription="@string/status"
+                            android:src="@drawable/ic_sync"
+                            app:tint="@color/coolGrey" />
+
+                        <TextView
+                            android:id="@+id/tv_status_title"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:text="@string/status"
+                            android:textColor="@color/white"
+                            android:textSize="14sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/tv_status_subtitle"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:gravity="center"
+                            android:text="@string/status_waiting"
+                            android:textColor="@color/coolGrey"
+                            android:textSize="11sp" />
+                    </LinearLayout>
+                </androidx.cardview.widget.CardView>
 
             </LinearLayout>
-        </androidx.cardview.widget.CardView>
 
-    </LinearLayout>
+        </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
 
-    <!-- Stop Button -->
+    <!-- ── Stop / Start button — always visible below scroll content ───── -->
     <Button
         android:id="@+id/btn_stop"
         android:layout_width="match_parent"
@@ -490,7 +482,6 @@
         android:layout_marginTop="20dp"
         android:background="@drawable/btn_bkgd_transparent_56"
         android:text="@string/stop_session"
-        android:textColor="@color/white"
-        app:layout_constraintTop_toBottomOf="@id/stats_container" />
+        android:textColor="@color/white" />
 
-</androidx.constraintlayout.widget.ConstraintLayout>
+</LinearLayout>

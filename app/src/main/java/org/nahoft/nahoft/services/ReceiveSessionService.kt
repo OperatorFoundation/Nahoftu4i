@@ -323,6 +323,8 @@ class ReceiveSessionService : Service()
                 return@launch
             }
 
+            launch { observeUsbDisconnect() }
+
             val connection = usbAudioConnection
             if (connection == null)
             {
@@ -534,7 +536,6 @@ class ReceiveSessionService : Service()
                 launch { observeCycleInformation() }
                 launch { observeDecodeResults() }
                 launch { observeAudioLevels(connection) }
-                launch { observeUsbDisconnect() }
             }
             catch (e: Exception)
             {
