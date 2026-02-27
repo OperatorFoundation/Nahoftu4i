@@ -562,14 +562,20 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
     {
         binding.rxFrequencySection.visibility = View.VISIBLE
 
-        // Nothing is running yet — show a neutral prompt instead of a session status
-        updateStatus(getString(R.string.status_set_frequency))
-
-        // Hide the Hide button — there is no running session to hide yet
+        // Hide the close button — there is no running session to close yet
         binding.btnClose.visibility = View.GONE
 
         // Start is the only action available at this point
         binding.btnStop.text = getString(R.string.start_session)
+
+        // Check current USB state immediately — the flow may not re-emit
+        val usbAvailable = viewModel.usbAudioAvailable.value
+        binding.btnStop.isEnabled = usbAvailable
+        updateStatus(
+            if (usbAvailable) getString(R.string.status_set_frequency)
+            else getString(R.string.usb_audio_not_connected)
+        )
+
         binding.btnStop.setOnClickListener {
             val freqKHz = binding.etRxFrequency.text.toString().toIntOrNull()
                 ?: viewModel.getRxFrequencyKHz()
