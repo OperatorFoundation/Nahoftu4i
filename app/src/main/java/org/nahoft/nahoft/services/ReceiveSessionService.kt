@@ -410,6 +410,9 @@ class ReceiveSessionService : Service()
 
         // Reset state
         _receiveSessionState.value = ReceiveSessionState.Stopped
+        _cycleInformation.value = null
+        _stationState.value = null
+        _audioLevel.value = 0f
         friendName = null
         friendPublicKey = null
         _currentFriendName.value = null

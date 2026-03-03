@@ -482,6 +482,6 @@
         android:layout_marginTop="20dp"
         android:background="@drawable/btn_bkgd_transparent_56"
         android:text="@string/stop_session"
-        android:textColor="@color/white" />
+        android:textColor="@color/button_text_color_light" />
 
 </LinearLayout>

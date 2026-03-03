@@ -203,7 +203,7 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
                 if (!viewModel.isSessionActive()) {
                     binding.btnStop.isEnabled = available
                     updateStatus(
-                        if (available) getString(R.string.status_set_frequency)
+                        if (available) getString(R.string.tap_start_to_listen)
                         else getString(R.string.usb_audio_not_connected)
                     )
                 }
@@ -572,7 +572,7 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
         val usbAvailable = viewModel.usbAudioAvailable.value
         binding.btnStop.isEnabled = usbAvailable
         updateStatus(
-            if (usbAvailable) getString(R.string.status_set_frequency)
+            if (usbAvailable) getString(R.string.tap_start_to_listen)
             else getString(R.string.usb_audio_not_connected)
         )
 
