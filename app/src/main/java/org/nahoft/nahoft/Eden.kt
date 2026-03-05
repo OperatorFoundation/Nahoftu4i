@@ -4,6 +4,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import org.operatorfoundation.ion.storage.NounType
 import org.operatorfoundation.ion.storage.Word
 import org.operatorfoundation.transmission.SerialConnection
@@ -92,39 +96,26 @@ class Eden(private val connection: SerialConnection)
     /**
      * Transmits a WSPR message as a sequence of FSK symbols.
      *
-     * Handles the full TX sequence:
-     *   1. Switch relay to TX
-     *   2. Set initial frequency and enable SI5351 output
-     *   3. Step through all 162 symbol frequencies with correct timing
-     *   4. Disable SI5351 output and switch relay back to RX
-     *
-     * Blocks on Dispatchers.IO for the ~110 second WSPR transmission.
-     *
-     * @param symbolFrequenciesCHz 162-element LongArray from WSPREncoder.encodeToFrequencies()
-     * @param onSymbolSent Optional progress callback, called with (symbolIndex, total)
-     * @return True if all symbols were sent and Eden acknowledged each
-     */
-
-    /**
-     * Transmits a WSPR message as a sequence of FSK symbols.
-     *
      * TX sequence:
-     *   1. Switch relay to TX
-     *   2. Set initial frequency and enable SI5351 output
-     *   3. Step through all 162 symbol frequencies, awaiting firmware ack for each
-     *   4. Disable SI5351 output and switch relay back to RX
+     *   1. Switch relay to TX — awaits firmware ack (critical)
+     *   2. Set initial frequency
+     *   3. Enable SI5351 output — awaits firmware ack (critical)
+     *   4. Step through all 162 symbol frequencies
+     *   5. Disable SI5351 output and switch relay back to RX
      *
-     * The firmware sends "OK TX FREQ\r\n" for every frequency update — each ack
-     * is read before the next symbol is sent to prevent serial buffer overflow.
+     * A single reader coroutine owns all serial reads for the entire transmission.
+     * It routes responses to the symbol loop via a Channel for the two critical
+     * acks (CONTROL_TX and CONTROL_ON), and logs everything else.
      *
-     * Symbol timing is enforced by the firmware (clock.wait() in Si5351Transmitter),
-     * not by this function.
+     * The symbol loop never blocks on reads — timing is enforced by the
+     * firmware's own clock.wait() in Si5351Transmitter.
      *
-     * Runs on Dispatchers.IO — blocks for the ~110 second WSPR transmission.
+     * Suspends for the ~110 second WSPR transmission duration.
+     * Actual symbol timing is enforced by the firmware
      *
      * @param symbolFrequenciesCHz 162-element LongArray from WSPREncoder.encodeToFrequencies()
      * @param onSymbolSent Optional progress callback, called with (symbolIndex, total)
-     * @return True if all symbols were sent and acknowledged successfully
+     * @return True if all symbols were sent successfully
      */
     suspend fun transmitWSPR(symbolFrequenciesCHz: LongArray, onSymbolSent: ((Int, Int) -> Unit)? = null): Boolean = withContext(Dispatchers.IO)
     {
@@ -133,57 +124,119 @@ class Eden(private val connection: SerialConnection)
             "WSPR requires exactly 162 symbols, got ${symbolFrequenciesCHz.size}"
         }
 
-        Timber.d("Eden.kt: beginning WSPR transmission (${symbolFrequenciesCHz.size} symbols)")
+        Timber.d("Eden: beginning WSPR transmission (${symbolFrequenciesCHz.size} symbols)")
 
-        // Switch relay to TX — on failure we never entered TX mode, return immediately
-        if (!sendControlCode(CONTROL_TX)) return@withContext false
-        currentMode = Mode.TX
+        // Channel carries critical ack strings to the symbol loop.
+        // Capacity 2 — one for CONTROL_TX, one for CONTROL_ON.
+        val ackChannel = Channel<String>(capacity = 2)
+
+        // Single reader coroutine — owns all serial reads for the entire transmission.
+        // Routes critical acks to the channel; logs everything else.
+        val readerJob = CoroutineScope(Dispatchers.IO).launch {
+            while (isActive)
+            {
+                try
+                {
+                    val bytes = connection.readAvailable()
+
+                    if (bytes != null && bytes.isNotEmpty())
+                    {
+                        val response = bytes.decodeToString().trim()
+
+                        if (response.isNotEmpty())
+                        {
+                            Timber.i("[Received Eden]: $response")
+
+                            // Route critical acks to the symbol loop
+                            if (response.contains("OK MODE TX") || response.contains("OK TX ON"))
+                            {
+                                ackChannel.trySend(response)
+                            }
+                        }
+                    }
+                }
+                catch (e: Exception)
+                {
+                    Timber.w(e, "Eden: error reading serial buffer during transmission")
+                }
+            }
+        }
 
         try
         {
-            var firstSymbol = true
+            // ── CONTROL_TX ───────────────────────────────────────────────────────
+            // Write control code directly — bypass sendControlCode() so the ack
+            // is read by the single reader above rather than awaitAck()
+            Timber.d("Eden.kt: sending control code $CONTROL_TX")
+            Word.to_conn(connection, Word.make(CONTROL_TX, NounType.INTEGER.value))
 
-            for ((index, frequencyCHz) in symbolFrequenciesCHz.withIndex())
+            val txAck = withTimeoutOrNull(ACK_TIMEOUT_MS) { ackChannel.receive() }
+            if (txAck == null)
             {
-                sendFrequency(frequencyCHz)
+                Timber.e("Eden: no ack for CONTROL_TX — aborting transmission")
+                return@withContext false
+            }
 
-                // Firmware sends "OK TX FREQ\r\n" for every frequency update —
-                // read each ack before sending the next symbol to prevent serial buffer overflow.
-                if (awaitAck() == null)
-                {
-                    Timber.e("Eden.kt: no ack for symbol $index")
-                    return@withContext false
-                }
+            currentMode = Mode.TX
 
-                if (firstSymbol)
-                {
-                    // First frequency is set and acknowledged — now enable the oscillator output
-                    if (!sendControlCode(CONTROL_ON)) return@withContext false
-                    firstSymbol = false
-                }
+            // ── First symbol frequency ───────────────────────────────────────────
+            sendFrequency(symbolFrequenciesCHz[0])
 
+            // ── CONTROL_ON ───────────────────────────────────────────────────────
+            Timber.d("Eden: sending control code $CONTROL_ON")
+            Word.to_conn(connection, Word.make(CONTROL_ON, NounType.INTEGER.value))
+
+            val onAck = withTimeoutOrNull(ACK_TIMEOUT_MS) { ackChannel.receive() }
+            if (onAck == null)
+            {
+                Timber.e("Eden: no ack for CONTROL_ON — aborting transmission")
+                return@withContext false
+            }
+
+            onSymbolSent?.invoke(0, symbolFrequenciesCHz.size)
+
+            // ── Remaining 161 symbols ─────────────────────────────────────────────
+            // Fire and forget — firmware enforces symbol timing via clock.wait()
+            for (index in 1 until symbolFrequenciesCHz.size)
+            {
+                sendFrequency(symbolFrequenciesCHz[index])
                 onSymbolSent?.invoke(index, symbolFrequenciesCHz.size)
             }
 
-            // All symbols sent — disable oscillator and return relay to RX
-            if (!sendControlCode(CONTROL_OFF)) return@withContext false
-            if (!sendControlCode(CONTROL_RX)) return@withContext false
+            // ── End of transmission ───────────────────────────────────────────────
+            Timber.d("Eden.kt: sending control code $CONTROL_OFF")
+            Word.to_conn(connection, Word.make(CONTROL_OFF, NounType.INTEGER.value))
+
+            Timber.d("Eden.kt: sending control code $CONTROL_RX")
+            Word.to_conn(connection, Word.make(CONTROL_RX, NounType.INTEGER.value))
+
             currentMode = Mode.RX
 
-            Timber.i("Eden.kt: WSPR transmission complete")
+            Timber.i("Eden: WSPR transmission complete")
             true
         }
         finally
         {
-            // TODO: More granular feedback for UI
-            // If currentMode is still TX here, something failed mid-transmission.
-            // Cleanup to prevent radio from being stuck in TX mode.
+            // Single reader is no longer needed
+            readerJob.cancel()
+            ackChannel.close()
+
+            // If currentMode is still TX, something failed mid-transmission.
+            // Best-effort cleanup — bypass sendControlCode() to avoid read contention
+            // now that the reader is cancelled.
             if (currentMode == Mode.TX)
             {
-                Timber.w("Eden.kt: transmission interrupted — returning to RX mode")
-                sendControlCode(CONTROL_OFF)
-                sendControlCode(CONTROL_RX)
-                currentMode = Mode.RX
+                Timber.w("Eden: transmission interrupted — attempting return to RX mode")
+                try
+                {
+                    Word.to_conn(connection, Word.make(CONTROL_OFF, NounType.INTEGER.value))
+                    Word.to_conn(connection, Word.make(CONTROL_RX, NounType.INTEGER.value))
+                    currentMode = Mode.RX
+                }
+                catch (e: Exception)
+                {
+                    Timber.e(e, "Eden: failed to return to RX mode after interrupted transmission")
+                }
             }
         }
     }
