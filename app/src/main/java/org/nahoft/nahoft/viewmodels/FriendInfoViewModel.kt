@@ -226,6 +226,18 @@ class FriendInfoViewModel(application: Application) : AndroidViewModel(applicati
         return currentEden.startReceiving(frequencyKHz)
     }
 
+    suspend fun switchToRX(): Boolean
+    {
+        val currentEden = eden
+        if (currentEden == null)
+        {
+            Timber.d("switchToRX: no Eden device connected")
+            return false
+        }
+
+        return currentEden.switchToRX()
+    }
+
     suspend fun transmitWSPR(messages: List<LongArray>, onSymbolSent: ((Int, Int) -> Unit)? = null): Boolean
     {
         val currentEden = eden
@@ -256,15 +268,13 @@ class FriendInfoViewModel(application: Application) : AndroidViewModel(applicati
         }
         finally
         {
-            val rxFreqKHz = getRxFrequencyKHz()
-            Timber.d("Restoring RX mode at $rxFreqKHz kHz after transmission")
             try
             {
-                startReceiving(rxFreqKHz)
+                switchToRX()
             }
             catch (e: Exception)
             {
-                Timber.e(e, "Failed to restore RX mode after transmission")
+                Timber.e(e, "Failed to switch to RX mode after transmission")
             }
         }
     }

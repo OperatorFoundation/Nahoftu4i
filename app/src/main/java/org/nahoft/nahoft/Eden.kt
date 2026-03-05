@@ -260,6 +260,29 @@ class Eden(private val connection: SerialConnection)
     }
 
     /**
+     * Switches the antenna relay to RX without setting a frequency.
+     *
+     * Use this as a safety net after transmitting to guarantee we are not
+     * stuck in TX mode. Does not touch the receiver frequency — that is
+     * the responsibility of [startReceiving].
+     */
+    suspend fun switchToRX(): Boolean = withContext(Dispatchers.IO)
+    {
+        try
+        {
+            Timber.d("Eden.kt: switchToRX — sending CONTROL_RX")
+            Word.to_conn(connection, Word.make(CONTROL_RX, NounType.INTEGER.value))
+            currentMode = Mode.RX
+            true
+        }
+        catch (e: Exception)
+        {
+            Timber.e(e, "Eden.kt: failed to switch to RX mode")
+            false
+        }
+    }
+
+    /**
      * Closes the serial connection. Call when the ViewModel is cleared or the
      * USB device is detached.
      */
