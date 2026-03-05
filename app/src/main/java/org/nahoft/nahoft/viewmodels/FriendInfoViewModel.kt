@@ -236,21 +236,37 @@ class FriendInfoViewModel(application: Application) : AndroidViewModel(applicati
             return false
         }
 
-        messages.forEachIndexed { index, symbolFrequencies ->
-            Timber.d("Waiting for even minute (message ${index + 1} of ${messages.size})...")
-            delay(timingCoordinator.getMillisUntilNextEvenMinute())
-            Timber.d("Transmitting message ${index + 1} of ${messages.size}")
+        try
+        {
+            messages.forEachIndexed { index, symbolFrequencies ->
+                Timber.d("Waiting for even minute (message ${index + 1} of ${messages.size})...")
+                delay(timingCoordinator.getMillisUntilNextEvenMinute())
+                Timber.d("Transmitting message ${index + 1} of ${messages.size}")
 
-            val success = currentEden.transmitWSPR(symbolFrequencies, onSymbolSent)
+                val success = currentEden.transmitWSPR(symbolFrequencies, onSymbolSent)
 
-            if (!success)
+                if (!success)
+                {
+                    Timber.e("Transmission failed on message ${index + 1}")
+                    return false
+                }
+            }
+
+            return true
+        }
+        finally
+        {
+            val rxFreqKHz = getRxFrequencyKHz()
+            Timber.d("Restoring RX mode at $rxFreqKHz kHz after transmission")
+            try
             {
-                Timber.e("Transmission failed on message ${index + 1}")
-                return false
+                startReceiving(rxFreqKHz)
+            }
+            catch (e: Exception)
+            {
+                Timber.e(e, "Failed to restore RX mode after transmission")
             }
         }
-
-        return true
     }
 
     // ==================== USB Audio Connection (for UI visibility) ====================
