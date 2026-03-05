@@ -8,6 +8,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import org.operatorfoundation.audiocoder.WSPRConstants
 import org.operatorfoundation.ion.storage.NounType
 import org.operatorfoundation.ion.storage.Word
 import org.operatorfoundation.transmission.SerialConnection
@@ -97,21 +98,17 @@ class Eden(private val connection: SerialConnection)
      * Transmits a WSPR message as a sequence of FSK symbols.
      *
      * TX sequence:
-     *   1. Switch relay to TX — awaits firmware ack (critical)
-     *   2. Set initial frequency
-     *   3. Enable SI5351 output — awaits firmware ack (critical)
-     *   4. Step through all 162 symbol frequencies
-     *   5. Disable SI5351 output and switch relay back to RX
+     *   1. Switch relay to TX
+     *   2. Set initial frequency and enable SI5351 output
+     *   3. Step through all 162 symbol frequencies
+     *   4. Disable SI5351 output and switch relay back to RX
      *
-     * A single reader coroutine owns all serial reads for the entire transmission.
-     * It routes responses to the symbol loop via a Channel for the two critical
-     * acks (CONTROL_TX and CONTROL_ON), and logs everything else.
+     * A single reader coroutine owns all serial reads for the entire
+     * transmission, logging all firmware responses.
      *
-     * The symbol loop never blocks on reads — timing is enforced by the
-     * firmware's own clock.wait() in Si5351Transmitter.
-     *
+     * Symbol timing is paced by WSPRConstants.SYMBOL_DURATION_MS (683ms)
+     * on the Kotlin side — the firmware does not enforce inter-symbol delay.
      * Suspends for the ~110 second WSPR transmission duration.
-     * Actual symbol timing is enforced by the firmware
      *
      * @param symbolFrequenciesCHz 162-element LongArray from WSPREncoder.encodeToFrequencies()
      * @param onSymbolSent Optional progress callback, called with (symbolIndex, total)
@@ -126,12 +123,8 @@ class Eden(private val connection: SerialConnection)
 
         Timber.d("Eden: beginning WSPR transmission (${symbolFrequenciesCHz.size} symbols)")
 
-        // Channel carries critical ack strings to the symbol loop.
-        // Capacity 2 — one for CONTROL_TX, one for CONTROL_ON.
-        val ackChannel = Channel<String>(capacity = 2)
-
         // Single reader coroutine — owns all serial reads for the entire transmission.
-        // Routes critical acks to the channel; logs everything else.
+        // Logs all firmware responses without blocking the symbol loop.
         val readerJob = CoroutineScope(Dispatchers.IO).launch {
             while (isActive)
             {
@@ -141,17 +134,15 @@ class Eden(private val connection: SerialConnection)
 
                     if (bytes != null && bytes.isNotEmpty())
                     {
-                        val response = bytes.decodeToString().trim()
+                        // Split on line endings so each response logs on its own line
+                        val responses = bytes.decodeToString()
+                            .split("\r\n", "\n", "\r")
+                            .map { it.trim() }
+                            .filter { it.isNotEmpty() }
 
-                        if (response.isNotEmpty())
+                        for (response in responses)
                         {
                             Timber.i("[Received Eden]: $response")
-
-                            // Route critical acks to the symbol loop
-                            if (response.contains("OK MODE TX") || response.contains("OK TX ON"))
-                            {
-                                ackChannel.trySend(response)
-                            }
                         }
                     }
                 }
@@ -164,69 +155,50 @@ class Eden(private val connection: SerialConnection)
 
         try
         {
-            // ── CONTROL_TX ───────────────────────────────────────────────────────
-            // Write control code directly — bypass sendControlCode() so the ack
-            // is read by the single reader above rather than awaitAck()
-            Timber.d("Eden.kt: sending control code $CONTROL_TX")
+            // Switch relay to TX
+            Timber.d("Eden.kt: sending CONTROL_TX")
             Word.to_conn(connection, Word.make(CONTROL_TX, NounType.INTEGER.value))
-
-            val txAck = withTimeoutOrNull(ACK_TIMEOUT_MS) { ackChannel.receive() }
-            if (txAck == null)
-            {
-                Timber.e("Eden: no ack for CONTROL_TX — aborting transmission")
-                return@withContext false
-            }
-
             currentMode = Mode.TX
 
-            // ── First symbol frequency ───────────────────────────────────────────
+            // Set first symbol frequency, wait one symbol period, then enable oscillator
             sendFrequency(symbolFrequenciesCHz[0])
+            delay(WSPRConstants.SYMBOL_DURATION_MS)
 
-            // ── CONTROL_ON ───────────────────────────────────────────────────────
-            Timber.d("Eden: sending control code $CONTROL_ON")
+            // Enable oscillator output
+            Timber.d("Eden.kt: sending CONTROL_ON")
             Word.to_conn(connection, Word.make(CONTROL_ON, NounType.INTEGER.value))
-
-            val onAck = withTimeoutOrNull(ACK_TIMEOUT_MS) { ackChannel.receive() }
-            if (onAck == null)
-            {
-                Timber.e("Eden: no ack for CONTROL_ON — aborting transmission")
-                return@withContext false
-            }
 
             onSymbolSent?.invoke(0, symbolFrequenciesCHz.size)
 
-            // ── Remaining 161 symbols ─────────────────────────────────────────────
-            // Fire and forget — firmware enforces symbol timing via clock.wait()
+            // Send remaining 161 symbols, pacing at one symbol period each
             for (index in 1 until symbolFrequenciesCHz.size)
             {
                 sendFrequency(symbolFrequenciesCHz[index])
+                delay(WSPRConstants.SYMBOL_DURATION_MS)
                 onSymbolSent?.invoke(index, symbolFrequenciesCHz.size)
             }
 
-            // ── End of transmission ───────────────────────────────────────────────
-            Timber.d("Eden.kt: sending control code $CONTROL_OFF")
+            // Disable oscillator and return relay to RX
+            Timber.d("Eden.kt: sending CONTROL_OFF")
             Word.to_conn(connection, Word.make(CONTROL_OFF, NounType.INTEGER.value))
 
-            Timber.d("Eden.kt: sending control code $CONTROL_RX")
+            Timber.d("Eden.kt: sending CONTROL_RX")
             Word.to_conn(connection, Word.make(CONTROL_RX, NounType.INTEGER.value))
-
             currentMode = Mode.RX
 
-            Timber.i("Eden: WSPR transmission complete")
+            Timber.i("Eden.kt: WSPR transmission complete")
             true
         }
         finally
         {
-            // Single reader is no longer needed
+            // Reader is no longer needed
             readerJob.cancel()
-            ackChannel.close()
 
             // If currentMode is still TX, something failed mid-transmission.
-            // Best-effort cleanup — bypass sendControlCode() to avoid read contention
-            // now that the reader is cancelled.
+            // Best-effort cleanup to prevent Eden from being stuck in TX mode.
             if (currentMode == Mode.TX)
             {
-                Timber.w("Eden: transmission interrupted — attempting return to RX mode")
+                Timber.w("Eden.kt: transmission interrupted — attempting return to RX mode")
                 try
                 {
                     Word.to_conn(connection, Word.make(CONTROL_OFF, NounType.INTEGER.value))
@@ -235,7 +207,7 @@ class Eden(private val connection: SerialConnection)
                 }
                 catch (e: Exception)
                 {
-                    Timber.e(e, "Eden: failed to return to RX mode after interrupted transmission")
+                    Timber.e(e, "Eden.kt: failed to return to RX mode after interrupted transmission")
                 }
             }
         }
