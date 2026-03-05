@@ -76,7 +76,7 @@ class Eden(private val connection: SerialConnection)
      */
     suspend fun startReceiving(frequencyKHz: Int): Boolean
     {
-        Timber.d("Eden: startReceiving at ${frequencyKHz} kHz")
+        Timber.d("Eden.kt: startReceiving at ${frequencyKHz} kHz")
 
         if (!sendControlCode(CONTROL_RX)) return false
         currentMode = Mode.RX
@@ -85,7 +85,7 @@ class Eden(private val connection: SerialConnection)
         sendFrequency(frequencyCHz)
         if (awaitAck() == null) return false
 
-        Timber.i("Eden: RX mode active at ${frequencyKHz} kHz")
+        Timber.i("Eden.kt: RX mode active at ${frequencyKHz} kHz")
         return true
     }
 
@@ -105,6 +105,27 @@ class Eden(private val connection: SerialConnection)
      * @return True if all symbols were sent and Eden acknowledged each
      */
 
+    /**
+     * Transmits a WSPR message as a sequence of FSK symbols.
+     *
+     * TX sequence:
+     *   1. Switch relay to TX
+     *   2. Set initial frequency and enable SI5351 output
+     *   3. Step through all 162 symbol frequencies, awaiting firmware ack for each
+     *   4. Disable SI5351 output and switch relay back to RX
+     *
+     * The firmware sends "OK TX FREQ\r\n" for every frequency update — each ack
+     * is read before the next symbol is sent to prevent serial buffer overflow.
+     *
+     * Symbol timing is enforced by the firmware (clock.wait() in Si5351Transmitter),
+     * not by this function.
+     *
+     * Runs on Dispatchers.IO — blocks for the ~110 second WSPR transmission.
+     *
+     * @param symbolFrequenciesCHz 162-element LongArray from WSPREncoder.encodeToFrequencies()
+     * @param onSymbolSent Optional progress callback, called with (symbolIndex, total)
+     * @return True if all symbols were sent and acknowledged successfully
+     */
     suspend fun transmitWSPR(symbolFrequenciesCHz: LongArray, onSymbolSent: ((Int, Int) -> Unit)? = null): Boolean = withContext(Dispatchers.IO)
     {
         require(symbolFrequenciesCHz.size == 162)
@@ -112,42 +133,59 @@ class Eden(private val connection: SerialConnection)
             "WSPR requires exactly 162 symbols, got ${symbolFrequenciesCHz.size}"
         }
 
-        Timber.d("Eden: beginning WSPR transmission (${symbolFrequenciesCHz.size} symbols)")
+        Timber.d("Eden.kt: beginning WSPR transmission (${symbolFrequenciesCHz.size} symbols)")
 
+        // Switch relay to TX — on failure we never entered TX mode, return immediately
         if (!sendControlCode(CONTROL_TX)) return@withContext false
         currentMode = Mode.TX
 
-        var firstSymbol = true
-
-        for ((index, frequencyCHz) in symbolFrequenciesCHz.withIndex())
+        try
         {
-            sendFrequency(frequencyCHz)
+            var firstSymbol = true
 
-            // Firmware sends "OK TX FREQ\r\n" for every frequency update —
-            // read each ack before sending the next symbol.
-            if (awaitAck() == null)
+            for ((index, frequencyCHz) in symbolFrequenciesCHz.withIndex())
             {
-                Timber.e("Eden: no ack for symbol $index")
-                return@withContext false
+                sendFrequency(frequencyCHz)
+
+                // Firmware sends "OK TX FREQ\r\n" for every frequency update —
+                // read each ack before sending the next symbol to prevent serial buffer overflow.
+                if (awaitAck() == null)
+                {
+                    Timber.e("Eden.kt: no ack for symbol $index")
+                    return@withContext false
+                }
+
+                if (firstSymbol)
+                {
+                    // First frequency is set and acknowledged — now enable the oscillator output
+                    if (!sendControlCode(CONTROL_ON)) return@withContext false
+                    firstSymbol = false
+                }
+
+                onSymbolSent?.invoke(index, symbolFrequenciesCHz.size)
             }
 
-            if (firstSymbol)
-            {
-                // First frequency is set
-                if (!sendControlCode(CONTROL_ON)) return@withContext false
-                firstSymbol = false
-            }
+            // All symbols sent — disable oscillator and return relay to RX
+            if (!sendControlCode(CONTROL_OFF)) return@withContext false
+            if (!sendControlCode(CONTROL_RX)) return@withContext false
+            currentMode = Mode.RX
 
-            onSymbolSent?.invoke(index, symbolFrequenciesCHz.size)
+            Timber.i("Eden.kt: WSPR transmission complete")
+            true
         }
-
-        if (!sendControlCode(CONTROL_OFF)) return@withContext false
-
-        if (!sendControlCode(CONTROL_RX)) return@withContext false
-        currentMode = Mode.RX
-
-        Timber.i("Eden: WSPR transmission complete")
-        true
+        finally
+        {
+            // TODO: More granular feedback for UI
+            // If currentMode is still TX here, something failed mid-transmission.
+            // Cleanup to prevent radio from being stuck in TX mode.
+            if (currentMode == Mode.TX)
+            {
+                Timber.w("Eden.kt: transmission interrupted — returning to RX mode")
+                sendControlCode(CONTROL_OFF)
+                sendControlCode(CONTROL_RX)
+                currentMode = Mode.RX
+            }
+        }
     }
 
     /**
@@ -162,7 +200,7 @@ class Eden(private val connection: SerialConnection)
         }
         catch (e: Exception)
         {
-            Timber.w(e, "Eden: error closing connection")
+            Timber.w(e, "Eden.kt: error closing connection")
         }
     }
 
@@ -173,7 +211,7 @@ class Eden(private val connection: SerialConnection)
      */
     private suspend fun sendControlCode(code: Int): Boolean = withContext(Dispatchers.IO)
     {
-        Timber.d("Eden: sending control code $code")
+        Timber.d("Eden.kt: sending control code $code")
         try
         {
             Word.to_conn(connection, Word.make(code, NounType.INTEGER.value))
@@ -181,7 +219,7 @@ class Eden(private val connection: SerialConnection)
         }
         catch (e: Exception)
         {
-            Timber.e(e, "Eden: failed to send control code $code")
+            Timber.e(e, "Eden.kt: failed to send control code $code")
             false
         }
     }
@@ -196,14 +234,14 @@ class Eden(private val connection: SerialConnection)
      */
     private suspend fun sendFrequency(frequencyCHz: Long) = withContext(Dispatchers.IO)
     {
-        Timber.d("Eden: sending frequency ${frequencyCHz} cHz")
+        Timber.d("Eden.kt: sending frequency ${frequencyCHz} cHz")
         try
         {
             Word.to_conn(connection, Word.make(frequencyCHz.toInt(), NounType.INTEGER.value))
         }
         catch (e: Exception)
         {
-            Timber.e(e, "Eden: failed to send frequency ${frequencyCHz} cHz")
+            Timber.e(e, "Eden.kt: failed to send frequency ${frequencyCHz} cHz")
         }
     }
 
@@ -257,7 +295,7 @@ class Eden(private val connection: SerialConnection)
                 }
                 catch (e: Exception)
                 {
-                    Timber.w(e, "Eden: error reading response")
+                    Timber.w(e, "Eden.kt: error reading response")
                     delay(POLL_INTERVAL_MS)
                 }
             }
