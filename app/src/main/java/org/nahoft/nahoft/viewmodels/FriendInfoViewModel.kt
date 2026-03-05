@@ -201,7 +201,8 @@ class FriendInfoViewModel(application: Application) : AndroidViewModel(applicati
     fun onUsbDeviceDetached()
     {
         isConnecting = false
-        // Factory will emit Disconnected state automatically
+        connectionFactory.onDeviceDetached()
+        // _eden is nulled automatically by the serialConnectionState observer in init
     }
 
     /**

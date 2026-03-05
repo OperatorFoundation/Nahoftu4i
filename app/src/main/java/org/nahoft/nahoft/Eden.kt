@@ -123,20 +123,22 @@ class Eden(private val connection: SerialConnection)
         {
             sendFrequency(frequencyCHz)
 
+            // Firmware sends "OK TX FREQ\r\n" for every frequency update —
+            // read each ack before sending the next symbol.
+            if (awaitAck() == null)
+            {
+                Timber.e("Eden: no ack for symbol $index")
+                return@withContext false
+            }
+
             if (firstSymbol)
             {
-                // Eden is idle before TX starts — wait for frequency ack,
-                // then enable the oscillator output.
-                if (awaitAck() == null) return@withContext false
+                // First frequency is set
                 if (!sendControlCode(CONTROL_ON)) return@withContext false
                 firstSymbol = false
             }
 
-            // Mid-transmission: Eden updates the tone silently, no ack.
-
             onSymbolSent?.invoke(index, symbolFrequenciesCHz.size)
-
-            Thread.sleep(683L)
         }
 
         if (!sendControlCode(CONTROL_OFF)) return@withContext false
