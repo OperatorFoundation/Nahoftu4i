@@ -1286,7 +1286,7 @@ class FriendInfoActivity: AppCompatActivity()
         }
 
         val success = viewModel.transmitWSPR(messageFrequencies) { symbolIndex, total ->
-            Timber.d("TX progress: $symbolIndex / $total")
+            Timber.d("TX progress: ${symbolIndex + 1} / $total")
         }
 
         withContext(Dispatchers.Main)

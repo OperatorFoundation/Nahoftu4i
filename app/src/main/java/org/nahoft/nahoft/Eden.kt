@@ -3,8 +3,6 @@ package org.nahoft.nahoft
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeoutOrNull
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -76,22 +74,70 @@ class Eden(private val connection: SerialConnection)
      * the receiver on or off — RX mode is active whenever the relay is in RX
      * position and the USB audio connection is open.
      *
+     * A short-lived reader coroutine logs all firmware responses without blocking.
+     *
      * @param frequencyKHz Dial frequency in kilohertz (e.g. 14095 for 20m WSPR)
-     * @return True if Eden acknowledged both commands
+     * @return True if all commands were written successfully
      */
-    suspend fun startReceiving(frequencyKHz: Int): Boolean
+    suspend fun startReceiving(frequencyKHz: Int): Boolean = withContext(Dispatchers.IO)
     {
-        Timber.d("Eden.kt: startReceiving at ${frequencyKHz} kHz")
+        Timber.d("Eden: startReceiving at $frequencyKHz kHz")
 
-        if (!sendControlCode(CONTROL_RX)) return false
-        currentMode = Mode.RX
+        // Short-lived reader coroutine — logs all firmware responses
+        // without blocking the command sequence
+        val readerJob = CoroutineScope(Dispatchers.IO).launch {
+            while (isActive)
+            {
+                try
+                {
+                    val bytes = connection.readAvailable()
 
-        val frequencyCHz = frequencyKHz.toCentihertz()
-        sendFrequency(frequencyCHz)
-        if (awaitAck() == null) return false
+                    if (bytes != null && bytes.isNotEmpty())
+                    {
+                        val responses = bytes.decodeToString()
+                            .split("\r\n", "\n", "\r")
+                            .map { it.trim() }
+                            .filter { it.isNotEmpty() }
 
-        Timber.i("Eden.kt: RX mode active at ${frequencyKHz} kHz")
-        return true
+                        for (response in responses)
+                        {
+                            Timber.i("[Received Eden]: $response")
+                        }
+                    }
+                }
+                catch (e: Exception)
+                {
+                    Timber.w(e, "Eden: error reading serial buffer during startReceiving")
+                }
+            }
+        }
+
+        return@withContext try
+        {
+            // Switch relay to RX (also the firmware default on startup)
+            Timber.d("Eden.kt: sending CONTROL_RX")
+            Word.to_conn(connection, Word.make(CONTROL_RX, NounType.INTEGER.value))
+            currentMode = Mode.RX
+
+            // Set RX frequency
+            val frequencyCHz = frequencyKHz.toCentihertz()
+            Timber.d("Eden.kt: sending RX frequency $frequencyCHz cHz")
+            Word.to_conn(connection, Word.make(frequencyCHz.toInt(), NounType.INTEGER.value))
+
+            Timber.i("Eden: RX mode active at $frequencyKHz kHz")
+            true
+        }
+        catch (e: Exception)
+        {
+            Timber.e(e, "Eden: failed to start receiving at $frequencyKHz kHz")
+            false
+        }
+        finally
+        {
+            // Give firmware a brief moment to process before stopping the reader
+            delay(500)
+            readerJob.cancel()
+        }
     }
 
     /**
@@ -232,27 +278,8 @@ class Eden(private val connection: SerialConnection)
     // ==================== Private Helpers ====================
 
     /**
-     * Sends a single integer control code and waits for acknowledgement.
-     */
-    private suspend fun sendControlCode(code: Int): Boolean = withContext(Dispatchers.IO)
-    {
-        Timber.d("Eden.kt: sending control code $code")
-        try
-        {
-            Word.to_conn(connection, Word.make(code, NounType.INTEGER.value))
-            awaitAck() != null
-        }
-        catch (e: Exception)
-        {
-            Timber.e(e, "Eden.kt: failed to send control code $code")
-            false
-        }
-    }
-
-    /**
      * Sends a frequency value in centihertz. Fire-and-forget — does not wait
-     * for acknowledgement. Callers are responsible for calling awaitAck() when
-     * a response is expected (i.e. before transmission starts).
+     * for acknowledgement.
      *
      * FIXME: Word.make() takes Int. Frequencies above ~21 MHz expressed in cHz
      * will overflow.
@@ -267,66 +294,6 @@ class Eden(private val connection: SerialConnection)
         catch (e: Exception)
         {
             Timber.e(e, "Eden.kt: failed to send frequency ${frequencyCHz} cHz")
-        }
-    }
-
-    /**
-     * Reads from the serial connection until a complete response is received or
-     * the timeout expires.
-     *
-     * Considers a response complete after [RESPONSE_IDLE_MS] of silence following
-     * the last received byte.
-     *
-     * @return Response string (e.g. "OK TX FREQ"), or null on timeout
-     */
-    private suspend fun awaitAck(): String? = withContext(Dispatchers.IO)
-    {
-        withTimeoutOrNull(ACK_TIMEOUT_MS) {
-            val buffer = StringBuilder()
-            val startTime = System.currentTimeMillis()
-            var lastByteTime = startTime
-
-            while (System.currentTimeMillis() - startTime < ACK_TIMEOUT_MS)
-            {
-                try
-                {
-                    val data = connection.readAvailable()
-
-                    if (data != null && data.isNotEmpty())
-                    {
-                        lastByteTime = System.currentTimeMillis()
-
-                        for (byte in data)
-                        {
-                            val char = byte.toInt().toChar()
-                            // Collect printable ASCII only (strip control chars and nulls)
-                            if (!char.isISOControl() && char != '\u0000')
-                            {
-                                buffer.append(char)
-                            }
-                        }
-                    }
-                    else
-                    {
-                        // No new data — check if we have a complete response
-                        val idleMs = System.currentTimeMillis() - lastByteTime
-                        if (buffer.isNotEmpty() && idleMs > RESPONSE_IDLE_MS)
-                        {
-                            return@withTimeoutOrNull buffer.toString().trim()
-                        }
-
-                        delay(POLL_INTERVAL_MS)
-                    }
-                }
-                catch (e: Exception)
-                {
-                    Timber.w(e, "Eden.kt: error reading response")
-                    delay(POLL_INTERVAL_MS)
-                }
-            }
-
-            // Return whatever arrived before timeout, or null
-            buffer.toString().trim().ifEmpty { null }
         }
     }
 
