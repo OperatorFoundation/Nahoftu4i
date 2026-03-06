@@ -124,6 +124,10 @@ class FriendInfoViewModel(application: Application) : AndroidViewModel(applicati
     val serialConnectionState: StateFlow<SerialConnectionFactory.ConnectionState> =
         connectionFactory.connectionState
 
+    val isEdenConnected: StateFlow<Boolean> = serialConnectionState
+        .map { it is SerialConnectionFactory.ConnectionState.Connected }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
     private val _eden = MutableStateFlow<Eden?>(null)
     val eden: Eden? get() = _eden.value
 

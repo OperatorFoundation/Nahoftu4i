@@ -80,6 +80,8 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
         observeViewModel()
         startElapsedTimeUpdates()
 
+        binding.tvNextWindow.text = ""
+
         (dialog as? BottomSheetDialog)?.behavior?.apply {
             state = BottomSheetBehavior.STATE_EXPANDED
             skipCollapsed = true
@@ -95,7 +97,7 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
         else
         {
             // Session already running — hide input, show live state
-            hideFrequencyInput()
+            showFrequencyReadOnly()
         }
     }
 
@@ -197,16 +199,28 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
             }
         }
 
+        // Enable/disable Start button and status text — pre-session only
         uiScope.launch {
             viewModel.usbAudioAvailable.collect { available ->
-                // Only relevant when frequency input is showing (no active session)
-                if (!viewModel.isSessionActive()) {
+
+                // Use the StateFlow value directly
+                if (viewModel.receiveSessionState.value == ReceiveSessionState.Idle)
+                {
                     binding.btnStop.isEnabled = available
                     updateStatus(
                         if (available) getString(R.string.tap_start_to_listen)
                         else getString(R.string.usb_audio_not_connected)
                     )
                 }
+            }
+        }
+
+        // Frequency section visibility — Eden connection controls this pre-session
+        uiScope.launch {
+            viewModel.isEdenConnected.collect { edenConnected ->
+                if (viewModel.receiveSessionState.value != ReceiveSessionState.Idle) return@collect
+                binding.rxFrequencySection.visibility =
+                    if (edenConnected) View.VISIBLE else View.GONE
             }
         }
     }
@@ -225,14 +239,17 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
             }
 
             is ReceiveSessionState.WaitingForWindow -> {
-                hideFrequencyInput()
+                showFrequencyReadOnly()
                 updateStatus(getString(R.string.waiting_for_next_window))
                 updateStateIcon(R.drawable.ic_access_time, R.color.coolGrey, AnimationType.NONE)
             }
 
             is ReceiveSessionState.Running -> {
-                // Station state observer will handle the status
-                hideFrequencyInput()
+                showFrequencyReadOnly()
+                
+                // Station state observer will override icon/status once it emits
+                updateStateIcon(R.drawable.ic_radio, R.color.coolGrey, AnimationType.PULSE)
+                updateStatus(getString(R.string.listening_for_signals))
             }
 
             is ReceiveSessionState.Stopped -> {
@@ -592,21 +609,23 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
                 viewModel.startReceiveSession()
             }
 
-            hideFrequencyInput()
+            showFrequencyReadOnly()
         }
     }
 
     /**
-     * Hides the frequency input section and restores the Stop button to its
-     * normal behaviour for an active session.
+     * Shows the frequency as a read-only label during an active session.
+     * Saved preference reflects what the session is tuned to.
      */
-    private fun hideFrequencyInput()
+    private fun showFrequencyReadOnly()
     {
-        binding.rxFrequencySection.visibility = View.GONE
+        binding.rxFrequencySection.visibility = View.VISIBLE
+        binding.etRxFrequency.isEnabled = false
+        binding.btnRxFreqMinus.isEnabled = false
+        binding.btnRxFreqPlus.isEnabled = false
 
-        // Session is now running — both actions make sense
         binding.btnClose.visibility = View.VISIBLE
-
+        binding.btnStop.isEnabled = true
         binding.btnStop.text = getString(R.string.stop_session)
         binding.btnStop.setOnClickListener {
             viewModel.stopReceiveSession()

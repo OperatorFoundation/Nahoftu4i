@@ -67,7 +67,7 @@ dependencies {
     implementation("com.github.OperatorFoundation:TransmissionAndroid:961015e38a") // Serial communications
     implementation("com.github.OperatorFoundation:ion-android:1.1.0") // Communication protocol
     implementation("com.github.OperatorFoundation:CodexKotlin:ddc1e334a5") // Message Encoding
-    implementation ("com.github.OperatorFoundation:SignalBridge:e7831c4daf") // USBAudio Management
+    implementation ("com.github.OperatorFoundation:SignalBridge:53641683d1") // USBAudio Management
 
     // 3rd party
     implementation 'com.github.mik3y:usb-serial-for-android:3.9.0'
