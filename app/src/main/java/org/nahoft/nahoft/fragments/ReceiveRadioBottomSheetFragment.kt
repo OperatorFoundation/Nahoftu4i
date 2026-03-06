@@ -246,7 +246,7 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
 
             is ReceiveSessionState.Running -> {
                 showFrequencyReadOnly()
-                
+
                 // Station state observer will override icon/status once it emits
                 updateStateIcon(R.drawable.ic_radio, R.color.coolGrey, AnimationType.PULSE)
                 updateStatus(getString(R.string.listening_for_signals))
