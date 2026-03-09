@@ -306,17 +306,6 @@ class FriendInfoActivity: AppCompatActivity()
     }
 
     /**
-     * Updates visibility of the receive radio container based on connection and friend status.
-     */
-    private fun updateReceiveButtonVisibility()
-    {
-        val shouldShow = viewModel.usbAudioAvailable.value &&
-                (thisFriend.status == FriendStatus.Verified || thisFriend.status == FriendStatus.Approved)
-
-        binding.btnReceiveRadio.visibility = if (shouldShow) View.VISIBLE else View.GONE
-    }
-
-    /**
      * Updates the receive button appearance based on session state.
      * Animates the button icon when a session is active.
      */
@@ -1094,7 +1083,6 @@ class FriendInfoActivity: AppCompatActivity()
                 ft.commit()
                 binding.btnImportImage.isVisible = true
                 binding.btnImportText.isVisible = true
-                binding.btnReceiveRadio.isVisible = viewModel.usbAudioAvailable.value
                 binding.btnResendInvite.isVisible = false
                 binding.sendMessageContainer.isVisible = true
                 binding.verifiedStatusIconImageView.isVisible = true
@@ -1106,13 +1094,10 @@ class FriendInfoActivity: AppCompatActivity()
                 ft.commit()
                 binding.btnImportImage.isVisible = true
                 binding.btnImportText.isVisible = true
-                binding.btnReceiveRadio.isVisible = viewModel.usbAudioAvailable.value
                 binding.btnResendInvite.isVisible = false
                 binding.sendMessageContainer.isVisible = true
             }
         }
-
-        updateReceiveButtonVisibility()
     }
 
     fun inviteClicked()
