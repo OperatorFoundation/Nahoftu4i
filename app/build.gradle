@@ -64,10 +64,10 @@ dependencies {
 
     // Operator Libraries
     implementation("com.github.OperatorFoundation:AudioCoderAndroid:5e1ae7db4d") // Radio codec (WSPR) Library
-    implementation("com.github.OperatorFoundation:TransmissionAndroid:feec055d1c") // Serial communications
-    implementation("com.github.OperatorFoundation:ion-android:1.1.0") // Communication protocol
+    implementation("com.github.OperatorFoundation:TransmissionAndroid:16c440cf8a") // Serial communications
+    implementation("com.github.OperatorFoundation:ion-android:8e0231b312") // Communication protocol
     implementation("com.github.OperatorFoundation:CodexKotlin:ddc1e334a5") // Message Encoding
-    implementation ("com.github.OperatorFoundation:SignalBridge:e4c83c508a") // USBAudio Management
+    implementation ("com.github.OperatorFoundation:SignalBridge:f60fcd685c") // USBAudio Management
 
     // 3rd party
     implementation 'com.github.mik3y:usb-serial-for-android:3.9.0'
