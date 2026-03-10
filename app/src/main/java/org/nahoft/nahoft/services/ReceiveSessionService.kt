@@ -455,36 +455,32 @@ class ReceiveSessionService : Service()
 
     private suspend fun connectToUsbAudio(): Boolean
     {
-        return withContext(Dispatchers.IO) {
-            try
+        return try
+        {
+            val devices = usbAudioManager.discoverDevices().first()
+            if (devices.isEmpty())
             {
-                // Discover devices
-                val devices = usbAudioManager.discoverDevices().first()
-                if (devices.isEmpty())
-                {
-                    Timber.w("No USB audio devices found")
-                    return@withContext false
-                }
-
-                // Connect to first device
-                val result = usbAudioManager.connectToDevice(devices.first())
-                if (result.isSuccess)
-                {
-                    usbAudioConnection = result.getOrNull()
-                    Timber.i("USB Audio connected: ${devices.first().displayName}")
-                    true
-                }
-                else
-                {
-                    Timber.e(result.exceptionOrNull(), "Failed to connect to USB audio")
-                    false
-                }
+                Timber.w("No USB audio devices found")
+                return false
             }
-            catch (e: Exception)
+
+            val result = usbAudioManager.connectToDevice(devices.first())
+            if (result.isSuccess)
             {
-                Timber.e(e, "Error connecting to USB audio")
+                usbAudioConnection = result.getOrNull()
+                Timber.i("USB Audio connected: ${devices.first().displayName}")
+                true
+            }
+            else
+            {
+                Timber.e(result.exceptionOrNull(), "Failed to connect to USB audio")
                 false
             }
+        }
+        catch (e: Exception)
+        {
+            Timber.e(e, "Error connecting to USB audio")
+            false
         }
     }
 
