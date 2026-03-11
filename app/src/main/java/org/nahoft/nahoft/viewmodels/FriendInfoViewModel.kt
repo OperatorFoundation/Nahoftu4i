@@ -17,6 +17,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.nahoft.nahoft.Eden
 import org.nahoft.nahoft.Persist
+import org.nahoft.nahoft.models.DecryptedMessageRecord
 import org.nahoft.nahoft.models.Friend
 import org.nahoft.nahoft.models.FriendStatus
 import org.nahoft.nahoft.models.WSPRSpotItem
@@ -98,6 +99,10 @@ class FriendInfoViewModel(application: Application) : AndroidViewModel(applicati
 
     private val _lastReceivedMessage = MutableSharedFlow<ByteArray>(replay = 0)
     val lastReceivedMessage: SharedFlow<ByteArray> = _lastReceivedMessage.asSharedFlow()
+
+    private val _decryptedMessageRecords = MutableStateFlow<List<DecryptedMessageRecord>>(emptyList())
+    val decryptedMessageRecords: StateFlow<List<DecryptedMessageRecord>> = _decryptedMessageRecords.asStateFlow()
+
 
     val receivedMessageCount: Int
         get() = receiveService?.receivedMessageCount ?: 0
@@ -502,6 +507,9 @@ class FriendInfoViewModel(application: Application) : AndroidViewModel(applicati
             }
             launch {
                 service.lastReceivedMessage.collect { _lastReceivedMessage.emit(it) }
+            }
+            launch {
+                service.decryptedMessageRecords.collect { _decryptedMessageRecords.value = it }
             }
         }
     }

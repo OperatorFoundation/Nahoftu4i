@@ -23,6 +23,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import org.nahoft.nahoft.R
 import org.nahoft.nahoft.databinding.FragmentBottomSheetReceiveRadioBinding
+import org.nahoft.nahoft.models.DecryptedMessageRecord
 import org.nahoft.nahoft.models.WSPRSpotItem
 import org.nahoft.nahoft.services.ReceiveSessionService
 import org.nahoft.nahoft.services.ReceiveSessionState
@@ -121,6 +122,10 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
             showSpotsDialog()
         }
 
+        binding.cardMessages.setOnClickListener {
+            showReceivedMessagesDialog()
+        }
+
         // Pre-fill frequency input from saved preference
         binding.etRxFrequency.setText(viewModel.getRxFrequencyKHz().toString())
 
@@ -183,7 +188,14 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
                 if (received) {
                     showMessageReceivedCelebration()
                     viewModel.clearMessageReceivedFlag()
+                    updateSpotsUI(viewModel.receivedSpots.value)
                 }
+            }
+        }
+
+        uiScope.launch {
+            viewModel.decryptedMessageRecords.collect { records ->
+                updateMessagesCard(records)
             }
         }
 
@@ -523,35 +535,35 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
     }
 
     /**
-     * Updates spots-related UI elements.
-     *
-     * The middle card shows dual-mode progress:
-     * - Pre-threshold: candidate count toward minimum needed for decryption
-     * - Post-threshold: number of decryption attempts made
+     * Updates the WSPR spots card with the current Nahoft candidate count
+     * toward the decryption threshold, and refreshes the spots dialog if open.
      */
     private fun updateSpotsUI(spots: List<WSPRSpotItem>)
     {
         if (_binding == null) return
 
-        binding.tvSpotsCount.text = spots.size.toString()
-
         val candidates = viewModel.receivedMessageCount
-        val attempts = viewModel.getDecryptionAttempts()
         val threshold = ReceiveSessionService.MIN_SPOTS_FOR_DECRYPTION
+        binding.tvSpotsCount.text = "$candidates / $threshold+"
 
-        if (candidates < threshold)
-        {
-            binding.tvMessagesReceived.text = "$candidates / $threshold+"
-            binding.tvMessagesLabel.text = getString(R.string.signals_toward_threshold)
-        }
-        else
-        {
-            binding.tvMessagesReceived.text = attempts.toString()
-            binding.tvMessagesLabel.text = getString(R.string.decrypt_attempts_label)
-        }
-
-        // Update dialog if open
         spotsDialog?.updateSpots(spots)
+    }
+
+    /**
+     * Updates the middle card with the count of fully decrypted messages
+     * received during this session.
+     */
+    private fun updateMessagesCard(records: List<DecryptedMessageRecord>)
+    {
+        if (_binding == null) return
+        binding.tvMessagesReceived.text = records.size.toString()
+        binding.tvMessagesLabel.text = getString(R.string.messages_this_session)
+    }
+
+    private fun showReceivedMessagesDialog()
+    {
+        ReceivedMessagesDialogFragment()
+            .show(childFragmentManager, "ReceivedMessagesDialog")
     }
 
     /**

@@ -635,8 +635,6 @@ After pressing this (+) sign, you must first enter your friend\'s name. You can 
     <string name="stop_session">Stop Session</string>
     <string name="session_stopped">Session stopped</string>
     <string name="receiving_indicator">Receiving message</string>
-    <string name="signals_toward_threshold">Signals</string>
-    <string name="decrypt_attempts_label">Attempts</string>
     <string name="tx_frequency_title">TX Frequency</string>
     <string name="tx_frequency_hint">Enter the transmit dial frequency</string>
     <string name="rx_frequency_title">RX Frequency</string>
@@ -679,4 +677,11 @@ After pressing this (+) sign, you must first enter your friend\'s name. You can 
     <string name="nahoft_failed_legend">= Failed</string>
     <string name="no_wspr_spots_yet">No WSPR spots decoded yet.\nListening for signals…</string>
     <string name="wspr_spots_badge">%d spots</string>
+
+    <!-- Received Messages Dialog -->
+    <string name="received_messages_title">Received Messages</string>
+    <string name="no_messages_this_session">No messages received this session</string>
+    <string name="message_content_locked">Unlock app to view message</string>
+    <string name="messages_this_session">Messages</string>
+
 </resources>

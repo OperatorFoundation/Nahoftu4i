@@ -140,6 +140,10 @@ class ReceiveSessionService : Service()
     private val _messageJustReceived = MutableStateFlow(false)
     val messageJustReceived: StateFlow<Boolean> = _messageJustReceived.asStateFlow()
 
+    private val _decryptedMessageRecords = MutableStateFlow<List<DecryptedMessageRecord>>(emptyList())
+    val decryptedMessageRecords: StateFlow<List<DecryptedMessageRecord>> = _decryptedMessageRecords.asStateFlow()
+
+
     private val _lastReceivedMessage = MutableSharedFlow<ByteArray>(replay = 0)
     val lastReceivedMessage: SharedFlow<ByteArray> = _lastReceivedMessage.asSharedFlow()
 
@@ -304,6 +308,7 @@ class ReceiveSessionService : Service()
 
         // Reset session state
         _receivedSpots.value = emptyList()
+        _decryptedMessageRecords.value = emptyList()
         receivedMessages.clear()
         _messageJustReceived.value = false
         decryptionAttempts = 0
@@ -423,6 +428,7 @@ class ReceiveSessionService : Service()
     {
         _receiveSessionState.value = ReceiveSessionState.Idle
         _receivedSpots.value = emptyList()
+        _decryptedMessageRecords.value = emptyList()
         receivedMessages.clear()
         _messageJustReceived.value = false
         decryptionAttempts = 0
@@ -681,8 +687,11 @@ class ReceiveSessionService : Service()
             _messageJustReceived.value = true
             markCurrentGroupAsDecrypted(receivedMessages.size)
 
-            // Save message directly
+            // Save message
             saveReceivedMessage(encryptedBytes)
+
+            _decryptedMessageRecords.value = _decryptedMessageRecords.value +
+                    DecryptedMessageRecord(timestamp = System.currentTimeMillis(), spotCount = receivedMessages.size)
 
             receivedMessages.clear()
             decryptionAttempts = 0

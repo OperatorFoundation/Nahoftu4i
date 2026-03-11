@@ -360,13 +360,14 @@
                     </LinearLayout>
                 </androidx.cardview.widget.CardView>
 
-                <!-- Signal parts — shows x/8+ until threshold, then decrypt attempts -->
+
                 <androidx.cardview.widget.CardView
-                    android:id="@+id/card_message_parts"
+                    android:id="@+id/card_messages"
                     android:layout_width="0dp"
                     android:layout_height="80dp"
                     android:layout_marginHorizontal="6dp"
                     android:layout_weight="1"
+                    android:foreground="?attr/selectableItemBackground"
                     app:cardBackgroundColor="@color/lightGrey"
                     app:cardCornerRadius="8dp"
                     app:cardElevation="2dp">
@@ -378,12 +379,28 @@
                         android:orientation="vertical"
                         android:padding="8dp">
 
-                        <ImageView
-                            android:layout_width="16dp"
-                            android:layout_height="16dp"
-                            android:contentDescription="@string/message_parts"
-                            android:src="@drawable/ic_message"
-                            app:tint="@color/caribbeanGreen" />
+                        <LinearLayout
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal">
+
+                            <ImageView
+                                android:layout_width="16dp"
+                                android:layout_height="16dp"
+                                android:contentDescription="@string/messages_this_session"
+                                android:src="@drawable/ic_success"
+                                app:tint="@color/caribbeanGreen" />
+
+                            <ImageView
+                                android:layout_width="10dp"
+                                android:layout_height="10dp"
+                                android:layout_marginStart="4dp"
+                                android:contentDescription="@string/tap_for_details"
+                                android:src="@drawable/ic_chevron_right"
+                                app:tint="@color/coolGrey" />
+
+                        </LinearLayout>
 
                         <TextView
                             android:id="@+id/tv_messages_received"
@@ -400,9 +417,10 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="2dp"
-                            android:text="@string/message_parts"
+                            android:text="@string/messages_this_session"
                             android:textColor="@color/white"
                             android:textSize="11sp" />
+
                     </LinearLayout>
                 </androidx.cardview.widget.CardView>
 
