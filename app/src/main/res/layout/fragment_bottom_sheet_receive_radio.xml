@@ -63,7 +63,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="16dp"
-                android:background="@drawable/btn_bkgd_light_grey_outline_8"
+                android:background="@drawable/section_bkgd_dark_grey_8"
                 android:orientation="vertical"
                 android:padding="12dp"
                 android:visibility="visible">
@@ -99,7 +99,7 @@
                         android:layout_height="wrap_content"
                         android:layout_marginHorizontal="8dp"
                         android:layout_weight="1"
-                        android:background="@drawable/btn_bkgd_light_grey_outline_8"
+                        android:background="@drawable/section_bkgd_dark_grey_8"
                         android:gravity="center"
                         android:inputType="number"
                         android:padding="8dp"
@@ -147,7 +147,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="24dp"
-                android:background="@drawable/btn_bkgd_light_grey_outline_8"
+                android:background="@drawable/section_bkgd_dark_grey_8"
                 android:orientation="vertical"
                 android:padding="12dp">
 
@@ -189,7 +189,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="12dp"
                     android:layout_marginTop="8dp"
-                    android:background="@drawable/btn_bkgd_light_grey_outline_8"
+                    android:background="@drawable/section_bkgd_dark_grey_8"
                     android:max="120"
                     android:progress="0"
                     android:progressBackgroundTint="#40FFFFFF"
@@ -254,7 +254,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
-                android:background="@drawable/btn_bkgd_light_grey_outline_8"
+                android:background="@drawable/section_bkgd_dark_grey_8"
                 android:orientation="vertical"
                 android:padding="12dp"
                 android:visibility="visible">
@@ -282,27 +282,12 @@
                         android:textColor="@color/white"
                         android:textSize="14sp" />
 
-                    <TextView
-                        android:id="@+id/tv_audio_level_percent"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="0%"
-                        android:textColor="@color/white"
-                        android:textSize="14sp"
-                        android:textStyle="bold" />
                 </LinearLayout>
-
-                <ProgressBar
-                    android:id="@+id/progress_audio"
-                    style="@style/Widget.AppCompat.ProgressBar.Horizontal"
+                <org.nahoft.nahoft.views.VuMeterView
+                    android:id="@+id/vu_meter"
                     android:layout_width="match_parent"
-                    android:layout_height="12dp"
-                    android:layout_marginTop="8dp"
-                    android:background="@drawable/btn_bkgd_light_grey_outline_8"
-                    android:max="100"
-                    android:progress="0"
-                    android:progressBackgroundTint="#40FFFFFF"
-                    android:progressTint="@color/caribbeanGreen" />
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp" />
             </LinearLayout>
 
             <!-- ── Stat cards ─────────────────────────────────────────────── -->

@@ -647,6 +647,11 @@ After pressing this (+) sign, you must first enter your friend\'s name. You can 
     <string name="alert_transmit_blocked_by_receive">A receive session is active. Stop receiving before transmitting.</string>
     <string name="rx_frequency_title_khz">RX Frequency in kHz</string>
 
+    <!-- VU Meter -->
+    <string name="audio_signal_too_weak">Signal too weak — check radio gain</string>
+    <string name="audio_signal_good">Good signal</string>
+    <string name="audio_signal_clipping">Clipping — reduce gain</string>
+
     <!-- Session timeout -->
     <string name="session_timeout_title">Session Timed Out</string>
     <string name="session_timeout_explanation">The 20-minute session limit was reached. You can start a new session to continue listening.</string>

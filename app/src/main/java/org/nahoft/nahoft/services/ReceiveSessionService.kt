@@ -32,6 +32,7 @@ import org.operatorfoundation.signalbridge.UsbAudioConnection
 import org.operatorfoundation.signalbridge.UsbAudioDeviceMonitor
 import org.operatorfoundation.signalbridge.UsbAudioManager
 import org.operatorfoundation.signalbridge.models.AudioBufferConfiguration
+import org.operatorfoundation.signalbridge.models.AudioLevelInfo
 import timber.log.Timber
 import java.math.BigInteger
 
@@ -133,8 +134,8 @@ class ReceiveSessionService : Service()
     private val _cycleInformation = MutableStateFlow<WSPRCycleInformation?>(null)
     val cycleInformation: StateFlow<WSPRCycleInformation?> = _cycleInformation.asStateFlow()
 
-    private val _audioLevel = MutableStateFlow(0f)
-    val audioLevel: StateFlow<Float> = _audioLevel.asStateFlow()
+    private val _audioLevel = MutableStateFlow<AudioLevelInfo?>(null)
+    val audioLevel: StateFlow<AudioLevelInfo?> = _audioLevel.asStateFlow()
 
     private val _messageJustReceived = MutableStateFlow(false)
     val messageJustReceived: StateFlow<Boolean> = _messageJustReceived.asStateFlow()
@@ -412,7 +413,7 @@ class ReceiveSessionService : Service()
         _receiveSessionState.value = ReceiveSessionState.Stopped
         _cycleInformation.value = null
         _stationState.value = null
-        _audioLevel.value = 0f
+        _audioLevel.value = null
         friendName = null
         friendPublicKey = null
         _currentFriendName.value = null
@@ -573,7 +574,7 @@ class ReceiveSessionService : Service()
     private suspend fun observeAudioLevels(connection: UsbAudioConnection)
     {
         connection.getAudioLevel().collect { levelInfo ->
-            _audioLevel.value = levelInfo.currentLevel
+            _audioLevel.value = levelInfo
         }
     }
 

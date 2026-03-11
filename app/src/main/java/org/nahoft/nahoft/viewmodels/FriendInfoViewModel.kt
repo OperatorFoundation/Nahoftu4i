@@ -26,6 +26,7 @@ import org.operatorfoundation.audiocoder.WSPRTimingCoordinator
 import org.operatorfoundation.audiocoder.models.WSPRCycleInformation
 import org.operatorfoundation.audiocoder.models.WSPRStationState
 import org.operatorfoundation.signalbridge.UsbAudioDeviceMonitor
+import org.operatorfoundation.signalbridge.models.AudioLevelInfo
 import org.operatorfoundation.transmission.SerialConnectionFactory
 import timber.log.Timber
 
@@ -89,8 +90,8 @@ class FriendInfoViewModel(application: Application) : AndroidViewModel(applicati
     private val _cycleInformation = MutableStateFlow<WSPRCycleInformation?>(null)
     val cycleInformation: StateFlow<WSPRCycleInformation?> = _cycleInformation.asStateFlow()
 
-    private val _audioLevel = MutableStateFlow(0f)
-    val audioLevel: StateFlow<Float> = _audioLevel.asStateFlow()
+    private val _audioLevel = MutableStateFlow<AudioLevelInfo?>(null)
+    val audioLevel: StateFlow<AudioLevelInfo?> = _audioLevel.asStateFlow()
 
     private val _messageJustReceived = MutableStateFlow(false)
     val messageJustReceived: StateFlow<Boolean> = _messageJustReceived.asStateFlow()

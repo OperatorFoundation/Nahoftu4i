@@ -29,6 +29,7 @@ import org.nahoft.nahoft.services.ReceiveSessionState
 import org.nahoft.nahoft.viewmodels.FriendInfoViewModel
 import org.operatorfoundation.audiocoder.models.WSPRCycleInformation
 import org.operatorfoundation.audiocoder.models.WSPRStationState
+import org.operatorfoundation.signalbridge.models.AudioLevelInfo
 
 /**
  * BottomSheet for receiving encrypted messages via WSPR radio.
@@ -171,8 +172,8 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
 
         // Observe audio level
         uiScope.launch {
-            viewModel.audioLevel.collect { level ->
-                updateAudioLevel(level)
+            viewModel.audioLevel.collect { info ->
+                info?.let { updateAudioLevel(it) }
             }
         }
 
@@ -236,6 +237,7 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
         {
             is ReceiveSessionState.Idle -> {
                 updateStatus(getString(R.string.status_waiting))
+                binding.vuMeter.reset()
             }
 
             is ReceiveSessionState.WaitingForWindow -> {
@@ -255,6 +257,7 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
             is ReceiveSessionState.Stopped -> {
                 updateStatus(getString(R.string.session_stopped))
                 updateStateIcon(R.drawable.ic_sync, R.color.coolGrey, AnimationType.NONE)
+                binding.vuMeter.reset()
                 showFrequencyInput() // resets button and shows frequency stepper
             }
 
@@ -554,13 +557,10 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
     /**
      * Updates audio level display.
      */
-    private fun updateAudioLevel(level: Float)
+    private fun updateAudioLevel(info: AudioLevelInfo)
     {
         if (_binding == null) return
-
-        val percent = (level * 100).toInt()
-        binding.progressAudio.progress = percent
-        binding.tvAudioLevelPercent.text = "$percent%"
+        binding.vuMeter.update(info)
     }
 
     private fun showSpotsDialog()
@@ -577,7 +577,7 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
      */
     private fun showFrequencyInput()
     {
-        binding.rxFrequencySection.visibility = View.VISIBLE
+        binding.rxFrequencySection.visibility = if (viewModel.isEdenConnected.value) View.VISIBLE else View.GONE
 
         // Hide the close button — there is no running session to close yet
         binding.btnClose.visibility = View.GONE
@@ -619,7 +619,7 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
      */
     private fun showFrequencyReadOnly()
     {
-        binding.rxFrequencySection.visibility = View.VISIBLE
+        binding.rxFrequencySection.visibility = if (viewModel.isEdenConnected.value) View.VISIBLE else View.GONE
         binding.etRxFrequency.isEnabled = false
         binding.btnRxFreqMinus.isEnabled = false
         binding.btnRxFreqPlus.isEnabled = false
