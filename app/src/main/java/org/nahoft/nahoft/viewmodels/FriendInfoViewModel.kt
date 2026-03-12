@@ -8,14 +8,12 @@ import android.content.ServiceConnection
 import android.os.IBinder
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.hoho.android.usbserial.driver.UsbSerialDriver
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import org.nahoft.nahoft.Eden
+import org.nahoft.nahoft.Nahoft
 import org.nahoft.nahoft.Persist
 import org.nahoft.nahoft.models.DecryptedMessageRecord
 import org.nahoft.nahoft.models.Friend
@@ -28,7 +26,6 @@ import org.operatorfoundation.audiocoder.models.WSPRCycleInformation
 import org.operatorfoundation.audiocoder.models.WSPRStationState
 import org.operatorfoundation.signalbridge.UsbAudioDeviceMonitor
 import org.operatorfoundation.signalbridge.models.AudioLevelInfo
-import org.operatorfoundation.transmission.SerialConnectionFactory
 import timber.log.Timber
 
 class FriendInfoViewModel(application: Application) : AndroidViewModel(application)
@@ -124,170 +121,14 @@ class FriendInfoViewModel(application: Application) : AndroidViewModel(applicati
 
     // ==================== Serial Connection (WSPR Transmit) ====================
 
-    private val connectionFactory = SerialConnectionFactory(application)
+    /** Eden instance from application scope. Null when no serial device is connected. */
+    private val appEden: StateFlow<Eden?> =
+        (getApplication<Nahoft>()).eden
 
-    /** Current serial connection state from the factory */
-    val serialConnectionState: StateFlow<SerialConnectionFactory.ConnectionState> =
-        connectionFactory.connectionState
-
-    val isEdenConnected: StateFlow<Boolean> = serialConnectionState
-        .map { it is SerialConnectionFactory.ConnectionState.Connected }
+    /** True when Eden hardware is connected. Observed by UI for button visibility. */
+    val isEdenConnected: StateFlow<Boolean> = appEden
+        .map { it != null }
         .stateIn(viewModelScope, SharingStarted.Eagerly, false)
-
-    private val _eden = MutableStateFlow<Eden?>(null)
-    val eden: Eden? get() = _eden.value
-
-    // Flag to prevent duplicate connection attempts
-    private var isConnecting = false
-
-    init
-    {
-        viewModelScope.launch {
-            serialConnectionState.collect { state ->
-                when (state)
-                {
-                    is SerialConnectionFactory.ConnectionState.Connected -> {
-                        _eden.value?.close()
-                        _eden.value = Eden(state.connection)
-                        Timber.d("Eden instance created")
-                    }
-                    is SerialConnectionFactory.ConnectionState.Disconnected,
-                    is SerialConnectionFactory.ConnectionState.Error -> {
-                        _eden.value?.close()
-                        _eden.value = null
-                        Timber.d("Eden instance released")
-                    }
-                    else -> { /* Connecting / RequestingPermission — no action */ }
-                }
-            }
-        }
-    }
-
-    /**
-     * Checks for available serial devices and initiates connection if found.
-     */
-    fun checkForSerialDevices()
-    {
-        if (isConnecting)
-        {
-            Timber.d("Serial connection already in progress, skipping check")
-            return
-        }
-
-        viewModelScope.launch {
-            val devices = withContext(Dispatchers.IO) {
-                connectionFactory.findAvailableDevices()
-            }
-
-            if (devices.isNotEmpty() && eden == null && !isConnecting)
-            {
-                Timber.d("Found ${devices.size} serial device(s), initiating connection...")
-                isConnecting = true
-                connectToSerialDevice(devices.first())
-            }
-        }
-    }
-
-    /**
-     * Initiates connection to a serial device.
-     * State changes are emitted via serialConnectionState.
-     */
-    fun connectToSerialDevice(driver: UsbSerialDriver)
-    {
-        connectionFactory.createConnection(driver.device)
-    }
-
-    fun onUsbDeviceAttached()
-    {
-        if (eden == null && !isConnecting)
-        {
-            viewModelScope.launch {
-                delay(500) // Let USB stabilize
-                checkForSerialDevices()
-            }
-        }
-    }
-
-    fun onUsbDeviceDetached()
-    {
-        isConnecting = false
-        connectionFactory.onDeviceDetached()
-        // _eden is nulled automatically by the serialConnectionState observer in init
-    }
-
-    /**
-     * Resets the isConnecting flag after connection completes or fails.
-     * Call when observing Connected/Disconnected/Error states.
-     */
-    fun onSerialConnectionStateSettled()
-    {
-        isConnecting = false
-    }
-
-    suspend fun startReceiving(frequencyKHz: Int): Boolean
-    {
-        val currentEden = eden
-        if (currentEden == null)
-        {
-            Timber.d("startReceiving: no Eden device connected, skipping frequency set")
-            return false
-        }
-
-        return currentEden.startReceiving(frequencyKHz)
-    }
-
-    suspend fun switchToRX(): Boolean
-    {
-        val currentEden = eden
-        if (currentEden == null)
-        {
-            Timber.d("switchToRX: no Eden device connected")
-            return false
-        }
-
-        return currentEden.switchToRX()
-    }
-
-    suspend fun transmitWSPR(messages: List<LongArray>, onSymbolSent: ((Int, Int) -> Unit)? = null): Boolean
-    {
-        val currentEden = eden
-
-        if (currentEden == null)
-        {
-            Timber.w("transmitWSPR: no Eden device connected")
-            return false
-        }
-
-        try
-        {
-            messages.forEachIndexed { index, symbolFrequencies ->
-                Timber.d("Waiting for even minute (message ${index + 1} of ${messages.size})...")
-                delay(timingCoordinator.getMillisUntilNextEvenMinute())
-                Timber.d("Transmitting message ${index + 1} of ${messages.size}")
-
-                val success = currentEden.transmitWSPR(symbolFrequencies, onSymbolSent)
-
-                if (!success)
-                {
-                    Timber.e("Transmission failed on message ${index + 1}")
-                    return false
-                }
-            }
-
-            return true
-        }
-        finally
-        {
-            try
-            {
-                switchToRX()
-            }
-            catch (e: Exception)
-            {
-                Timber.e(e, "Failed to switch to RX mode after transmission")
-            }
-        }
-    }
 
     // ==================== USB Audio Connection (for UI visibility) ====================
 
@@ -520,12 +361,8 @@ class FriendInfoViewModel(application: Application) : AndroidViewModel(applicati
      * Whether the send via serial button should be visible.
      * True when: serial connected AND friend is Verified or Approved.
      */
-    val canSendViaSerial: Flow<Boolean> = combine(
-        _eden,
-        _friend
-    ) { edenInstance, friend ->
-        val hasValidStatus = friend?.status == FriendStatus.Verified ||
-                friend?.status == FriendStatus.Approved
+    val canSendViaSerial: Flow<Boolean> = combine(appEden, _friend) { edenInstance, friend ->
+        val hasValidStatus = friend?.status == FriendStatus.Verified || friend?.status == FriendStatus.Approved
         edenInstance != null && hasValidStatus
     }
 
@@ -548,12 +385,7 @@ class FriendInfoViewModel(application: Application) : AndroidViewModel(applicati
     {
         super.onCleared()
 
-        // Don't stop the service - it should persist independently
-        // Just unbind
+        // Don't stop the service - it should persist independently, just unbind.
         unbindFromService()
-
-        _eden.value?.close()
-        _eden.value = null
-        connectionFactory.disconnect()
     }
 }

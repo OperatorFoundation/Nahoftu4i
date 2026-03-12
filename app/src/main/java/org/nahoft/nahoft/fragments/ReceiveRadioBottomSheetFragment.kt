@@ -610,17 +610,7 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
                 ?: viewModel.getRxFrequencyKHz()
 
             viewModel.saveRxFrequencyKHz(freqKHz)
-
-            uiScope.launch {
-                viewModel.startReceiving(freqKHz)
-            }
-
-            val friend = viewModel.friend.value
-            if (friend?.publicKeyEncoded != null)
-            {
-                viewModel.startReceiveSession()
-            }
-
+            viewModel.startReceiveSession()
             showFrequencyReadOnly()
         }
     }

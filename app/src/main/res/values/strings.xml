@@ -684,4 +684,29 @@ After pressing this (+) sign, you must first enter your friend\'s name. You can 
     <string name="message_content_locked">Unlock app to view message</string>
     <string name="messages_this_session">Messages</string>
 
+    <!-- TX Bottom Sheet -->
+    <string name="transmit_via_radio">Transmit via Radio</string>
+    <string name="tx_frequency_title_khz">TX Frequency in kHz</string>
+    <string name="message_label">Message</string>
+    <string name="transmit_status">Transmit status</string>
+    <string name="tap_start_to_transmit">Set frequency and tap Start</string>
+    <string name="spots_label">Spots</string>
+    <string name="symbols_label">Symbols</string>
+    <string name="next_tx_window">Next TX window</string>
+    <string name="start_transmission">Start</string>
+    <string name="tx_complete_title">Transmission Complete</string>
+    <string name="tx_complete_detail">%1$d spot(s) sent successfully</string>
+    <string name="tx_failed_title">Transmission Failed</string>
+    <string name="tx_cancelled_title">Transmission Cancelled</string>
+    <string name="tx_cancelled_detail">Eden has returned to receive mode</string>
+
+    <!-- TX Bottom Sheet — state status text -->
+    <string name="tx_preparing">Encoding message…</string>
+    <string name="tx_transmitting">Transmitting…</string>
+    <string name="tx_switching_rx">Switching to receive…</string>
+    <string name="dismiss">Dismiss</string>
+
+    <!-- TX countdown — %1$d is seconds remaining -->
+    <string name="next_tx_window_in">Next TX window in: %1$ds</string>
+
 </resources>

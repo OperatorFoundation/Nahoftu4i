@@ -5,12 +5,8 @@ import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
 import android.view.animation.LinearInterpolator
 import android.app.Activity
-import android.content.BroadcastReceiver
-import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
 import android.content.pm.PackageManager
-import android.hardware.usb.UsbManager
 import android.net.Uri
 import android.os.Bundle
 import android.os.Parcelable
@@ -50,7 +46,6 @@ import org.nahoft.util.RequestCodes
 import org.nahoft.util.ShareUtil
 import org.nahoft.util.showAlert
 
-import org.operatorfoundation.transmission.SerialConnectionFactory
 import org.nahoft.nahoft.fragments.ReceiveRadioBottomSheetFragment
 import org.nahoft.nahoft.models.Friend
 import org.nahoft.nahoft.models.FriendStatus
@@ -59,14 +54,8 @@ import org.nahoft.nahoft.models.slideNameChat
 import org.nahoft.nahoft.services.ReceiveSessionState
 import org.nahoft.nahoft.viewmodels.FriendInfoViewModel
 import org.nahoft.util.applySecureFlag
-import org.operatorfoundation.audiocoder.WSPREncoder
-import org.operatorfoundation.codex.symbols.WSPRMessageSequence
-
-import org.operatorfoundation.Codex.encodeDataToWSPRMessages
-import org.operatorfoundation.Codex.WSPRMessageFields
 
 import timber.log.Timber
-import java.math.BigInteger
 
 class FriendInfoActivity: AppCompatActivity()
 {
@@ -77,31 +66,10 @@ class FriendInfoActivity: AppCompatActivity()
 
     private val parentJob = Job()
     private val coroutineScope = CoroutineScope(Dispatchers.Main + parentJob)
-    private var transmitJob: Job? = null
 
     private val menuFragmentTag = "MenuFragment"
     private var isShareImageButtonShow: Boolean = false
     private var indicatorAnimator: ObjectAnimator? = null
-
-    private val usbReceiver = object : BroadcastReceiver()
-    {
-        override fun onReceive(context: Context, intent: Intent)
-        {
-            when (intent.action)
-            {
-                UsbManager.ACTION_USB_DEVICE_ATTACHED -> {
-                    Timber.d("USB device attached")
-                    viewModel.onUsbDeviceAttached()
-
-                }
-
-                UsbManager.ACTION_USB_DEVICE_DETACHED -> {
-                    Timber.d("USB device detached")
-                    viewModel.onUsbDeviceDetached()
-                }
-            }
-        }
-    }
 
     // Audio permission launcher (for USB audio recording)
     private val audioPermissionLauncher = registerForActivityResult(
@@ -116,9 +84,8 @@ class FriendInfoActivity: AppCompatActivity()
         }
     }
 
-    private val notificationPermissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { isGranted ->
+    private val notificationPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission())
+    { isGranted ->
 
         if (isGranted)
         {
@@ -219,16 +186,7 @@ class FriendInfoActivity: AppCompatActivity()
         setClickListeners()
         setupViewByStatus()
         receivedSharedMessage()
-
-        // Register USB receiver
-        val filter = IntentFilter().apply {
-            addAction(UsbManager.ACTION_USB_DEVICE_ATTACHED)
-            addAction(UsbManager.ACTION_USB_DEVICE_DETACHED)
-        }
-        registerReceiver(usbReceiver, filter)
-
         setupConnectionObservers()
-        viewModel.checkForSerialDevices()
 
         // Start audio device discovery (doesn't require permission)
         viewModel.startAudioDeviceDiscovery()
@@ -268,10 +226,14 @@ class FriendInfoActivity: AppCompatActivity()
      */
     private fun setupConnectionObservers()
     {
-        // Observe serial connection state
+        // Observer Eden connected state
         coroutineScope.launch {
-            viewModel.serialConnectionState.collect { state ->
-                handleSerialConnectionState(state)
+            viewModel.isEdenConnected.collect { connected ->
+                if (!connected)
+                {
+                    binding.serialStatusContainer.visibility = View.GONE
+                }
+
             }
         }
 
@@ -487,201 +449,6 @@ class FriendInfoActivity: AppCompatActivity()
         builder.create().show()
     }
 
-    /**
-     * Shows a dialog for the user to set the TX frequency before sending.
-     *
-     * Displays the last-used frequency pre-filled. The user can type a value
-     * directly or use − / + to step in 1 kHz increments. Confirming saves
-     * the frequency to preferences and invokes [onConfirm] with the value.
-     */
-    private fun showTxFrequencyDialog(onConfirm: (Int) -> Unit)
-    {
-        val builder = AlertDialog.Builder(
-            ContextThemeWrapper(this, R.style.AppTheme_AddFriendAlertDialog)
-        )
-
-        val title = SpannableString(getString(R.string.tx_frequency_title))
-        title.setSpan(
-            AlignmentSpan.Standard(Layout.Alignment.ALIGN_CENTER), 0, title.length, 0
-        )
-        builder.setTitle(title)
-
-        // ── Layout ──────────────────────────────────────────────────────────────
-
-        val container = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(50, 40, 50, 20)
-        }
-
-        // Hint label
-        val hint = TextView(this).apply {
-            text = getString(R.string.tx_frequency_hint)
-            setTextColor(ContextCompat.getColor(this@FriendInfoActivity, R.color.royalBlueDark))
-            textSize = 14f
-        }
-        container.addView(hint)
-
-        // Row: [−]  [EditText kHz]  [+]
-        val row = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            val topMargin = (16 * resources.displayMetrics.density).toInt()
-            setPadding(0, topMargin, 0, 0)
-        }
-
-        val btnMinus = android.widget.Button(this).apply {
-            text = "−"
-            textSize = 20f
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-        }
-
-        val freqInput = EditText(this).apply {
-            inputType = android.text.InputType.TYPE_CLASS_NUMBER
-            gravity = Gravity.CENTER
-            textSize = 18f
-            setText(viewModel.getTxFrequencyKHz().toString())
-            layoutParams = LinearLayout.LayoutParams(
-                0,
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                1f  // fill remaining space between buttons
-            )
-        }
-
-        val btnPlus = android.widget.Button(this).apply {
-            text = "+"
-            textSize = 20f
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-        }
-
-        row.addView(btnMinus)
-        row.addView(freqInput)
-        row.addView(btnPlus)
-        container.addView(row)
-
-        // Unit label
-        val unitLabel = TextView(this).apply {
-            text = getString(R.string.frequency_unit_khz)
-            setTextColor(ContextCompat.getColor(this@FriendInfoActivity, R.color.royalBlueDark))
-            textSize = 12f
-            gravity = Gravity.CENTER
-            val topMargin = (4 * resources.displayMetrics.density).toInt()
-            setPadding(0, topMargin, 0, 0)
-        }
-        container.addView(unitLabel)
-
-        builder.setView(container)
-
-        // ── Stepper logic ────────────────────────────────────────────────────────
-
-        fun currentValue(): Int = freqInput.text.toString().toIntOrNull()
-            ?: viewModel.getTxFrequencyKHz()
-
-        btnMinus.setOnClickListener {
-            freqInput.setText((currentValue() - 1).toString())
-        }
-
-        btnPlus.setOnClickListener {
-            freqInput.setText((currentValue() + 1).toString())
-        }
-
-        // ── Buttons ──────────────────────────────────────────────────────────────
-
-        builder.setPositiveButton(getString(R.string.send)) { _, _ ->
-            val freq = currentValue()
-            viewModel.saveTxFrequencyKHz(freq)
-            onConfirm(freq)
-        }
-
-        builder.setNeutralButton(getString(R.string.stop_button)) { dialog, _ ->
-            dialog.cancel()
-        }
-
-        builder.create().show()
-    }
-
-    /**
-     * Handles serial connection state changes and updates UI accordingly.
-     * Called from setupConnectionObservers() when state flow emits.
-     */
-    private fun handleSerialConnectionState(state: SerialConnectionFactory.ConnectionState)
-    {
-        Timber.d("Connection state changed: $state")
-
-        when (state)
-        {
-            is SerialConnectionFactory.ConnectionState.Connected -> {
-
-                Timber.d("🔔 FriendInfoActivity received state: $state")
-
-                viewModel.onSerialConnectionStateSettled()
-                binding.serialStatusContainer.visibility = View.VISIBLE
-                binding.serialStatusText.text = "✔ Serial Connected"
-                Timber.d("Serial connected successfully")
-
-                // Auto-hide status after 3 seconds
-                coroutineScope.launch {
-                    delay(3000)
-                    binding.serialStatusContainer.animate()
-                        .alpha(0f)
-                        .setDuration(500)
-                        .withEndAction {
-                            binding.serialStatusContainer.visibility = View.GONE
-                            binding.serialStatusContainer.alpha = 1f
-                        }
-                }
-            }
-
-            is SerialConnectionFactory.ConnectionState.Disconnected -> {
-                viewModel.onSerialConnectionStateSettled()
-
-                // Cancel any in-progress transmission and clean up its UI
-                transmitJob?.cancel()
-                transmitJob = null
-
-                // Only show disconnected message if we were previously connected
-                if (binding.serialStatusContainer.isVisible) {
-                    binding.serialStatusText.text = "✗ Disconnected"
-                    coroutineScope.launch {
-                        delay(2000)
-                        binding.serialStatusContainer.visibility = View.GONE
-                    }
-                }
-            }
-
-            is SerialConnectionFactory.ConnectionState.RequestingPermission -> {
-                binding.serialStatusContainer.visibility = View.VISIBLE
-                binding.serialStatusText.text = "Requesting USB permission..."
-                Timber.d("Waiting for USB permission...")
-            }
-
-            is SerialConnectionFactory.ConnectionState.Connecting -> {
-                binding.serialStatusContainer.visibility = View.VISIBLE
-                binding.serialStatusText.text = "Connecting to device..."
-                Timber.d("Establishing serial connection...")
-            }
-
-            is SerialConnectionFactory.ConnectionState.Error -> {
-                viewModel.onSerialConnectionStateSettled()
-
-                val errorMessage = "✗ Error: ${state.message}"
-                binding.serialStatusContainer.visibility = View.VISIBLE
-                binding.serialStatusText.text = errorMessage
-                Timber.e("Serial connection error: ${state.message}")
-
-                coroutineScope.launch {
-                    delay(5000)
-                    binding.serialStatusContainer.visibility = View.GONE
-                }
-            }
-        }
-    }
-
     @ExperimentalUnsignedTypes
     private fun receivedSharedMessage()
     {
@@ -752,73 +519,30 @@ class FriendInfoActivity: AppCompatActivity()
         }
 
         binding.sendViaSerial.setOnClickListener {
-
-            // Cannot transmit while a receive session is active
-            if (viewModel.isSessionActive())
-            {
+            if (viewModel.isSessionActive()) {
                 showAlert(getString(R.string.alert_transmit_blocked_by_receive))
                 return@setOnClickListener
             }
 
-            if (binding.messageEditText.text.isNotEmpty())
-            {
-                if (binding.messageEditText.text.length > 5000)
-                {
-                    showAlert(getString(R.string.alert_text_message_too_long))
-                }
-                else
-                {
-                    val decodeResult = Codex().decode(binding.messageEditText.text.toString())
-
-                    if (decodeResult != null) showConfirmationForImport()
-                    else
-                    {
-                        // Disable button and text field immediately for visual feedback
-                        binding.sendViaSerial.isEnabled = false
-                        binding.messageEditText.isEnabled = false
-
-                        // Hide keyboard while sending
-                        hideSoftKeyboard(binding.messageEditText)
-
-                        // Pulsing animation
-                        val pulseAnimator = ObjectAnimator.ofFloat(
-                            binding.sendViaSerial,
-                            "alpha",
-                            1f, 0.5f, 1f
-                        ).apply {
-                            duration = 800
-                            repeatCount = ObjectAnimator.INFINITE
-                            repeatMode = ObjectAnimator.REVERSE
-                            start()
-                        }
-
-                        showTxFrequencyDialog { _->
-                            transmitJob = coroutineScope.launch {
-                                try
-                                {
-                                    val success = sendViaSerial(binding.messageEditText.text.toString())
-                                    if (success)
-                                    {
-                                        // Only clear on successful send
-                                        binding.messageEditText.text?.clear()
-                                    }
-                                }
-                                finally
-                                {
-                                    pulseAnimator.cancel()
-                                    binding.sendViaSerial.alpha = 1f
-
-                                    // Always re-enable button and text field
-                                    binding.sendViaSerial.isEnabled = true
-                                    binding.messageEditText.isEnabled = true
-                                }
-                            }
-                        }
-                    }
-                }
+            val message = binding.messageEditText.text.toString()
+            if (message.isEmpty()) {
+                showAlert(getString(R.string.alert_text_write_a_message_to_send))
+                return@setOnClickListener
+            }
+            if (message.length > 5000) {
+                showAlert(getString(R.string.alert_text_message_too_long))
+                return@setOnClickListener
             }
 
-            else showAlert(getString(R.string.alert_text_write_a_message_to_send))
+            val publicKey = thisFriend.publicKeyEncoded
+            if (publicKey == null) {
+                showAlert(getString(R.string.alert_text_verified_friends_only))
+                return@setOnClickListener
+            }
+
+            // Launch TX sheet — it owns the full pipeline from here
+            val sheet = TransmitRadioBottomSheetFragment.newInstance(message, thisFriend.name, publicKey)
+            sheet.show(supportFragmentManager, "TransmitRadioBottomSheet")
         }
 
         binding.sendAsImage.setOnClickListener {
@@ -1234,65 +958,6 @@ class FriendInfoActivity: AppCompatActivity()
         }
     }
 
-    private suspend fun sendViaSerial(message: String): Boolean
-    {
-        // Encrypt outside IO coroutine
-        val encryptedMessage = try
-        {
-            Encryption().encrypt(thisFriend.publicKeyEncoded!!, message)
-        }
-        catch (e: Exception)
-        {
-            withContext(Dispatchers.Main) {
-                showAlert(getString(R.string.alert_text_unable_to_process_request))
-            }
-            Timber.e(e, "Failed to encrypt message for serial send")
-            return false
-        }
-
-        // Encode encrypted bytes to WSPR symbol frequencies
-        val wsprMessages: List<WSPRMessageFields> = encodeDataToWSPRMessages(encryptedMessage)
-            ?: run {
-                withContext(Dispatchers.Main) {
-                    showAlert("Failed to encode message - data too large")
-                }
-                return false
-            }
-
-        val messageFrequencies: List<LongArray> = wsprMessages.map { msg ->
-            WSPREncoder.encodeToFrequencies(
-                WSPREncoder.WSPRMessage(
-                    msg.callsign,
-                    msg.gridSquare,
-                    msg.powerDbm,
-                    viewModel.getTxFrequencyKHz() * 1000
-                )
-            )
-        }
-
-        val success = viewModel.transmitWSPR(messageFrequencies) { symbolIndex, total ->
-            Timber.d("TX progress: ${symbolIndex + 1} / $total")
-        }
-
-        withContext(Dispatchers.Main)
-        {
-            if (success)
-            {
-                saveMessage(encryptedMessage, thisFriend, true)
-                binding.serialStatusContainer.visibility = View.VISIBLE
-                binding.serialStatusText.text = "✓ Sent ${wsprMessages.size} WSPR message(s)"
-                delay(3000)
-                binding.serialStatusContainer.visibility = View.GONE
-            }
-            else
-            {
-                showAlert("Transmission failed.")
-            }
-        }
-
-        return success
-    }
-
     private fun pickImageFromGallery(saveImage: Boolean)
     {
         val request = PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
@@ -1540,20 +1205,9 @@ class FriendInfoActivity: AppCompatActivity()
     {
         super.onDestroy()
 
-        stopButtonAnimation()
-
-        try
-        {
-            unregisterReceiver(usbReceiver)
-        }
-        catch (_: Exception)
-        {
-            // Receiver wasn't registered
-        }
-
-        parentJob.cancel()
-
         // Note: Do NOT call viewModel.stopReceiveSession() here
         // The service should continue running when activity is destroyed
+        stopButtonAnimation()
+        parentJob.cancel()
     }
 }
