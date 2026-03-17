@@ -3,7 +3,7 @@ apply plugin: 'kotlin-android'
 apply plugin: 'com.google.gms.google-services'
 
 android {
-    compileSdk 36
+    compileSdkVersion 36
     buildToolsVersion "35.0.0"
 
     compileOptions {

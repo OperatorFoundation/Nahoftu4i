@@ -28,8 +28,11 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.view.ContextThemeWrapper
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.isVisible
 import androidx.core.view.setPadding
+import androidx.core.view.updatePadding
 import kotlinx.coroutines.*
 import org.libsodium.jni.keys.PublicKey
 import androidx.lifecycle.ViewModelProvider
@@ -163,8 +166,23 @@ class FriendInfoActivity: AppCompatActivity()
 
         binding = ActivityFriendInfoBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        viewModel = ViewModelProvider(this)[FriendInfoViewModel::class.java]
 
+        ViewCompat.setOnApplyWindowInsetsListener(binding.relativeLayout) { view, insets ->
+            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            val ime = insets.getInsets(WindowInsetsCompat.Type.ime())
+
+            Timber.d("Insets - top: ${systemBars.top}, bottom: ${systemBars.bottom}, ime: ${ime.bottom}")
+            Timber.d("Header padding before: ${binding.headerSection.paddingTop}")
+
+            binding.headerSection.updatePadding(top = systemBars.top)
+
+            Timber.d("Header padding after: ${binding.headerSection.paddingTop}")
+
+            view.updatePadding(bottom = maxOf(systemBars.bottom, ime.bottom))
+            insets
+        }
+
+        viewModel = ViewModelProvider(this)[FriendInfoViewModel::class.java]
         window.applySecureFlag()
 
         if (!Persist.accessIsAllowed()) { sendToLogin() }
