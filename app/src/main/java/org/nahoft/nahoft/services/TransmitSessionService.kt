@@ -297,7 +297,6 @@ class TransmitSessionService : Service()
                 _transmitSessionState.value = TransmitSessionState.TransmittingSpot(
                     spotIndex, totalSpots, symbolIndex
                 )
-                updateNotification()
             }
 
             if (!success)

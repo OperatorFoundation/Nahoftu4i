@@ -208,11 +208,11 @@ class Eden(private val connection: SerialConnection)
 
             // Set first symbol frequency, wait one symbol period, then enable oscillator
             sendFrequency(symbolFrequenciesCHz[0])
-            delay(WSPRConstants.SYMBOL_DURATION_MS)
 
             // Enable oscillator output
             Timber.d("Eden.kt: sending CONTROL_ON")
             Word.to_conn(connection, Word.make(CONTROL_ON, NounType.INTEGER.value))
+            delay(WSPRConstants.SYMBOL_DURATION_MS)
 
             onSymbolSent?.invoke(0, symbolFrequenciesCHz.size)
 
