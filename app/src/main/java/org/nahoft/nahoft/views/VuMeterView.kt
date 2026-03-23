@@ -37,7 +37,7 @@ class VuMeterView @JvmOverloads constructor(
         private const val CORNER_RADIUS_DP = 2f
         private const val PEAK_TICK_WIDTH_DP = 3f
         private const val LABEL_MARGIN_DP = 4f
-        private const val DEFAULT_VIEW_HEIGHT_DP = 64f  // bar + zone labels + status label
+        private const val DEFAULT_VIEW_HEIGHT_DP = 76f  // bar + zone labels + status label
     }
 
     // Current levels — set by update()
@@ -80,6 +80,11 @@ class VuMeterView @JvmOverloads constructor(
     private val zoneLabelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         textSize = 9f * resources.displayMetrics.scaledDensity
         color    = 0xFF88AACC.toInt()
+    }
+
+    private val dimLabelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        textSize = 10f * resources.displayMetrics.scaledDensity
+        // Color set per-draw from coolGrey
     }
 
     // ── Public API ────────────────────────────────────────────────────────────
@@ -196,20 +201,27 @@ class VuMeterView @JvmOverloads constructor(
         drawZoneLabels(canvas, w, zoneY)
 
         // ── Status label ──────────────────────────────────────────────────────
+
         if (isActive)
         {
+            val lineY = zoneY + labelMarginPx + labelPaint.textSize
+
+            // ── Line 1: quality label (left) + percentages (right) ───────────────
             val (statusText, statusColor) = statusLabel()
-            val statusY = zoneY + labelMarginPx + labelPaint.textSize
             labelPaint.color = statusColor
-            canvas.drawText(statusText, 0f, statusY, labelPaint)
+            canvas.drawText(statusText, 0f, lineY, labelPaint)
 
-            // ── RMS readout (right-aligned, same row as status) ───────────────────
+            val pctText = "${(currentLevel * 100).toInt()}% RMS   peak ${(peakLevel * 100).toInt()}%"
+            labelPaint.color = ContextCompat.getColor(context, R.color.white)
+            val pctX = w - labelPaint.measureText(pctText)
+            canvas.drawText(pctText, pctX, lineY, labelPaint)
 
-            // Show dBFS values
-            val rmsText = "%.0f dBFS · peak %.0f dBFS".format(currentDbfs, peakDbfs)
-            labelPaint.color = 0xFFFFFFFF.toInt()
-            val rmsX = w - labelPaint.measureText(rmsText)
-            canvas.drawText(rmsText, rmsX, statusY, labelPaint)
+            // ── Line 2: dBFS values dimmed below ─────────────────────────────────
+            dimLabelPaint.color = ContextCompat.getColor(context, R.color.coolGrey)
+            val dbfsText = "%.0f dBFS   peak %.0f dBFS".format(currentDbfs, peakDbfs)
+            val dbfsY = lineY + labelMarginPx + dimLabelPaint.textSize
+            val dbfsX = w - dimLabelPaint.measureText(dbfsText)
+            canvas.drawText(dbfsText, dbfsX, dbfsY, dimLabelPaint)
         }
     }
 
