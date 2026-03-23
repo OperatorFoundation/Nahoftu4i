@@ -24,10 +24,11 @@ class VuMeterView @JvmOverloads constructor(
 {
     companion object
     {
-        // Tune these as needed
-        const val LEVEL_TOO_WEAK  = 0.08f
-        const val LEVEL_WARN      = 0.50f
-        const val LEVEL_CLIP_WARN = 0.90f
+
+        const val FLOOR_DBFS      = -60f  // Practical noise floor — below this is silence
+        const val TOO_WEAK_DBFS   = -22f  // Below this, decodes are unlikely
+        const val GOOD_MAX_DBFS   = -10f  // Above this, signal is getting strong
+        const val CLIP_WARN_DBFS  =  -1f  // Peak above this risks clipping
 
         private const val SEGMENT_COUNT   = 60
         private const val SEGMENT_GAP_DP  = 2f
@@ -101,6 +102,27 @@ class VuMeterView @JvmOverloads constructor(
         invalidate()
     }
 
+
+    /**
+     * Converts a normalized linear level (0.0–1.0) to dBFS.
+     * Returns FLOOR_DBFS for zero or near-zero input to avoid log10(0).
+     */
+    private fun levelToDbfs(level: Float): Float
+    {
+        if (level <= 0f) return FLOOR_DBFS
+        return (20f * Math.log10(level.toDouble()).toFloat()).coerceAtLeast(FLOOR_DBFS)
+    }
+
+    /**
+     * Converts a dBFS value to a 0.0–1.0 visual position along the bar.
+     * FLOOR_DBFS maps to 0.0 (left edge), 0 dBFS maps to 1.0 (right edge).
+     */
+    private fun dbfsToVisualPos(dbfs: Float): Float
+    {
+        return ((dbfs - FLOOR_DBFS) / (0f - FLOOR_DBFS)).coerceIn(0f, 1f)
+    }
+
+
     // ── Layout ────────────────────────────────────────────────────────────────
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int)
@@ -136,13 +158,19 @@ class VuMeterView @JvmOverloads constructor(
         val totalGapWidth = segmentGapPx * (SEGMENT_COUNT - 1)
         val segmentWidth  = (w - totalGapWidth) / SEGMENT_COUNT
 
-        val litCount  = (currentLevel * SEGMENT_COUNT).toInt()
-        val peakIndex = (peakLevel    * SEGMENT_COUNT).toInt() - 1
+
+        // Convert levels to dBFS, then to visual position, then to segment index
+        val currentDbfs = levelToDbfs(currentLevel)
+        val peakDbfs    = levelToDbfs(peakLevel)
+        val litCount    = (dbfsToVisualPos(currentDbfs) * SEGMENT_COUNT).toInt()
+        val peakIndex   = (dbfsToVisualPos(peakDbfs)    * SEGMENT_COUNT).toInt() - 1
 
         // ── Draw segments ─────────────────────────────────────────────────────
         for (i in 0 until SEGMENT_COUNT)
         {
-            val pos = (i + 1).toFloat() / SEGMENT_COUNT
+            val visualPos    = (i + 1).toFloat() / SEGMENT_COUNT
+            // Convert this segment's visual position back to the dBFS value it represents
+            val segmentDbfs  = FLOOR_DBFS + visualPos * (0f - FLOOR_DBFS)
 
             // Height grows linearly from minHeightPx to maxHeightPx
             val segH = minHeightPx + (maxHeightPx - minHeightPx) * (i.toFloat() / (SEGMENT_COUNT - 1))
@@ -155,9 +183,9 @@ class VuMeterView @JvmOverloads constructor(
 
             segPaint.color = when
             {
-                i == peakIndex -> 0xFFFFFFFF.toInt()         // White peak tick
-                i < litCount   -> litColor(pos)              // Lit: zone color
-                else           -> dimColor(pos)              // Unlit: dim zone tint
+                i == peakIndex -> 0xFFFFFFFF.toInt()
+                i < litCount   -> litColor(segmentDbfs)
+                else           -> dimColor(segmentDbfs)
             }
 
             canvas.drawRoundRect(segRect, cornerRadiusPx, cornerRadiusPx, segPaint)
@@ -166,8 +194,6 @@ class VuMeterView @JvmOverloads constructor(
         // ── Zone labels ───────────────────────────────────────────────────────
         val zoneY = maxHeightPx + labelMarginPx + zoneLabelPaint.textSize
         drawZoneLabels(canvas, w, zoneY)
-
-
 
         // ── Status label ──────────────────────────────────────────────────────
         if (isActive)
@@ -178,7 +204,9 @@ class VuMeterView @JvmOverloads constructor(
             canvas.drawText(statusText, 0f, statusY, labelPaint)
 
             // ── RMS readout (right-aligned, same row as status) ───────────────────
-            val rmsText = "${(currentLevel * 100).toInt()}% RMS · peak ${(peakLevel * 100).toInt()}%"
+
+            // Show dBFS values
+            val rmsText = "%.0f dBFS · peak %.0f dBFS".format(currentDbfs, peakDbfs)
             labelPaint.color = 0xFFFFFFFF.toInt()
             val rmsX = w - labelPaint.measureText(rmsText)
             canvas.drawText(rmsText, rmsX, statusY, labelPaint)
@@ -189,45 +217,53 @@ class VuMeterView @JvmOverloads constructor(
      * Draws GOOD / WARN / CLIP zone labels beneath the segments,
      * each centered over its respective zone.
      */
+
     private fun drawZoneLabels(canvas: Canvas, viewWidth: Float, y: Float)
     {
-        val goodEndX  = LEVEL_WARN      * viewWidth
-        val warnEndX  = LEVEL_CLIP_WARN * viewWidth
+        // Derive label positions from where the thresholds fall on the dBFS scale
+        val goodEndX  = dbfsToVisualPos(TOO_WEAK_DBFS)  * viewWidth  // left edge of good zone
+        val goodX     = dbfsToVisualPos(GOOD_MAX_DBFS)  * viewWidth  // right edge of good zone
+        val clipX     = dbfsToVisualPos(CLIP_WARN_DBFS) * viewWidth  // start of clip zone
 
-        // GOOD — right-aligned to the end of the good zone
-        zoneLabelPaint.textAlign = Paint.Align.RIGHT
-        canvas.drawText("GOOD", goodEndX - labelMarginPx, y, zoneLabelPaint)
-
-        // WARN — centered in the warn zone
+        // WEAK — centered in the too-weak zone (left of good)
         zoneLabelPaint.textAlign = Paint.Align.CENTER
-        canvas.drawText("WARN", (goodEndX + warnEndX) / 2f, y, zoneLabelPaint)
+        canvas.drawText("WEAK", goodEndX / 2f, y, zoneLabelPaint)
 
-        // CLIP — left-aligned from the start of the clip zone
+        // GOOD — centered between too-weak and good-max
+        canvas.drawText("GOOD", (goodEndX + goodX) / 2f, y, zoneLabelPaint)
+
+        // WARN — centered between good-max and clip
+        canvas.drawText("WARN", (goodX + clipX) / 2f, y, zoneLabelPaint)
+
+        // CLIP — left-aligned from clip threshold
         zoneLabelPaint.textAlign = Paint.Align.LEFT
-        canvas.drawText("CLIP", warnEndX + labelMarginPx, y, zoneLabelPaint)
+        canvas.drawText("CLIP", clipX + labelMarginPx, y, zoneLabelPaint)
     }
 
     /**
-     * Returns the lit color for a segment at the given normalized position.
+     * Returns the lit color for a segment at the given dBFS level.
+     * Segments below TOO_WEAK_DBFS are red — they represent signal levels
+     * that are unlikely to decode.
      */
-    private fun litColor(pos: Float): Int = when
+    private fun litColor(segmentDbfs: Float): Int = when
     {
-        pos > LEVEL_CLIP_WARN -> colorRed
-        pos > LEVEL_WARN      -> colorOrange
-        pos > LEVEL_TOO_WEAK  -> colorGreen
-        else                  -> colorRed  // Too-weak zone also red
+        segmentDbfs >= CLIP_WARN_DBFS -> colorRed
+        segmentDbfs >= GOOD_MAX_DBFS  -> colorOrange
+        segmentDbfs >= TOO_WEAK_DBFS  -> colorGreen
+        else                          -> colorRed
     }
 
     /**
-     * Returns the dim (unlit) color for a segment at the given normalized position.
+     * Returns the dim (unlit) color for a segment at the given dBFS level.
      */
-    private fun dimColor(pos: Float): Int = when
+    private fun dimColor(segmentDbfs: Float): Int = when
     {
-        pos > LEVEL_CLIP_WARN -> dimRed
-        pos > LEVEL_WARN      -> dimOrange
-        pos > LEVEL_TOO_WEAK  -> dimGreen
-        else                  -> dimRed
+        segmentDbfs >= CLIP_WARN_DBFS -> dimRed
+        segmentDbfs >= GOOD_MAX_DBFS  -> dimOrange
+        segmentDbfs >= TOO_WEAK_DBFS  -> dimGreen
+        else                          -> dimRed
     }
+
 
     /**
      * Returns the status label text and color for the current signal levels.
@@ -235,8 +271,8 @@ class VuMeterView @JvmOverloads constructor(
      */
     private fun statusLabel(): Pair<String, Int> = when
     {
-        peakLevel    >= LEVEL_CLIP_WARN -> Pair(context.getString(R.string.audio_signal_clipping),  colorRed)
-        currentLevel <  LEVEL_TOO_WEAK  -> Pair(context.getString(R.string.audio_signal_too_weak),  colorOrange)
-        else                            -> Pair(context.getString(R.string.audio_signal_good),       colorGreen)
+        levelToDbfs(peakLevel)    >= CLIP_WARN_DBFS -> Pair(context.getString(R.string.audio_signal_clipping), colorRed)
+        levelToDbfs(currentLevel) <  TOO_WEAK_DBFS  -> Pair(context.getString(R.string.audio_signal_too_weak), colorOrange)
+        else                                         -> Pair(context.getString(R.string.audio_signal_good),     colorGreen)
     }
 }
