@@ -2,6 +2,7 @@ package org.nahoft.nahoft.views
 
 import android.content.Context
 import android.graphics.Canvas
+import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.RectF
 import android.util.AttributeSet
@@ -38,6 +39,8 @@ class VuMeterView @JvmOverloads constructor(
         private const val PEAK_TICK_WIDTH_DP = 3f
         private const val LABEL_MARGIN_DP = 4f
         private const val DEFAULT_VIEW_HEIGHT_DP = 76f  // bar + zone labels + status label
+
+        private const val COLOR_YELLOW = 0xFFFFD000.toInt()  // warm amber-yellow
     }
 
     // Current levels — set by update()
@@ -129,6 +132,30 @@ class VuMeterView @JvmOverloads constructor(
 
 
     // ── Layout ────────────────────────────────────────────────────────────────
+
+
+    private data class ColorStop(val dbfs: Float, val color: Int)
+
+    /**
+     * Color stops defining the gradient across the dBFS scale.
+     *
+     * Too weak zone  (FLOOR to TOO_WEAK_DBFS): red → orange → yellow → green
+     * Good zone      (TOO_WEAK to GOOD_MAX):   solid green
+     * Warn zone      (GOOD_MAX to CLIP_WARN):  green → yellow → orange
+     * Clip zone      (CLIP_WARN to 0):         orange → red
+     */
+    private val colorStops: List<ColorStop> by lazy {
+        listOf(
+            ColorStop(FLOOR_DBFS,      colorRed),
+            ColorStop(FLOOR_DBFS + 20f, colorOrange),   // -40 dBFS
+            ColorStop(FLOOR_DBFS + 30f, COLOR_YELLOW),  // -30 dBFS
+            ColorStop(TOO_WEAK_DBFS,   colorGreen),     // -22 dBFS
+            ColorStop(GOOD_MAX_DBFS,   colorGreen),     // -10 dBFS
+            ColorStop(-5f,             COLOR_YELLOW),
+            ColorStop(CLIP_WARN_DBFS,  colorOrange),    // -1 dBFS
+            ColorStop(0f,              colorRed)
+        )
+    }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int)
     {
@@ -252,30 +279,49 @@ class VuMeterView @JvmOverloads constructor(
         canvas.drawText("CLIP", clipX + labelMarginPx, y, zoneLabelPaint)
     }
 
+
     /**
-     * Returns the lit color for a segment at the given dBFS level.
-     * Segments below TOO_WEAK_DBFS are red — they represent signal levels
-     * that are unlikely to decode.
+     * Returns an interpolated color for a segment at the given dBFS level,
+     * by finding the two surrounding color stops and linearly blending between them.
      */
-    private fun litColor(segmentDbfs: Float): Int = when
+    private fun litColor(segmentDbfs: Float): Int
     {
-        segmentDbfs >= CLIP_WARN_DBFS -> colorRed
-        segmentDbfs >= GOOD_MAX_DBFS  -> colorOrange
-        segmentDbfs >= TOO_WEAK_DBFS  -> colorGreen
-        else                          -> colorRed
+        // Clamp to defined range
+        val dbfs = segmentDbfs.coerceIn(FLOOR_DBFS, 0f)
+
+        // Find the stop immediately below and above the segment's dBFS value
+        val lower = colorStops.lastOrNull { it.dbfs <= dbfs } ?: colorStops.first()
+        val upper = colorStops.firstOrNull { it.dbfs >  dbfs } ?: colorStops.last()
+
+        if (lower == upper) return lower.color
+
+        // Normalise position between the two stops (0.0 = at lower, 1.0 = at upper)
+        val t = (dbfs - lower.dbfs) / (upper.dbfs - lower.dbfs)
+        return interpolateColor(lower.color, upper.color, t)
     }
 
     /**
-     * Returns the dim (unlit) color for a segment at the given dBFS level.
+     * Returns a dim (unlit) version of the lit color at the same dBFS position.
+     * Uses the same gradient so zone boundaries are visible even when unlit.
      */
-    private fun dimColor(segmentDbfs: Float): Int = when
+    private fun dimColor(segmentDbfs: Float): Int
     {
-        segmentDbfs >= CLIP_WARN_DBFS -> dimRed
-        segmentDbfs >= GOOD_MAX_DBFS  -> dimOrange
-        segmentDbfs >= TOO_WEAK_DBFS  -> dimGreen
-        else                          -> dimRed
+        val lit = litColor(segmentDbfs)
+        // Keep hue from the gradient, reduce to ~15% opacity
+        return (lit and 0x00FFFFFF) or 0x26000000.toInt()
     }
 
+    /**
+     * Linearly interpolates between two ARGB colors.
+     */
+    private fun interpolateColor(colorA: Int, colorB: Int, t: Float): Int
+    {
+        val a = (Color.alpha(colorA) + (Color.alpha(colorB) - Color.alpha(colorA)) * t).toInt()
+        val r = (Color.red(colorA)   + (Color.red(colorB)   - Color.red(colorA))   * t).toInt()
+        val g = (Color.green(colorA) + (Color.green(colorB) - Color.green(colorA)) * t).toInt()
+        val b = (Color.blue(colorA)  + (Color.blue(colorB)  - Color.blue(colorA))  * t).toInt()
+        return Color.argb(a, r, g, b)
+    }
 
     /**
      * Returns the status label text and color for the current signal levels.
