@@ -542,9 +542,12 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
     {
         if (_binding == null) return
 
-        val candidates = viewModel.receivedMessageCount
+        val total = spots.size
         val threshold = ReceiveSessionService.MIN_SPOTS_FOR_DECRYPTION
-        binding.tvSpotsCount.text = "$candidates / $threshold+"
+        binding.tvSpotsCount.text = if (total >= threshold)
+            "$total / $threshold+"
+        else
+            "$total / $threshold"
 
         spotsDialog?.updateSpots(spots)
     }
