@@ -42,70 +42,42 @@ class WSPRSpotAdapter : ListAdapter<WSPRSpotItem, WSPRSpotAdapter.SpotViewHolder
     {
         fun bind(spot: WSPRSpotItem)
         {
-            val context = binding.root.context
-
-            // Row 1: Callsign and Time
             binding.tvCallsign.text = spot.callsign
-            binding.tvTime.text = timeFormat.format(Date(spot.timestamp))
+            binding.tvTime.text     = timeFormat.format(Date(spot.timestamp))
+            binding.tvGrid.text     = spot.gridSquare
+            binding.tvPower.text    = "${spot.powerDbm} dBm"
+            binding.tvSnr.text      = "%+.0f dB".format(spot.snrDb)
 
-            // Row 2: Grid, Power, SNR
-            binding.tvGrid.text = spot.gridSquare
-            binding.tvPower.text = "${spot.powerDbm} dBm"
-            binding.tvSnr.text = "%+.0f dB".format(spot.snrDb)
-
-            // Set background and Nahoft-specific elements
-            when {
-                spot.nahoftStatus is NahoftSpotStatus.Failed -> {
-                    // Failed Nahoft spot - red accent
-                    binding.spotCard.setBackgroundResource(R.drawable.spot_card_background_failed)
-                    showNahoftStatus(spot, R.color.madderLake)
-                }
-                spot.isNahoftSpot -> {
-                    // Successful/pending Nahoft spot - green accent
-                    binding.spotCard.setBackgroundResource(R.drawable.spot_card_background_nahoft)
-                    showNahoftStatus(spot, R.color.caribbeanGreen)
-                }
-                else -> {
-                    // Regular WSPR spot - no accent
-                    binding.spotCard.setBackgroundResource(R.drawable.spot_card_background)
-                    binding.rowNahoftStatus.visibility = View.GONE
-                }
+            if (spot.nahoftStatus is NahoftSpotStatus.Decrypted)
+            {
+                binding.spotCard.setBackgroundResource(R.drawable.spot_card_background_nahoft)
+                showNahoftStatus(spot)
+            }
+            else
+            {
+                binding.spotCard.setBackgroundResource(R.drawable.spot_card_background)
+                binding.rowNahoftStatus.visibility = View.GONE
             }
         }
 
-        private fun showNahoftStatus(spot: WSPRSpotItem, accentColorRes: Int)
+        private fun showNahoftStatus(spot: WSPRSpotItem)
         {
             val context = binding.root.context
-            val accentColor = ContextCompat.getColor(context, accentColorRes)
+            val green   = ContextCompat.getColor(context, R.color.caribbeanGreen)
 
-            binding.rowNahoftStatus.visibility = View.VISIBLE
-
-            // Part number
-            binding.tvPartNumber.text = formatPartNumber(spot)
-            binding.tvPartNumber.setTextColor(accentColor)
-
-            // Status text
-            binding.tvStatus.text = spot.statusDisplay
-            binding.tvStatus.setTextColor(
-                when (spot.nahoftStatus)
-                {
-                    is NahoftSpotStatus.Decrypted -> ContextCompat.getColor(context, R.color.caribbeanGreen)
-                    is NahoftSpotStatus.Failed -> ContextCompat.getColor(context, R.color.madderLake)
-                    else -> ContextCompat.getColor(context, android.R.color.darker_gray)
-                }
-            )
+            binding.rowNahoftStatus.visibility  = View.VISIBLE
+            binding.tvPartNumber.text           = formatPartNumber(spot)
+            binding.tvPartNumber.setTextColor(green)
+            binding.tvStatus.text               = spot.statusDisplay ?: ""
+            binding.tvStatus.setTextColor(green)
         }
 
-        private fun formatPartNumber(spot: WSPRSpotItem): String
-        {
-            return when (val status = spot.nahoftStatus)
+        private fun formatPartNumber(spot: WSPRSpotItem): String =
+            when (val status = spot.nahoftStatus)
             {
-                is NahoftSpotStatus.Pending -> "Part ${status.partNumber}"
                 is NahoftSpotStatus.Decrypted -> "Part ${status.partNumber} of ${status.totalParts}"
-                is NahoftSpotStatus.Failed -> "Part ${status.partNumber}"
-                else -> ""
+                else                          -> ""
             }
-        }
     }
 
     class SpotDiffCallback : DiffUtil.ItemCallback<WSPRSpotItem>()

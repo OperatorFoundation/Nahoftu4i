@@ -1,71 +1,27 @@
 package org.nahoft.nahoft.models
 
-/**
- * Represents the status of a WSPR spot in the context of Nahoft message processing.
- *
- * Regular WSPR spots use [Spotted].
- * Nahoft message parts track their group, position, and processing state.
- */
 sealed class NahoftSpotStatus
 {
-
     /**
-     * Regular WSPR spot that was decoded successfully.
-     * No further processing — this is a standard WSPR beacon, not a Nahoft message.
+     * Default status for all decoded WSPR spots.
+     * Every spot is a potential Nahoft candidate — we have no way to confirm
+     * until decryption succeeds.
      */
-    object Spotted : NahoftSpotStatus()
+    object Unconfirmed : NahoftSpotStatus()
 
     /**
-     * Nahoft spot that is part of a message still being accumulated.
+     * Spot confirmed as part of a successfully decrypted Nahoft message.
+     * Assigned retroactively when decryption succeeds.
      *
-     * @param groupId Unique identifier tying spots in the same message together
-     * @param partNumber 1-based position of this spot within the message (1, 2, 3...)
-     */
-    data class Pending(
-        val groupId: Int,
-        val partNumber: Int
-    ) : NahoftSpotStatus()
-
-    /**
-     * Nahoft spot that was part of a successfully decrypted message.
-     *
-     * @param groupId Unique identifier tying spots in the same message together
-     * @param partNumber 1-based position of this spot within the message
-     * @param totalParts Total number of parts in the completed message
+     * @param groupId    Identifies which message this spot belongs to
+     * @param partNumber 1-based position within the message
+     * @param totalParts Total spots that made up the message
      */
     data class Decrypted(
         val groupId: Int,
         val partNumber: Int,
         val totalParts: Int
     ) : NahoftSpotStatus()
-
-    /**
-     * Nahoft spot that could not be successfully processed.
-     *
-     * @param groupId Unique identifier tying spots in the same message together
-     * @param partNumber 1-based position of this spot within the message
-     * @param reason Why processing failed
-     */
-    data class Failed(
-        val groupId: Int,
-        val partNumber: Int,
-        val reason: FailureReason
-    ) : NahoftSpotStatus()
-}
-
-/**
- * Reasons why a Nahoft spot could not be processed successfully.
- */
-enum class FailureReason
-{
-    /** Could not parse WSPR fields into a valid Nahoft message structure */
-    PARSE_ERROR,
-
-    /** Decryption failed (wrong key, corrupted data, or message integrity check failed) */
-    DECRYPTION_ERROR,
-
-    /** Session ended before all message parts were received */
-    INCOMPLETE
 }
 
 /**
@@ -114,55 +70,13 @@ data class WSPRSpotItem(
      * Determines which connector lines/brackets to draw.
      */
     val groupPosition: GroupPosition = GroupPosition.NONE
-) {
-
-    /**
-     * Returns true if this is a Nahoft message spot (not a regular WSPR spot).
-     */
-    val isNahoftSpot: Boolean
-        get() = nahoftStatus !is NahoftSpotStatus.Spotted
-
-    /**
-     * Returns true if this spot represents a failed Nahoft message part.
-     */
-    val isFailed: Boolean
-        get() = nahoftStatus is NahoftSpotStatus.Failed
-
-    /**
-     * Returns display text for the part number annotation.
-     *
-     * Examples:
-     * - Regular spot: null
-     * - Pending part 2: "[2/?]"
-     * - Decrypted part 2 of 3: "[2/3]"
-     * - Failed part 2: "[2/?]"
-     */
-    val partNumberDisplay: String?
-        get() = when (val status = nahoftStatus) {
-            is NahoftSpotStatus.Spotted -> null
-            is NahoftSpotStatus.Pending -> "#\${partNumber}"
-            is NahoftSpotStatus.Decrypted -> "[${status.partNumber}/${status.totalParts}]"
-            is NahoftSpotStatus.Failed -> "[${status.partNumber}/?]"
-        }
-
-    /**
-     * Returns display text for the status annotation.
-     *
-     * Examples:
-     * - Regular spot: null
-     * - Pending: "Pending..."
-     * - Decrypted: "✓ Decrypted"
-     * - Failed: "✗ Parse error" / "✗ Decryption failed" / "✗ Incomplete"
-     */
+)
+{
     val statusDisplay: String?
-        get() = when (val status = nahoftStatus) {
-            is NahoftSpotStatus.Spotted -> null
-            is NahoftSpotStatus.Pending -> "Candidate"
-            is NahoftSpotStatus.Decrypted -> "✓ Decrypted"
-            is NahoftSpotStatus.Failed -> when (status.reason) {
-                FailureReason.PARSE_ERROR -> "✗ Parse error"
-                FailureReason.DECRYPTION_ERROR -> "✗ Decryption failed"
-                FailureReason.INCOMPLETE -> "✗ Incomplete"
-            }
+        get() = when (val status = nahoftStatus)
+        {
+            is NahoftSpotStatus.Unconfirmed -> null
+            is NahoftSpotStatus.Decrypted   ->
+                "✓ Part ${status.partNumber} of ${status.totalParts}"
         }
 }

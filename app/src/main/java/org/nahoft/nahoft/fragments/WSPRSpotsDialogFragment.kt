@@ -125,7 +125,11 @@ class WSPRSpotsDialogFragment : DialogFragment()
     private fun updateUI()
     {
         // Update spot count
-        binding.tvSpotCount.text = getString(R.string.spot_count_format, currentSpots.size)
+        binding.tvSpotCount.text = resources.getQuantityString(
+            R.plurals.spot_count_format,
+            currentSpots.size,
+            currentSpots.size
+        )
 
         // Show/hide empty state
         val hasSpots = currentSpots.isNotEmpty()
@@ -154,11 +158,10 @@ class WSPRSpotsDialogFragment : DialogFragment()
         val groupedSpots = mutableMapOf<Int, MutableList<Int>>() // groupId -> list of indices
 
         spots.forEachIndexed { index, spot ->
-            val groupId = when (val status = spot.nahoftStatus) {
-                is NahoftSpotStatus.Pending -> status.groupId
+            val groupId = when (val status = spot.nahoftStatus)
+            {
                 is NahoftSpotStatus.Decrypted -> status.groupId
-                is NahoftSpotStatus.Failed -> status.groupId
-                else -> null
+                else                          -> null
             }
 
             groupId?.let {
@@ -168,11 +171,10 @@ class WSPRSpotsDialogFragment : DialogFragment()
 
         // Create new list with computed positions
         return spots.mapIndexed { index, spot ->
-            val groupId = when (val status = spot.nahoftStatus) {
-                is NahoftSpotStatus.Pending -> status.groupId
+            val groupId = when (val status = spot.nahoftStatus)
+            {
                 is NahoftSpotStatus.Decrypted -> status.groupId
-                is NahoftSpotStatus.Failed -> status.groupId
-                else -> null
+                else                          -> null
             }
 
             if (groupId == null)

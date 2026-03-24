@@ -677,6 +677,10 @@ After pressing this (+) sign, you must first enter your friend\'s name. You can 
     <string name="nahoft_failed_legend">= Failed</string>
     <string name="no_wspr_spots_yet">No WSPR spots decoded yet.\nListening for signals…</string>
     <string name="wspr_spots_badge">%d spots</string>
+    <plurals name="spot_count_format">
+        <item quantity="one">1 spot</item>
+        <item quantity="other">%d spots</item>
+    </plurals>
 
     <!-- Received Messages Dialog -->
     <string name="received_messages_title">Received Messages</string>

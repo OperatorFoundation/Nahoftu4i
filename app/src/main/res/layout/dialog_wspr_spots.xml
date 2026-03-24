@@ -73,20 +73,6 @@
         <View
             android:layout_width="32dp"
             android:layout_height="1dp" />
-
-        <View
-            android:layout_width="10dp"
-            android:layout_height="10dp"
-            android:background="@drawable/legend_dot_red" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            android:text="@string/nahoft_failed_legend"
-            android:textSize="12sp"
-            android:textColor="#B0B0B0" />
-
     </LinearLayout>
 
     <!-- Empty state -->

@@ -380,12 +380,6 @@ class ReceiveSessionService : Service()
     {
         Timber.d("Stopping receive session")
 
-        // Mark any pending spots as incomplete
-        if (receivedMessages.isNotEmpty())
-        {
-            markCurrentGroupAsFailed(FailureReason.INCOMPLETE)
-        }
-
         // Cancel jobs
         waitForWindowJob?.cancel()
         sessionJob?.cancel()
@@ -613,18 +607,13 @@ class ReceiveSessionService : Service()
                     Timber.d("Added WSPR message #${receivedMessages.size}: ${message.toWSPRFields()}")
                 }
 
-                val partNumber = receivedMessages.size
-
                 val spot = WSPRSpotItem(
                     callsign = result.callsign,
                     gridSquare = result.gridSquare,
                     powerDbm = result.powerLevelDbm,
                     snrDb = result.signalToNoiseRatioDb,
                     timestamp = timestamp,
-                    nahoftStatus = NahoftSpotStatus.Pending(
-                        groupId = currentNahoftGroupId,
-                        partNumber = partNumber
-                    )
+                    nahoftStatus = NahoftSpotStatus.Unconfirmed
                 )
                 currentSpots.add(0, spot)
             }
@@ -639,7 +628,7 @@ class ReceiveSessionService : Service()
                     powerDbm = result.powerLevelDbm,
                     snrDb = result.signalToNoiseRatioDb,
                     timestamp = timestamp,
-                    nahoftStatus = NahoftSpotStatus.Spotted
+                    nahoftStatus = NahoftSpotStatus.Unconfirmed
                 )
                 currentSpots.add(0, spot)
             }
@@ -743,52 +732,30 @@ class ReceiveSessionService : Service()
         }
     }
 
-    private fun markCurrentGroupAsDecrypted(totalParts: Int)
+    private fun markCurrentGroupAsDecrypted(spotCount: Int)
     {
-        val updatedSpots = _receivedSpots.value.map { spot ->
-            when (val status = spot.nahoftStatus)
-            {
-                is NahoftSpotStatus.Pending -> {
-                    if (status.groupId == currentNahoftGroupId)
-                    {
-                        spot.copy(
-                            nahoftStatus = NahoftSpotStatus.Decrypted(
-                                groupId = status.groupId,
-                                partNumber = status.partNumber,
-                                totalParts = totalParts
-                            )
-                        )
-                    }
-                    else spot
-                }
-                else -> spot
-            }
-        }
+        // Build a set of WSPR field keys from the messages that were just decrypted.
+        val decryptedKeys = receivedMessages.map { msg ->
+            val fields = msg.toWSPRFields()
+            Triple(fields.callsign, fields.gridSquare, fields.powerDbm)
+        }.toSet()
 
-        _receivedSpots.value = updatedSpots
-        currentNahoftGroupId++
-    }
+        var partNumber = 0
 
-    private fun markCurrentGroupAsFailed(reason: FailureReason)
-    {
         val updatedSpots = _receivedSpots.value.map { spot ->
-            when (val status = spot.nahoftStatus)
+            val key = Triple(spot.callsign, spot.gridSquare, spot.powerDbm)
+            if (key in decryptedKeys)
             {
-                is NahoftSpotStatus.Pending -> {
-                    if (status.groupId == currentNahoftGroupId)
-                    {
-                        spot.copy(
-                            nahoftStatus = NahoftSpotStatus.Failed(
-                                groupId = status.groupId,
-                                partNumber = status.partNumber,
-                                reason = reason
-                            )
-                        )
-                    }
-                    else spot
-                }
-                else -> spot
+                partNumber++
+                spot.copy(
+                    nahoftStatus = NahoftSpotStatus.Decrypted(
+                        groupId    = currentNahoftGroupId,
+                        partNumber = partNumber,
+                        totalParts = spotCount
+                    )
+                )
             }
+            else spot
         }
 
         _receivedSpots.value = updatedSpots
@@ -916,12 +883,6 @@ class ReceiveSessionService : Service()
         val spotsReceived = _receivedSpots.value.size
         val messagesDecrypted = _receivedSpots.value.count {
             it.nahoftStatus is NahoftSpotStatus.Decrypted
-        }
-
-        // Mark pending spots as incomplete
-        if (receivedMessages.isNotEmpty())
-        {
-            markCurrentGroupAsFailed(FailureReason.INCOMPLETE)
         }
 
         // Cancel jobs
