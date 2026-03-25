@@ -126,7 +126,7 @@ class WSPRSpotsDialogFragment : DialogFragment()
     {
         // Update spot count
         binding.tvSpotCount.text = resources.getQuantityString(
-            R.plurals.spot_count_format,
+            R.plurals.packet_count_format,
             currentSpots.size,
             currentSpots.size
         )

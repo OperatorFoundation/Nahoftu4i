@@ -14,7 +14,7 @@
         android:id="@+id/tvTitle"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:text="@string/wspr_spots_title"
+        android:text="@string/packages_title"
         android:textSize="20sp"
         android:textColor="@color/white"
         android:textStyle="bold"
@@ -100,7 +100,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:text="@string/no_wspr_spots_yet"
+            android:text="@string/no_packets_yet"
             android:textSize="15sp"
             android:textColor="#808080"
             android:textAlignment="center" />

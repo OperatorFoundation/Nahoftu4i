@@ -448,7 +448,7 @@ class FriendInfoActivity: AppCompatActivity()
         val summaryText = when
         {
             messagesDecrypted > 0 -> getString(R.string.timeout_with_messages, messagesDecrypted)
-            spotsReceived > 0 -> getString(R.string.timeout_with_spots, spotsReceived)
+            spotsReceived > 0 -> getString(R.string.timeout_with_packets, spotsReceived)
             else -> getString(R.string.timeout_no_signals)
         }
 

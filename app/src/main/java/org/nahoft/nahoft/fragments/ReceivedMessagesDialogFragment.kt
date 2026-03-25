@@ -131,7 +131,7 @@ class ReceivedMessagesDialogFragment : BottomSheetDialogFragment()
         {
             Encryption().decrypt(PublicKey(publicKeyBytes), cipherText)
         }
-        catch (e: SecurityException)
+        catch (_: SecurityException)
         {
             Timber.d("App locked — message content redacted")
             null
@@ -185,19 +185,19 @@ class ReceivedMessagesDialogFragment : BottomSheetDialogFragment()
 
         val row = LinearLayout(ctx).apply {
             orientation = LinearLayout.VERTICAL
-            val vPad = (12 * dp).toInt()
-            val hPad = (14 * dp).toInt()
+            val vPad = (R.dimen.padding_half * dp).toInt()
+            val hPad = (R.dimen.padding_row_horizontal * dp).toInt()
             setPadding(hPad, vPad, hPad, vPad)
             background = ContextCompat.getDrawable(ctx, R.drawable.btn_bkgd_light_grey_outline_8)
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply { bottomMargin = (8 * dp).toInt() }
+            ).apply { bottomMargin = (R.dimen.activity_half_margin * dp).toInt() }
         }
 
         // Header: timestamp + spot count
         row.addView(TextView(ctx).apply {
-            text = "${data.timeString} · decoded from ${data.spotCount} spots"
+            text = getString(R.string.message_row_header, data.timeString, data.spotCount)
             textSize = 12f
             setTextColor(ContextCompat.getColor(ctx, R.color.coolGrey))
             layoutParams = LinearLayout.LayoutParams(

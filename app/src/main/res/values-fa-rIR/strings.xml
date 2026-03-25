@@ -4,25 +4,11 @@
     <!-- Login Activity Strings -->
     <string name="Login">ورود</string>
 
-    <!-- Home Activity -->
-    <string name="button_label_friends">دوستان</string>
-    <string name="button_label_messages">پیام‌ها</string>
-    <string name="button_label_settings">تنظیمات</string>
     <string name="button_label_logout">خروج</string>
-
-    <!-- Create Activity -->
-    <string name="enter_message_here_hint">متن پیام</string>
-    <string name="sendAsImageButton">ارسال به‌عنوان تصویر</string>
-    <string name="button_import_text_label">ارسال کردن متن</string>
 
     <!-- Create Activity Alerts -->
     <string name="alert_text_verified_friends_only">فقط می‌توانید به یک دوست تأییدشده پیام بفرستید.</string>
-    <string name="alert_text_select_friend_to_send_message">دوستی را برای ارسال پیام به او انتخاب کنید.</string>
     <string name="alert_text_write_a_message_to_send">پیامی را برای ارسال بنویسید.</string>
-
-    <!-- Help Activity-->
-    <string name="button_label_passcode">رمز عبور</string>
-    <string name="button_label_importing">در حال وارد کردن</string>
 
     <!-- Friend Info Activity-->
     <string name="button_label_save">ذخیره کردن</string>
@@ -30,14 +16,7 @@
     <!--Friends Recycler View Item Row-->
     <string name="friendNameRecyclerView">نام</string>
 
-    <!-- Message View -->
-    <string name="unknown_label">ناشناخته</string>
-    <string name="button_label_invite">دعوت کردن</string>
-    <string name="button_label_invite_again">دعوت کردن مجدد</string>
-
-    <!-- Verify Friend View -->
     <string name="label_verify_friend_number">کلید عمومی %1$s\</string>
-    <string name="label_verify_friend_user_number">کلید عمومی شما</string>
 
     <!-- Alert Strings -->
     <string name="alert_text_passcode_field_empty">قسمت رمز عبور خالی است.</string>
@@ -48,202 +27,21 @@
     <string name="alert_text_secondary_passcode_entries_do_not_match">ورودی‌های کد نابودی با هم مطابقت ندارند.</string>
     <string name="alert_text_passcode_required_for_destruction_code">قبل از ایجاد رمز عبور نمی‌توانید کد نابودی ایجاد کنید.</string>
     <string name="alert_text_secondary_passcode_and_passcode_may_not_match">کد نابودی نمی‌تواند با رمز عبور یکسان باشد.</string>
-    <string name="alert_text_received_invitation"> یک دعوت‌نامه از %1$s دریافت شد. برای شروع ارتباط، یک دعوتنامه برای او بفرستید.</string>
     <string name="alert_text_passcode_required_to_proceed">برای ادامه، رمز عبور لازم است.</string>
     <string name="alert_text_unable_to_decode_message">خطایی رخ داد. این پیام رمزگشایی نشد.</string>
-    <string name="alert_text_unable_to_decrypt_message">این پیام رمزگشایی نشد.</string>
     <string name="alert_text_invitation_accepted"> $ {sender.name}  دعوتنامه شما را پذیرفت. اکنون می‌توانید به‌طور ایمن ارتباط برقرار کنید. </string>
     <string name="alert_text_unable_to_update_friend_status"> خطایی رخ داد، وضعیت دوست به‌روزرسانی نشد.</string>
     <string name="alert_text_which_friend_sent_this_message">کدام دوست این پیام را ارسال کرده است؟</string>
-    <string name="alert_text_which_friend_sent_this_invitation">کدام دوست این دعوتنامه را ارسال کرده است؟</string>
     <string name="alert_text_friend_already_exists">شما از قبل دوستی با این نام دارید.</string>
-    <string name="alert_text_friend_phone_already_exists">شما از قبل دوستی با این شماره تماس دارید.</string>
     <string name="alert_text_unable_to_process_request">خطایی رخ داد. درخواست شما پردازش نشد.</string>
-    <string name="paste_message_for_import_hint">متن خود را در اینجا جای‌گذاری کنید…</string>
-    <string name="button_label_import_image">وارد کردن تصویر</string>
-
-    <!-- About User Guide -->
-    <string name="button_label_about">درباره</string>
-
-    <string name="about_user_guide_english">\nNahoft allows you to send encrypted message to your friends using the strongest encryption available.
-        The encrypted message will be transformed into your choice of either a text or an image in order to hide the fact that it is encrypted.\n
-       \nThe following user guides describe how to use this application.\n\n
-    </string>
-
-    <string name="about_user_guide_persian">\n راهنمای اپلیکیشن نهفت \n
-        <!-- Fix this first line by adding the English word About (1 to the right of the  (درباره) -->
-        \n (درباره) About \n
-        <!-- Fix this second line by adding a "(i" to the right of the Persian word below. Keep the colon where it is. -->
-        \n درباره نهفت:  \n
-        \n نهفت یک پیام‌رسان نیست، بلکه ابزاری برای رمزنگاری است. «نهفت» نرم‌افزار آفلاین برای رمزنگاری پیامهای متنی در گوشی‌های اندرویدی است. \n
-        \n رمزنگاری کردن پیام متنی یعنی حتی اگر پیام ارسالی شما در میان راه توسط فرد سومی دیده شود، برای آن شخص سوم قابل خواندن نخواهد بود و تنها شخصی که شما کلید عمومی خود را با او رد و بدل کرده‌اید، می‌تواند پیام مورد نظر را بخواند. \n
-        \n  این نرم‌افزار، آفلاین است، یعنی برای تبدیل پیام‌های متنی به پیام‌های رمزگذاری شده، نیازی به اینترنت آنلاین ندارد و می‌تواند بصورت مستقل و بدون اینترنت جهانی، پیام‌های نوشتاری را رمزنگاری کند. \n
-        \n «نهفت» تنها پیام‌های متنی را رمزنگاری می‌کند و در حال حاضر امکان رمزنگاری پیام‌های صوتی و تصویری در آن فراهم نیست. \n
-        \n نهفت می‌تواند پیام‌های متنی را هم بصورت یک متن رمزنگاری کند و هم می‌تواند آن را در داخل یک عکس، که شما انتخاب می‌کنید، پنهان کند. شما می‌توانید پیام متنی یا عکس حاوی پیام را از طریق دیگری که امکان ارسال فایل را فراهم می‌کند (مثلا ایمیل، یا اس‌ام‌اس یا ام‌ام‌اس، یا یک پیام‌رسان که امکان ارسال فایل بدون تغییر را فراهم می‌کند) بفرستید تا طرف مقابل نیز پس از دریافت، متن یا عکس رمزنگاری شده را به نهفت منتقل کند و پیام را بخواند. \n
-        \n  «نهفت»، فعلا در سیستم عامل اندروید و در گوشی‌های موبایلی که از این سیستم عامل استفاده می‌کنند، قابل نصب است. \n
-        \n نهفت یک پیام‌رسان نیست، بلکه تنها پیام‌های متنی کاربر را رمزنگاری می‌کند و کاربر می‌تواند پیام رمز‌نگاری شده را از طریق یکی از پیام رسان‌های خود (در شبکه‌ای ناامن و حتی با یک پیام‌رسان ناامن) به فرد دیگری ارسال کند که او نیز  از نهفت استفاده می‌کند. آنها باید  قبلا با هم کلیدهای عمومی خود را همرسان و جابجا کرده باشند تا پیام‌ها را بعد از دریافت وارد این نرم‌افزار کنند و متن نهایی را در آنجا بخوانند. نهفت از کلیدهای عمومی که قابل همرسانی با دیگران است، استفاده می‌کند و کلیدی خصوصی می‌سازد که در داخل نرم‌افزار پنهان شده و می‌تواند پیام‌های رد و بدل شده بین دو کاربر را بخواند. \n
-        \n هدف «نهفت» این است که امکان ارسال پیام امن برای کاربران حتی در پیام‌رسان‌ها و شبکه‌های ناامن فراهم شود. به این معنی که اگر کاربری در شرایط خاص، دسترسی به شبکه امن اینترنت جهانی نداشت، و یا استفاده از پیام‌رسان‌های امن برای او امکان‌پذیر نبود (فرض کنید در شرایط سانسور، فیلترینگ و یا قطع کامل شبکه جهانی اینترنت) و تنها به پیام‌رسان‌های ناامن و یا شبکه‌های ناامن داخلی دسترسی داشت، حتی در اینصورت هم بتواند پیام خود را رمزنگاری کرده و در داخل این شبکه ارسال کند. در این صورت حتی اگر پیام او در میان راه توسط فرد سومی دیده شود، باز هم به علت آنکه رمزنگاری شده است، قابل خواندن نخواهد بود. \n
-        \n توجه: با هر بار پاک کردن کامل نرم‌افزار نهفت و نصب دوباره آن و همچنین با هر بار تغییر گوشی شما و در نتیجه نصب دوباره نهفت، کلیدهای عمومی (و نیز کلید خصوصی) تغییر می‌کند. بنابراین هربار که گوشی شما تغییر می‌کند و یا نهفت را پاک کرده و دوباره نصب می‌کنید، باید دوباره با دوستان خود این کلیدها را جابجا کنید. \n
-        <!--Fix this line by adding a "(ii" to the right of the Persian sentence below. -->
-        \n مهم: نهفت یک نرم‌افزار  متن باز (اوپن‌سورس) است و همه می‌توانند به کدهای برنامه‌نویسی آن دسترسی داشته باشند. \n
-        \n درباره سازندگان نهفت \n
-        \n «نهفت» از جمله تولیداتی است که در برنامه ایران کوباتور۲ و تحت نظارت سازمان «اتحاد برای ایران» تهیه شده است. سازمان اتحاد برای ایران یک نهاد حقوق‌بشری است که مرکز آن در شهر برکلی، ایالت کالیفرنیا قرار دارد.  هدف این نهاد گسترش آزادی‌های مدنی در ایران، دفاع از حقوق بشر، حمایت از جامعه مدنی و ترغیب شهروندان به مشارکت از طریق فناوری است. \n
-
-    </string>
-
-    <!-- Read User Guide -->
-    <string name="read_user_guide_english">
-       \nReading Messages:\n
-       \nTo read a message, you must first import it.\n
-       \nTo share a received message directly to the Nahoft app from your preferred messaging app: click on the message, press select all, and share.\n
-       \nThis will generate a sharing menu and Nahoft will be amongst the apps you can to share to.\n
-       \nThe Nahoft app will pop up a message that states: "Which friend sent this message?"\n
-       \nChoose the friend that sent the message.\n
-       \nNext, the message will appear.\n
-       \nAnother way to import a message is to copy the message or image to your clipboard.\n
-       \nTap the green read icon on the home page.\n
-       \nNext, choose either the \'Import Text\' or \'Import Image\' button on the read menu screen based on the message type you have received.\n
-       \nChoose the name of the verified friend you received the message from.\n
-       \nTo import text, Long press on the white space that states, \'Paste text here\'.\n
-       \nTap \'Import Text\' to finish.\n
-       \nIf you have received an image, press \'Import Image\', select the image when prompted, and the sender when prompted.\n
-       \nIf the message is successfully imported, you will see the original text.\n
-       \nTo read a message that is saved navigate to the read screen, and press messages.\n
-       \nAll received messages are stored here until deleted.\n\n
-    </string>
-
-    <string name="read_user_guide_persian">
-        <!-- Fix this first line by adding the English word Read (2 to the right of the  (خواندن) -->
-        \n (خواندن) Read \n
-        \n با باز کردن نهفت، شما با پنج انتخاب در صفحه اصلی مواجه می‌شوید. یکی از آن انتخاب‌ها گزینه «خواندن» یا Read است: \n
-        \n پیام‌ها (massages) \n
-        \n در این بخش پیام‌هایی که قبلا رسیده و خوانده‌اید، ذخیره خواهد شد. شما متن رمزنگاری شده را از طریقی خارج از برنامه نهفت دریافت کرده‌اید. و بعد آن را به داخل این نرم‌افزار منتقل کرده و خوانده‌اید. در اینصورت پیام شما در این قسمت ذخیره می‌شود. \n
-        \n هر پیام ذخیره شده، تاریخ ذخیره شدن پیام و  همچنین کسی که پیام را ارسال کرده، نشان می‌دهد. \n
-        \n پیام را باز کنید. اگر علامت سطل آشغال در گوشه سمت راست را انتخاب کنید، پیام شما پاک خواهد شد. \n
-        \n وارد کردن متن (Import Text) \n
-        \n برای خواندن متن رمزنگاری شده، از این قسمت استفاده کنید. شما یک پیام را بصورت متن رمزنگاری شده دریافت کرده‌اید. \n
-        \n شما می‌دانید که پیام را چه کسی ارسال کرده و قبلا کلیدهای عمومی خود را رد و بدل کرده و تایید کرده‌اید. (بخش۴ مربوط به دوستان را ببینید) \n
-        \n برای خواندن متن رمزنگاری شده، از قسمت «وارد کردن متن» یا (Import Text) استفاده کنید. پیام متنی رمزنگاری شده را که از طریق یک پیامرسان دریافت کرده‌اید، کپی کرده و در بخش متن منتقل کنید. انتخاب کنید که پیام را از چه کسی دریافت کرده‌اید. گزینه Import Text را بزنید تا متن شما رمزگشایی شود. متن پنهان، ظاهر شده و بعد بصورت اتوماتیک در بخش پیام‌ها ذخیره خواهد شد. \n
-        \n وارد کردن تصویر (Import Image) \n
-        \n برای خواندن پیام رمزنگاری در داخل عکس، از این قسمت استفاده کنید. شما یک عکس را بصورت رمزنگاری و در حالی که پیام در داخل آن قرار دارد، دریافت کرده‌اید. \n
-        \n شما می‌دانید که پیام را چه کسی ارسال کرده و قبلا کلیدهای عمومی خود را رد و بدل کرده و تایید کرده‌اید. (بخش۴ مربوط به دوستان را ببینید) \n
-        \n برای خواندن عکس حاوی متن رمزنگاری شده، از قسمت «وارد کردن تصویر» یا (Import Image) استفاده کنید. انتخاب کنید که پیام را از چه کسی دریافت کرده‌اید. گزینه Import Image را بزنید، عکسی را که از طریق یک پیامرسان دریافت کرده و قبلا ذخیره  کرده‌اید، انتخاب کنید. متن ظاهر شده و بعد بصورت اتوماتیک در بخش پیام‌ها ذخیره خواهد شد. \n
-    </string>
-
-    <!-- Create User Guide -->
-    <string name="create_user_guide_english">
-       \nCreate Messages:\n
-       \nYou can only send messages to \'verified\' friends.\n
-       \nStart by tapping the purple create icon on the home screen.\n
-       \nClick the drop down menu beside the \'To\' on the create screen to choose the friend you would like to send a message to.\n
-       \nWrite your message in the window that says \'Message Body\'.\n
-       \nTap \'Send as Text\' to encrypt your message and transform it into a different series of characters.\n
-       \nPress \'Send as Image\' to encrypt your message and embed it in the image you select.\n
-       \nOnce you have made your selection you will be prompted to share the image or text. Here you can select your preferred messaging app or copy it to your clipboard to paste it directly into your preferred messaging app.\n
-       \nIf you do not currently have access to the internet, write you message and then choose \'Save Image\'. This will save the image to your phone so you can send it later once you have re-established internet connectivity.\n
-       \nTo delete a message, go to the read screen, open the message you want to remove and click the trash can icon.\n\n
-    </string>
-
-    <string name="create_user_guide_persian">
-        \n (ایجاد پیام) Create \n
-        \n  با باز کردن نهفت، شما با پنج انتخاب در صفحه اصلی مواجه می‌شوید. یکی از آن انتخاب‌ها گزینه «ایجاد پیام» یا Create است: \n
-        \n انتخاب گیرنده (To) \n
-        \n در این بخش شما انتخاب می‌کنید که پیام را به چه کسی ارسال می‌کنید. \n
-        \n شما قبلا با تعدادی از دوستان خود که آنها هم از نرم‌افزار «نهفت» استفاده می‌کنند، کلیدهای عمومی خود را رد و بدل کرده‌ و تایید کرده‌اید. (بخش۴ مربوط به دوستان را ببینید) \n
-        \n از لیست این دوستان، کسی که قرار است پیام شما را دریافت کند انتخاب کنید. \n
-        \n نوشتن متن (Massage Body) \n
-        \n در این قسمت شما پیامی را که می‌خواهید ارسال کنید بنویسید. پیام می‌تواند فارسی، ترکی، کردی، عربی، انگلیسی یا به هر زبان و با هر الفبایی که شما انتخاب می‌کنید نوشته شود. اما هر پیام حداکثر باید هزار کاراکتر شود. اگر پیام طولانی‌تری دارید، آن را به چند پیام کوتاه‌تر تقسیم کنید و در چند پیام جداگانه بفرستید. \n
-        \n ذخیره بصورت تصویر (Save as Image) \n
-        \n اگر می‌خواهید پیام شما در یک عکس جاسازی شود، و سپس بصورت آفلاین در گوشی شما ذخیره شود، از این گزینه استفاده کنید. با فشردن کلید Save as Image، «نهفت»، آلبوم عکس شما را باز می‌کند. اگر قبلا دسترسی نداده‌اید، لطفا به «نهفت» دسترسی به آلبوم عکس بدهید. سپس یک عکس انتخاب کنید. این عکس ذخیره می‌شود. سپس شما می‌توانید فایل عکس ذخیره شده را از هر طریقی که مناسب می‌دانید به دوست خود ارسال کنید. \n
-        \n ارسال بصورت تصویر(Send as Image) \n
-        \n اگر می‌خواهید پیام شما در یک عکس جاسازی شود، و سپس همزمان از طریق یک نرم‌افزار پیام‌رسان ارسال شود، از این گزینه استفاده کنید. با فشردن کلید Send as Image ، «نهفت» آلبوم عکس شما را باز می‌کند. اگر قبلا دسترسی نداده‌اید، لطفا به «نهفت» دسترسی به آلبوم عکس بدهید. سپس یک عکس انتخاب کنید. پیام در این عکس جاسازی می‌شود و سپس شما باید پیامرسانی را که می‌خواهید پیام را ارسال کنید انتخاب کنید. توجه کنید نحوه ارسال به‌گونه‌ای نباشد که ساختار فایل شما را تغییر دهد. \n
-        \n مهم: مثلا اگر از طریق تلگرام ارسال می‌کنید، فقط بصورت فایل ارسال کنید. چون اگر بصورت عکس ارسال شود، ساختار فایل تغییر می‌کند و پیام شما آسیب خواهد دید و قابل خواندن نخواهد بود. \n
-        \n ارسال بصورت متن(Send as Text) \n
-        \n اگر می‌خواهید پیام شما بصورت متن رمزگذاری شود از این گزینه استفاده کنید. بعد از نوشتن متن و فشردن کلید Send as Text شما می‌توانید بصورت همزمان و از طریق یک پیامرسان دلخواه پیام را ارسال کنید و یا می‌توانید متن رمزگذاری شده را کپی کنید و جداگانه ذخیره کنید یا مثلا داخل نرم‌افزار دلخواهتان برده و ارسال کنید. \n
-    </string>
-
-    <!-- Friends User Guide -->
-    <string name="friends_user_guide_english">Adding Friends:\n
-        \nTap the friends icon on the home page.\n
-        \nPress the + icon at the bottom of the friends screen.\n
-        \nType the name of the friend you want to add and press add.\n
-        \nClick the invite button beside your friend\'s name.\n
-        \nA share menu will pop up. You will see your invitation to your friend as a message to send. It will look like random Persian text.\n
-        \nShare your invitation via your preferred messaging app here. If you are physically near your friend and their device, try sharing by using the nearby or bluetooth options in the sharing menu.\n
-        \nThe friend you are adding must also follow these same steps to send you an invitation back.\n
-        \nThere are several ways to accept the invitation you receive from your friend.\n
-        \nIf you have the invitation message copied to your clipboard, you can click the \'Import Invitation\' button beside your new friends name and paste the invite text directly.\n
-        \nSimilarly, with an invite copied to your clipboard you can tap the read button on the home screen, then tap the import text button in the read menu screen.\n
-        \nPaste the invitation message with a long press, choose the friend that sent it, and select import text.\n
-        \nTo share your invite directly from another app, find the text in your preferred messaging app, select all, and choose share.\n
-        \nSelect Nahoft as the app you want to share to.\n
-        \nWhen prompted, select the friend that sent the invitation.\n
-        \nReturn to the friends screen and select the friend you have and received an invitation back from. Their name should say \'Approved\' as the status.\n
-        \nSelect the \'Verify\' button beside the friend you received the invitation from.\n
-        \nContact your friend outside of the app you normally use to confirm the information on the verification screen matches your friend.\n
-        \nIf the numbers on the verification screen match, tap OK. If not, tap reset.\n
-        \nClick the red \'Delete Friend\' button at the bottom of the screen\n\n
-     </string>
-
-    <string name="friends_user_guide_persian">
-        \n (دوستان) Friends  \n
-        \n با باز کردن نهفت، شما با پنج انتخاب در صفحه اصلی مواجه می‌شوید. یکی از آن انتخاب‌ها گزینه «دوستان» یا Friends است. \n
-        \n مراحل تایید مخاطب رو میتونید با جزئیات بیشتر به شکل زیر دنبال کنید: \n
-        \n برای این کار به قسمت "friend"  رفته و روی علامت + میزنید \n
-        \n برای مخاطب مورد نظر یک اسم انتخاب میکنید \n
-        \n بعد از این روی گزینه "invite" میزنید و کلید اختصاصی خودتون رو از طریق هر پیام رسانی و حتی به صورت اس ام اس (پیام کوتاه) یا ایمیل برای شخص مقابل ارسال میکنید \n
-        \n تمام مراحل بالا رو شخص مقابل هم برای شما باید انجام بده \n
-        \n بعد از اینکه شخص مقابل کلید شخصی خودش رو ارسال کرد، شما باید وارد قسمت "friend" شده و اسم شخص مورد نظر رو انتخاب کنید و روی گزینه "import invitation" بزنید و کلید رو در اون قسمت وارد کنید (کپی و اضافه کردن) \n
-        \n بعد از اینکه هر دو طرف مراحل بالا رو انجام دادن مخاطب شما از حالت "invite" به حالت "approved"  در میاد \n
-        \n بعد با زدن روی "approved" مخاطب رو به حالت "verify" یعنی تایید شده در میارید که از این به بعد به راحتی میتونید تمام پیام‌های خودتون رو برای اون مخاطب خاص از طریق نهفت کدگذاری کنید و برای اون مخاطب خاص ارسال کنید و فقط و فقط اون مخاطب قادر به رمزگشایی پیام شما هست \n
-        \n برای ارسال پیام کدگذاری شده روی گزینه "create" بزنید و فرد مورد نظرتون رو از بین مخاطبینی که قبلا مراحل تایید رو باهاشون گذروندین انتخاب کنید و پیام مورد نظر رو در محل مخصوص درج پیام وارد کنید و در پایین از بین مسیرهای "save as a image" و "send as a image"  یا "send as a text"  یکی رو انتخاب کنید. سپس از بین نرم‌افزارهای ارسال پیامی که روی موبایلتون دارید حتی از طریق اس‌ام‌اس یا همون پیام کوتاه  یک مورد را انتخاب کنید و پیام خودتون رو برای شخص مورد نظرتون ارسال کنید \n
-        \n مخاطب شما یک پیام به صورت کلمات تصادفی و درهم دریافت میکنه که هیچ معنا و مفهوم مشخصی نداره \n
-        \n برای رمزگشایی و دریافت پیام اصلی مخاطب مقابل شما باید پیام شما رو کپی کرده و وارد نهفت بشه و روی گزینه "read"  بزنه و با وارد کردن پیام رمزگذاری شده به متن اصلی پیام دسترسی پیدا کنه. \n
-    </string>
-
-    <!-- Settings User Guide -->
-    <string name="settings_user_guide_english">
-       \nSetting Passcodes:\n
-       \nTap the settings icon on the home screen.\n
-       \nMove the toggle switch to allow the user to require a passcode.\n
-       \nThe first two passcode lines set the passcode to gain entry into the app.\n
-       \nThe last two passcode lines set the destruction code.\n
-       \nThe destruction code exists to remove all saved data and friends if entered into the initial passcode screen instead of the first set passcode.\n
-       \nHit submit to keep all changes.\n\n
-    </string>
-
-    <string name="settings_user_guide_persian">
-        \n (تنظیمات) Settings \n
-        \n با باز کردن نهفت، شما با پنج انتخاب در صفحه اصلی مواجه می‌شوید. یکی از آن انتخاب‌ها گزینه «تنظیمات» یا Settings است. \n
-        \n در این بخش شما می‌توانید دو نوع رمز برای نرم‌افزار نهفت تعریف کنید. یک رمز برای ورود و خروج به نرم‌افزار است، و دیگری دقیقا مشابه رمز ورود عمل می‌کند اما با وارد کردن آن همه اطلاعات داخل نهفت پاک خواهد شد. \n
-        \n رمز عبور ورود به برنامه (Passcode) \n
-        \n با فعال کردن گزینه Passcode شما یک رمز شش رقمی تعریف می‌کنید که برای ورود به برنامه در زمانی که Logout شده، نیاز خواهید داشت. \n
-        \n کد نابودی پاک کردن اطلاعات برنامه (Destruction Code) \n
-        \n با فعال کردن گزینه Destruction Code شما یک رمز شش رقمی تعریف می‌کنید که برای نابودی همه اطلاعات ذخیره شده در داخل نهفت، از جمله همه پیام‌ها و لیست همه دوستان به کار خواهد آمد. \n
-        \n شما از این رمز در مواقع اضطراری استفاده خواهید کرد تا اطلاعات شما احیانا در اختیار افرادی که صلاح نمی‌دانید، قرار نگیرد. \n
-        \n قفل کردن برنامه (Logout) \n
-        \n تا زمانی که پسوورد ورود را تعریف نکرده‌اید، گزینه Logout فعال نمی‌شود. این گزینه بعد از تعریف پسوورد نمایان می‌شود و پیشنهاد ما این است که پس از استفاده از برنامه، از آن خارج شوید تا ورود دوباره به آن نیازمند رمز باشد. \n
-        \n اگر شما گزینه Logout را استفاده نکنید، نهفت بعد از چند دقیقه خود بخود خارج می‌شود و شما برای ورود به آن نیازمند رمز خود خواهید بود. \n
-        \n دقت کنید که رمز اصلی را وارد کنید و نه رمزی که برای نابودی اطلاعات تعریف شده بود. \n
-    </string>
 
     <!-- Content Descriptions -->
 
-    <string name="content_description_add_friend_button">افزودن دوست</string>
-    <string name="from">از</string>
     <string name="alert_text_message_too_long">پیام شما بسیار طولانی است.</string>
     <string name="button_label_delete">حذف کردن</string>
-    <string name="button_label_reset">بازنشانی کردن</string>
-    <string name="button_label_english">English</string>
-    <string name="button_label_persian">فارسی</string>
     <string name="alert_text_confirm_friend_delete">برای حذف %1$s مطمئنید؟</string>
     <string name="button_label_cancel">لغو</string>
     <string name="user_guide_button_description">این دکمه شما را به راهنمای کاربر هدایت می‌کند.</string>
-    <string name="settings_button_description">این دکمه شما را به منوی تنظیمات هدایت می‌کند.</string>
-    <string name="friends_button_description">این دکمه شما را به منوی دوستان هدایت می‌کند.</string>
-    <string name="read_button_description">این دکمه شما را به منوی خواندن پیام، وارد کردن متن و وارد کردن تصویر هدایت می‌کند.</string>
-
-    <string name="ok_button">تأیید</string>
 
     <!-- New Content Descriptions -->
     <string name="alert_text_invalid_passcode">این رمز عبور نامعتبر است.</string>
@@ -267,16 +65,9 @@
 
     <!-- Enter Passcode Activity XML -->
     <string name="enter_passcode">رمز عبور خود را وارد کنید</string>
-    <!-- Home Activity -->
-    <string name="button_label_help">راهنما</string>
-    <string name="button_label_read">خواندن</string>
-    <string name="button_label_create">ایجاد کردن</string>
 
     <!-- Import Image Activity -->
     <string name="import_image_hint">تصویری را از حافظه دستگاه خود وارد کنید.</string>
-
-    <!-- Import Text Activity -->
-    <string name="import_text_label">وارد کردن متن</string>
 
     <!-- Settings Activity -->
     <string name="settings_activity_label">تنظیمات</string>
@@ -284,43 +75,18 @@
     <string name="destructionCode">رمز نابودی</string>
     <string name="passcodeTwice">رمز عبور خود را مجدداً وارد کنید</string>
 
-    <!--Create Activity -->
-    <string name="to">به</string>
-    <string name="sendAsTextButtonLabel">ارسال به‌عنوان متن</string>
-    <string name="saveImageButtonLabel">ذخیره به‌عنوان تصویر</string>
-
     <!-- Friends Info -->
-    <string name="friends_info_activity_heading">اطلاعات</string>
-    <string name="edit_friend_button">ویرایش دکمۀ دوست</string>
-    <string name="edit_button">ویرایش</string>
     <string name="send_message">ارسال پیام</string>
     <string name="import_text">وارد کردن متن</string>
-    <string name="verify_button">تأیید کردن</string>
-    <string name="invite_button">دعوت کردن</string>
     <string name="decline_button">نپذیرفتن</string>
     <string name="import_invitation_button">وارد کردن دعوتنامه</string>
 
-    <string name="button_descriptions">
-        برای ارسال دعوتنامه به یک دوست، «دعوت کردن» را فشار دهید .\n
-         در صورت نیاز به ارسال مجدد دعوت، «دعوت کردن مجدد» را فشار دهید.\n
-         برای وارد کردن دعوتنامه از یک دوست، «وارد کردن دعوتنامه» را وارد کنید.\n
-         برای مقایسه و تأیید مطابقت کلیدهای عمومی خود، «تأیید» را فشار دهید.\n
-         برای رد کردن آخرین دعوتنامۀ ارسالی و شروع مجدد فرآیند، «نپذیرفتن» را فشار دهید.\n
-    </string>
-
-    <string name="delete_friend_button">حذف کردن دوست</string>
-
-    <!-- Messages Activity -->
-    <string name="messages_activity_heading">پیام‌ها</string>
-
     <!-- Add Friend Alert Dialog -->
-    <string name="enter_nickname">وارد کردن نام مستعار</string>
     <string name="add_button">افزودن</string>
     <string name="stop_button">لغو</string>
 
     <!-- Activity Friends Info -->
     <string name="nickname">نام</string>
-    <string name="verification_code">کد تأیید</string>
     <string name="friend_status_default">پیش‌فرض</string>
     <string name="friend_status_requested">درخواست‌ شده</string>
     <string name="friend_status_invited">دعوت‌ شده</string>
@@ -332,7 +98,6 @@
     <string name="reenter_destruction_code">کد نابودی را مجدداً وارد کنید</string>
 
     <!-- Message -->
-    <string name="from_with_colon">از:</string>
     <string name="alert_passcode_saved">رمز عبور شما ذخیره شده است.</string>
     <string name="alert_destruction_code_saved">کد نابودی شما ذخیره شده است.</string>
     <string name="messages">پیام‌ها</string>
@@ -346,17 +111,10 @@
     <string name="what_is_nahoft">نهفت چیست؟</string>
 
     <!-- V2 -->
-    <string name="destructionCodeDescription">با فعال کردن گزینه "کد تخریب" شما یک رمز شش رقمی انتخاب می‌کنید که برای نابودی همه اطلاعات ذخیره شده در داخل نهفت، از جمله همه پیام‌ها و فهرست دوستان به کار خواهد آمد.
-شما از این رمز در مواقع اضطراری استفاده خواهید کرد تا اطلاعات شما احیانا در اختیار افرادی که صلاح نمی‌دانید، قرار نگیرد.</string>
     <string name="get_started">شروع کنید</string>
     <string name="skip">رد کن</string>
     <string name="what_is_nahoft_description">نهفت یک ابزار برای رمزگذاری پیام‌هاست و به عنوان یک پیام‌رسان شناخته نمی‌شود.</string>
     <string name="send_encrypted_messages">.پیام‌های رمزگذاری شده را به صورت متنی یا تصویری ارسال کنید</string>
-    <string name="send_encrypted_messages_description">شما می‌توانید پیام‌های خود را رمزگذاری کرده و آن‌ها را به صورت متنی (با استفاده از کلمات تصادفی) یا به صورت تصویر (با انتخاب تصویری از گالری دستگاه خود) ارسال کنید.</string>
-    <string name="fully_offline">کاملاً آفلاین</string>
-    <string name="fully_offline_description">این برنامه برای ارسال، دریافت و رمزگذاری پیام‌های شما از هیچ سروری استفاده نمی‌کند.</string>
-    <string name="passcode_for_login">رمز عبور برای ورود به برنامه</string>
-    <string name="passcode_for_login_description">شما می‌توانید برای ورود به برنامه، یک رمز عبور تنظیم کنید.</string>
     <string name="passcode_description">با فعال کردن گزینه "رمز عبور" می‌توانید یک رمز شش رقمی تعریف کنید که برای  هر بار ورود به نهفت به آن نیاز خواهید داشت. با فعال کردن ویژگی رمز عبور، در پایین صفحه اصلی نهفت گزینه "خروج" فعال می‌شود.</string>
     <string name="destruction_code_description">با فعال کردن گزینه "رمز نابودی" شما یک رمز شش رقمی تعریف می‌کنید که برای نابودی همه اطلاعات ذخیره شده در داخل نهفت، از جمله پاک شدن پیام‌ها و لیست دوستان به کار خواهد آمد. \n شما از این رمز در مواقع اضطراری استفاده خواهید کرد تا اطلاعات شما احیانا در اختیار افرادی که صلاح نمی‌دانید، قرار نگیرد.</string>
     <string name="close">بستن</string>
@@ -369,7 +127,6 @@
     <string name="profile_picture">عکس نمایه</string>
     <string name="sample_date_time">دیروز ساعت ۱۴:۲۶</string>
     <string name="add_new_friend">افزودن دوست جدید</string>
-    <string name="phone_number_optional">شماره تلفن (اختیاری)</string>
     <string name="select_sender">فرستنده را انتخاب کن</string>
     <string name="are_you_sure_to_delete">آیا از حذف پیام مطمئن هستید؟</string>
     <string name="import_encrypted_image_messages_using_this_button">از این دکمه برای وارد کردن  دستی پیام تصویری رمزنگاری شده استفاده کنید.</string>
@@ -377,22 +134,10 @@
     <string name="send_encrypted_text_messages_using_this_button">از این دکمه برای ارسال پیام‌ متنی رمزنگاری شده استفاده کنید.</string>
     <string name="send_encrypted_image_messages_using_this_button">از این دکمه برای ارسال پیام‌ تصویری رمزنگاری شده استفاده کنید.</string>
     <string name="friends_list">لیست دوستان</string>
-    <string name="friends_list_description">Friends list description</string>
     <string name="add_new_friend_description">برای افزودن یک دوست جدید؛ بر روی آیکن به علاوه + بزنید. دو گزینه پدیدار می‌شود: \n گزینه 1، افزودن مخاطب جدید از لیست مخاطبین. \n گزینه 2، ایجاد مخاطب جدید</string>
-    <string name="approve_friend">تایید دوست</string>
-    <string name="approve_friend_description">پس از وارد کردن کلید عمومی دوستتان، حساب کاربری دوست شما به حالت "منتظر تائید" در می‌آید. برای تأیید حساب دوستتان و تغییر وضعیت آن به "تائید شده"، باید کلید عمومی او را با او یک بار دیگر بررسی کرده و پس از تأیید آن، بر روی دکمه "تائید شد" کلیک کنید.</string>
-    <string name="approve_friend_full_description">Approve friend full description</string>
     <string name="delete_friend_description">برای حذف یک مخاطب، مراحل زیر را دنبال کنید: \n انگشت خود را روی نام دوست مورد نظر چند ثانیه نگه دارید. \n پس از چند ثانیه، پیامی خواهید دید که از شما می‌پرسد آیا مطمئن هستید که می‌خواهید دوست خود را حذف کنید یا خیر. با انتخاب گزینه "بله" دوست شما حذف می‌شود.</string>
     <string name="read_more">بیشتر بخوانید</string>
-    <string name="contact_list">لیست مخاطبین</string>
-    <string name="add_new_user_from_contact_list">افزودن مخاطب از لیست</string>
-    <string name="add_new_user_manually">ایجاد مخاطب جدید</string>
     <string name="to_import_or_create_a_new_friend_help">برای ایجاد یک دوست جدید، روی این دکمه کلیک کنید.</string>
-    <string name="accept">بله اجازه می‌دهم.</string>
-    <string name="are_you_sure">آیا اطمینان دارید?</string>
-    <string name="allow">اجازه می‌دهم</string>
-    <string name="deny">اجازه نمی‌دهم</string>
-    <string name="contact_permission_declined">برای نمایش مخاطبین، نهفت به دسترسی دفترچه تلفن نیاز دارد. در صورت عدم تمایل به اعطای این دسترسی، شما می‌توانید به صورت دستی مخاطب مورد نظر خود را از بخش لیست دوستان اضافه کنید.</string>
     <string name="nahofts_team">تیم نهفت</string>
     <string name="nahofts_team_description">کارشناسان ایرانی و غیرایرانی با سابقه کار در شرکت‌های بزرگ فناوری، گرد هم آمدند و با حمایت سازمان اتحاد برای ایران نهفت را ایجاد کردند.</string>
     <string name="nahofts_usage">کاربرد نهفت</string>
@@ -401,7 +146,6 @@
     <string name="nahofts_features_description">یک لایه امنیتی برای ارسال پیام‌ از طریق کانال‌های ناامن \n کاملاً آفلاین. نهفت بدون سرور عمل می‌کند. \n کد نابودی. بلافاصله داده‌هایتان را پاک کنید.</string>
     <string name="copy">کپی</string>
     <string name="copied">کپی شد</string>
-    <string name="contact_list_description">اگر به نهفت اجازه خواندن دفترچه تلفن را بدهید. از این بخش می‌توانید لیست مخاطبین دفترچه تلفن خود را ببینید و انتخاب کنید که کدام مخاطب را به لیست دوستانتان اضافه کنید.</string>
     <string name="add_new_contact">افزودن دوست جدید</string>
     <string name="delete_a_contact">حذف دوست</string>
     <string name="edit_contact_name">ویرایش مشخصات دوست</string>

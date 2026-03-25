@@ -19,6 +19,7 @@
     <dimen name="list_item_divider_height">2dp</dimen>
     <dimen name="list_item_with_divider_height">132dp</dimen>
     <dimen name="drag_handle_size">48dp</dimen>
+    <dimen name="padding_row_horizontal">14dp</dimen>
 
     <dimen name="button_height">32dp</dimen>
     <dimen name="button_width">144dp</dimen>
@@ -26,5 +27,7 @@
     <dimen name="app_bar_height">180dp</dimen>
     <dimen name="fab_margin">16dp</dimen>
     <dimen name="text_margin">16dp</dimen>
+
+
 
 </resources>

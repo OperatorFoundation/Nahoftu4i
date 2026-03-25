@@ -415,7 +415,7 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
         if (_binding == null || !isAdded) return
 
         binding.progressCycle.progress = cycleInfo.cyclePositionSeconds
-        binding.tvCycleTime.text = "${cycleInfo.cyclePositionSeconds}s / 120s"
+        binding.tvCycleTime.text = getString(R.string.cycle_time_format, cycleInfo.cyclePositionSeconds, 120)
 
         val nextWindow = cycleInfo.nextDecodeWindowInfo
         binding.tvNextWindow.text = getString(
