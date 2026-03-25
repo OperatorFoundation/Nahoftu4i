@@ -276,16 +276,8 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
             is ReceiveSessionState.TimedOut -> {
                 updateStatus(getString(R.string.session_timed_out))
                 updateStateIcon(R.drawable.ic_access_time, R.color.tangerine, AnimationType.NONE)
-
-                // Update status card to show timeout
-                binding.tvStatusSubtitle.text = getString(R.string.session_timed_out)
-                binding.tvStatusSubtitle.setTextColor(
-                    ContextCompat.getColor(requireContext(), R.color.tangerine)
-                )
             }
         }
-
-        updateStatusCard()
     }
 
     /**
@@ -324,57 +316,6 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
             else -> {
                 updateStateIcon(R.drawable.ic_radio, R.color.coolGrey, AnimationType.NONE)
                 updateStatus(state::class.simpleName ?: "Unknown")
-            }
-        }
-    }
-
-    /**
-     * Updates the Status card based on current state.
-     */
-    private fun updateStatusCard()
-    {
-        if (_binding == null || !isAdded) return
-
-        val context = requireContext()
-        val decryptionAttempts = viewModel.getDecryptionAttempts()
-        val messageReceived = viewModel.messageJustReceived.value
-
-        when {
-            messageReceived -> {
-                binding.ivStatusIcon.setImageResource(R.drawable.ic_success)
-                binding.ivStatusIcon.setColorFilter(
-                    ContextCompat.getColor(context, R.color.caribbeanGreen),
-                    PorterDuff.Mode.SRC_IN
-                )
-                binding.tvStatusTitle.text = getString(R.string.status)
-                binding.tvStatusSubtitle.text = getString(R.string.status_received)
-                binding.tvStatusSubtitle.setTextColor(
-                    ContextCompat.getColor(context, R.color.caribbeanGreen)
-                )
-            }
-            decryptionAttempts > 0 -> {
-                binding.ivStatusIcon.setImageResource(R.drawable.ic_sync)
-                binding.ivStatusIcon.setColorFilter(
-                    ContextCompat.getColor(context, R.color.tangerine),
-                    PorterDuff.Mode.SRC_IN
-                )
-                binding.tvStatusTitle.text = getString(R.string.status)
-                binding.tvStatusSubtitle.text = getString(R.string.status_incomplete, decryptionAttempts)
-                binding.tvStatusSubtitle.setTextColor(
-                    ContextCompat.getColor(context, R.color.coolGrey)
-                )
-            }
-            else -> {
-                binding.ivStatusIcon.setImageResource(R.drawable.ic_sync)
-                binding.ivStatusIcon.setColorFilter(
-                    ContextCompat.getColor(context, R.color.coolGrey),
-                    PorterDuff.Mode.SRC_IN
-                )
-                binding.tvStatusTitle.text = getString(R.string.status)
-                binding.tvStatusSubtitle.text = getString(R.string.status_waiting)
-                binding.tvStatusSubtitle.setTextColor(
-                    ContextCompat.getColor(context, R.color.coolGrey)
-                )
             }
         }
     }
@@ -462,29 +403,8 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
     {
         if (_binding == null || !isAdded) return
 
-        val originalColor = ContextCompat.getColor(requireContext(), R.color.lightGrey)
-        val successColor = ContextCompat.getColor(requireContext(), R.color.caribbeanGreen)
-
-        val colorAnim = android.animation.ValueAnimator.ofArgb(successColor, originalColor).apply {
-            duration = 1000
-            addUpdateListener { animator ->
-                _binding?.cardStatus?.setCardBackgroundColor(animator.animatedValue as Int)
-            }
-        }
-        colorAnim.start()
-
-        val scaleX = ObjectAnimator.ofFloat(binding.ivStatusIcon, "scaleX", 1f, 1.5f, 1f).apply {
-            duration = 500
-        }
-        val scaleY = ObjectAnimator.ofFloat(binding.ivStatusIcon, "scaleY", 1f, 1.5f, 1f).apply {
-            duration = 500
-        }
-        scaleX.start()
-        scaleY.start()
-
         updateStatus(getString(R.string.message_received))
         updateStateIcon(R.drawable.ic_success, R.color.caribbeanGreen, AnimationType.SCALE)
-        updateStatusCard()
     }
 
     /**
