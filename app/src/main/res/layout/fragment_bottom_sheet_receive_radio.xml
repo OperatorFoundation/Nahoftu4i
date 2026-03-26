@@ -321,7 +321,7 @@
                         <ImageView
                             android:layout_width="@dimen/activity_margin"
                             android:layout_height="@dimen/activity_margin"
-                            android:contentDescription="@string/packets"
+                            android:contentDescription="@string/packets_label"
                             android:src="@drawable/ic_radio"
                             app:tint="@color/caribbeanGreen" />
 
@@ -337,7 +337,7 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="@string/packets"
+                            android:text="@string/packets_label"
                             android:textColor="@color/white"
                             android:textSize="11sp" />
                     </LinearLayout>
