@@ -90,16 +90,23 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
             isHideable = true
         }
 
-        // Start session if not already running
-        if (!viewModel.isSessionActive())
+        when
         {
-            // Show frequency input, wait for user to confirm before starting
-            showFrequencyInput()
-        }
-        else
-        {
-            // Session already running — hide input, show live state
-            showFrequencyReadOnly()
+            viewModel.isSessionActive() -> {
+                // Session already running — show live state
+                showFrequencyReadOnly()
+            }
+
+            viewModel.isEdenConnected.value -> {
+                // Eden connected — show frequency input, user confirms before starting
+                showFrequencyInput()
+            }
+
+            else -> {
+                // No Eden — start immediately, no frequency input needed
+                viewModel.startReceiveSession()
+                showFrequencyReadOnly()
+            }
         }
     }
 
