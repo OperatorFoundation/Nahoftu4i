@@ -299,7 +299,7 @@
 
     <!-- Label for the RX frequency input field; value entered in kHz -->
     <string name="rx_frequency_title_khz">RX Frequency in kHz</string>
-    <string name="audio_level">Audio Level</string>
+    <string name="audio_level">Radio Audio Level</string>
     <string name="cycle_progress">Cycle Progress</string>
     <string name="next_decode_window">Next decode window</string>
 
