@@ -340,6 +340,25 @@ class ReceiveSessionService : Service()
                 return@launch
             }
 
+            // Create and initialize audio source early so level monitoring starts
+            // while still waiting for the first WSPR window.
+            audioSource = SignalBridgeWSPRAudioSource(
+                usbAudioConnection = connection,
+                bufferConfiguration = AudioBufferConfiguration.createDefault()
+            )
+
+            val earlyInitResult = audioSource!!.initialize()
+            if (earlyInitResult.isFailure)
+            {
+                Timber.e("Failed to pre-initialize audio source: ${earlyInitResult.exceptionOrNull()?.message}")
+                _receiveSessionState.value = ReceiveSessionState.Stopped
+                stopSelf()
+                return@launch
+            }
+
+            // Start level monitoring
+            launch { observeAudioLevels(connection) }
+
             // Check if early enough in cycle to start immediately
             if (timingCoordinator.isEarlyEnoughToStartCollection())
             {
@@ -511,11 +530,6 @@ class ReceiveSessionService : Service()
         sessionJob = serviceScope.launch {
             try
             {
-                audioSource = SignalBridgeWSPRAudioSource(
-                    usbAudioConnection = connection,
-                    bufferConfiguration = AudioBufferConfiguration.createDefault()
-                )
-
                 val config = WSPRStationConfiguration.createDefault()
                 wsprStation = WSPRStation(audioSource!!, config)
 
@@ -535,7 +549,6 @@ class ReceiveSessionService : Service()
                 launch { observeStationState() }
                 launch { observeCycleInformation() }
                 launch { observeDecodeResults() }
-                launch { observeAudioLevels(connection) }
             }
             catch (e: Exception)
             {
