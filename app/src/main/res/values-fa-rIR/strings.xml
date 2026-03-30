@@ -34,6 +34,7 @@
     <string name="return_button">دکمه بازگشت</string>
     <string name="status_icon">آیکن وضعیت</string>
     <string name="user_guide_button_description">این دکمه شما را به راهنمای کاربر هدایت می‌کند.</string>
+    <string name="minimize_sheet">Minimize — session keeps running</string>
 
     <!-- ════════════════════════════════════════════════════════
          AUTHENTICATION — Login screen (LogInActivity)

@@ -33,6 +33,7 @@
     <string name="return_button">Return Button</string>
     <string name="status_icon">Status Icon</string>
     <string name="user_guide_button_description">This button will take you to the user guides.</string>
+    <string name="minimize_sheet">Minimize — session keeps running</string>
 
 
     <!-- ════════════════════════════════════════════════════════
