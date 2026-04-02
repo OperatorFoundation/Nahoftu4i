@@ -79,24 +79,24 @@ class MessagesRecyclerAdapter(private val messages: ArrayList<Message>) : Recycl
 
         private fun loadMessageContent(): String?
         {
-            val senderKeyBytes = message?.sender?.publicKeyEncoded
+            val msg = message ?: return null
 
-            if (senderKeyBytes != null)
+            // Unencrypted messages are stored as raw UTF-8 — no key needed
+            if (!msg.isEncrypted)
             {
-                val senderKey = PublicKey(senderKeyBytes)
-
-                return try {
-                    message?.let { Encryption().decrypt(senderKey, it.cipherText) }
-                } catch (exception: SecurityException) {
-                    // applicationContext.showAlert(getString(R.string.alert_text_unable_to_decrypt_message))
-                    // message?.let { Persist.deleteMessage(getContext(), it) }
-                    "Unable to decrypt message"
-                }
+                return String(msg.cipherText, Charsets.UTF_8)
             }
-            else
+
+            // Encrypted path
+            val senderKeyBytes = msg.sender?.publicKeyEncoded ?: return "Unable to decrypt message"
+
+            return try
             {
-                // applicationContext.showAlert(getString(R.string.alert_text_unable_to_decrypt_message))
-                return "Unable to decrypt message"
+                Encryption().decrypt(PublicKey(senderKeyBytes), msg.cipherText)
+            }
+            catch (_: SecurityException)
+            {
+                "Unable to decrypt message"
             }
         }
     }

@@ -164,10 +164,18 @@ class ReceivedMessagesDialogFragment : BottomSheetDialogFragment()
     {
         val timeString = message?.getDateStringForDetail() ?: formatTimestamp(record.timestamp)
 
-        val plaintext = if (message != null && publicKeyBytes != null)
-            decryptMessage(message.cipherText, publicKeyBytes)
-        else
-            null
+        val plaintext = when
+        {
+            message == null -> null
+
+            // Unencrypted messages are stored as raw UTF-8 — no key needed
+            !message.isEncrypted -> String(message.cipherText, Charsets.UTF_8)
+
+            // Encrypted path
+            publicKeyBytes != null -> decryptMessage(message.cipherText, publicKeyBytes)
+
+            else -> null
+        }
 
         return RowData(timeString, record.spotCount, plaintext)
     }
