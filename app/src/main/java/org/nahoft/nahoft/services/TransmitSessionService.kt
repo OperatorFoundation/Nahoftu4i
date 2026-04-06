@@ -16,7 +16,6 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import org.libsodium.jni.keys.PublicKey
 import org.nahoft.codex.Encryption
 import org.nahoft.nahoft.Nahoft
 import org.nahoft.nahoft.Persist
@@ -25,8 +24,9 @@ import org.nahoft.nahoft.activities.FriendInfoActivity
 import org.nahoft.nahoft.models.Message
 import org.operatorfoundation.audiocoder.WSPREncoder
 import org.operatorfoundation.audiocoder.WSPRTimingCoordinator
-import org.operatorfoundation.Codex.WSPRMessageFields
-import org.operatorfoundation.Codex.encodeDataToWSPRMessages
+import org.operatorfoundation.codex.WSPRMessageFields
+import org.operatorfoundation.codex.encodeDataToWSPRMessages
+import org.operatorfoundation.codex.encodeUnencryptedPayload
 import timber.log.Timber
 
 /**
@@ -57,6 +57,7 @@ class TransmitSessionService : Service()
         const val EXTRA_FRIEND_NAME    = "tx_friend_name"
         const val EXTRA_FRIEND_PUBLIC_KEY = "tx_friend_public_key"
         const val EXTRA_FREQUENCY_KHZ  = "tx_frequency_khz"
+        const val EXTRA_IS_ENCRYPTED  = "tx_is_encrypted"
 
         private const val NOTIFICATION_CHANNEL_ID = "nahoft_transmit_session"
         private const val NOTIFICATION_ID = 1003
@@ -66,13 +67,15 @@ class TransmitSessionService : Service()
             message: String,
             friendName: String,
             friendPublicKey: ByteArray,
-            frequencyKHz: Int
+            frequencyKHz: Int,
+            isEncrypted: Boolean = true
         ): Intent = Intent(context, TransmitSessionService::class.java).apply {
             action = ACTION_START_SESSION
             putExtra(EXTRA_MESSAGE, message)
             putExtra(EXTRA_FRIEND_NAME, friendName)
             putExtra(EXTRA_FRIEND_PUBLIC_KEY, friendPublicKey)
             putExtra(EXTRA_FREQUENCY_KHZ, frequencyKHz)
+            putExtra(EXTRA_IS_ENCRYPTED, isEncrypted)
         }
 
         fun createStopIntent(context: Context): Intent =
@@ -125,6 +128,7 @@ class TransmitSessionService : Service()
                 val name       = intent.getStringExtra(EXTRA_FRIEND_NAME)
                 val publicKey  = intent.getByteArrayExtra(EXTRA_FRIEND_PUBLIC_KEY)
                 val freqKHz    = intent.getIntExtra(EXTRA_FREQUENCY_KHZ, 14095)
+                val isEncrypted = intent.getBooleanExtra(EXTRA_IS_ENCRYPTED, true)
 
                 if (message == null || name == null || publicKey == null)
                 {
@@ -133,7 +137,7 @@ class TransmitSessionService : Service()
                     return START_NOT_STICKY
                 }
 
-                startSession(message, name, publicKey, freqKHz)
+                startSession(message, name, publicKey, freqKHz, isEncrypted)
             }
 
             ACTION_STOP_SESSION -> {
@@ -160,7 +164,8 @@ class TransmitSessionService : Service()
         message: String,
         name: String,
         publicKey: ByteArray,
-        frequencyKHz: Int
+        frequencyKHz: Int,
+        isEncrypted: Boolean
     )
     {
         if (sessionJob?.isActive == true)
@@ -175,7 +180,7 @@ class TransmitSessionService : Service()
         sessionJob = serviceScope.launch {
             try
             {
-                runTxPipeline(message, name, publicKey, frequencyKHz)
+                runTxPipeline(message, name, publicKey, frequencyKHz, isEncrypted)
             }
             finally
             {
@@ -225,7 +230,8 @@ class TransmitSessionService : Service()
         message: String,
         friendName: String,
         publicKey: ByteArray,
-        frequencyKHz: Int
+        frequencyKHz: Int,
+        isEncrypted: Boolean
     )
     {
         // ── 1. Validate Eden ──────────────────────────────────────────────────
@@ -243,16 +249,20 @@ class TransmitSessionService : Service()
         _transmitSessionState.value = TransmitSessionState.Preparing
         updateNotification()
 
-        // Ciphertext for both transmission and saving
-        val encryptedBytes: ByteArray
+        // payloadBytes holds cipher bytes (encrypted) or raw UTF-8 (unencrypted).
+        val payloadBytes: ByteArray
         val symbolArrays: List<LongArray>
 
         try
         {
             val result = withContext(Dispatchers.Default) {
-                encryptAndEncode(message, publicKey, frequencyKHz)
+                if (isEncrypted)
+                    encryptAndEncode(message, publicKey, frequencyKHz)
+                else
+                    encodeUnencryptedForTx(message, frequencyKHz)
             }
-            encryptedBytes = result.first
+
+            payloadBytes = result.first
             symbolArrays = result.second
         }
         catch (e: Exception)
@@ -316,7 +326,7 @@ class TransmitSessionService : Service()
 
         // ── 4. Complete ───────────────────────────────────────────────────────
 
-        saveMessage(encryptedBytes, friendName)
+        saveMessage(payloadBytes, friendName, isEncrypted)
         _transmitSessionState.value = TransmitSessionState.Complete(totalSpots)
         updateNotification()
 
@@ -355,6 +365,39 @@ class TransmitSessionService : Service()
         return Pair(encryptedBytes, symbolArrays)
     }
 
+    /**
+     * Encodes a plaintext message for unencrypted WSPR transmission.
+     *
+     * No encryption step — raw UTF-8 bytes are passed directly to
+     * encodeUnencryptedPayload(), which embeds the spot count header in spot 0.
+     *
+     * Returns a pair of (plaintextBytes, symbolArrays).
+     * Throws on any failure — caller handles the exception.
+     */
+    private fun encodeUnencryptedForTx(
+        message: String,
+        frequencyKHz: Int
+    ): Pair<ByteArray, List<LongArray>>
+    {
+        val plaintextBytes = message.toByteArray(Charsets.UTF_8)
+
+        val wsprFields = encodeUnencryptedPayload(plaintextBytes)
+            ?: throw IllegalStateException("encodeUnencryptedPayload returned null — message may be too large")
+
+        val symbolArrays = wsprFields.map { fields ->
+            WSPREncoder.encodeToFrequencies(
+                WSPREncoder.WSPRMessage(
+                    fields.callsign,
+                    fields.gridSquare,
+                    fields.powerDbm,
+                    frequencyKHz * 1000
+                )
+            )
+        }
+
+        return Pair(plaintextBytes, symbolArrays)
+    }
+
     // ==================== Save Message ======================================
 
     /**
@@ -362,7 +405,7 @@ class TransmitSessionService : Service()
      * Looks up the friend by name from [Persist.friendList].
      * Non-fatal if it fails — transmission already succeeded.
      */
-    private fun saveMessage(encryptedBytes: ByteArray, friendName: String)
+    private fun saveMessage(payloadBytes: ByteArray, friendName: String, isEncrypted: Boolean)
     {
         try
         {
@@ -373,7 +416,7 @@ class TransmitSessionService : Service()
                 return
             }
 
-            val savedMessage = Message(encryptedBytes, friend, fromMe = true)
+            val savedMessage = Message(payloadBytes, friend, fromMe = true, isEncrypted = isEncrypted)
             savedMessage.save(applicationContext)
             Timber.i("saveMessage: saved transmitted message for '$friendName'")
         }
