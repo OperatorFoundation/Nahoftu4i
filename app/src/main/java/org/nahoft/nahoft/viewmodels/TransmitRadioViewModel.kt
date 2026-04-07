@@ -108,8 +108,11 @@ class TransmitRadioViewModel(
      *
      * The service owns the full pipeline from this point forward.
      * Call only once — the service guards against duplicate starts.
+     *
+     * @param isEncrypted Whether to encrypt the message before encoding.
+     *                    Defaults to true. Pass false for unencrypted WSPR transmission.
      */
-    fun startTransmission(frequencyKHz: Int)
+    fun startTransmission(frequencyKHz: Int, isEncrypted: Boolean = true)
     {
         saveTxFrequencyKHz(frequencyKHz)
 
@@ -120,7 +123,8 @@ class TransmitRadioViewModel(
             message = message,
             friendName = friendName,
             friendPublicKey = friendPublicKey,
-            frequencyKHz = frequencyKHz
+            frequencyKHz = frequencyKHz,
+            isEncrypted = isEncrypted
         )
         context.startForegroundService(startIntent)
 

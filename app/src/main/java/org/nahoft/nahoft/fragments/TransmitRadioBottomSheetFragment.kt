@@ -80,6 +80,7 @@ class TransmitRadioBottomSheetFragment : BottomSheetDialogFragment()
 
     private enum class AnimationType { NONE, PULSE, ROTATE }
 
+
     // ==================== Lifecycle ====================
 
     override fun onCreateView(
@@ -127,6 +128,8 @@ class TransmitRadioBottomSheetFragment : BottomSheetDialogFragment()
 
     private fun setupClickListeners()
     {
+        setupEncryptionToggle()
+
         // Frequency stepper
         binding.btnTxFreqMinus.setOnClickListener {
             val current = currentFrequencyInput()
@@ -146,6 +149,23 @@ class TransmitRadioBottomSheetFragment : BottomSheetDialogFragment()
         // Primary action button — label and behavior set by updateActionButton()
         // Initial click listener set here for the Idle (Start) state
         setStartClickListener()
+    }
+
+    // ==================== Encryption Mode ====================
+
+    // Returns whether the current session should use encryption.
+    private fun currentEncryptionMode(): Boolean = !binding.cbDisableEncryption.isChecked
+
+    /**
+     * Wires the encryption checkbox to show/hide the warning icon.
+     */
+    private fun setupEncryptionToggle()
+    {
+        binding.cbDisableEncryption.setOnCheckedChangeListener { _, isChecked ->
+            // Warning icon visible only when encryption is disabled
+            binding.ivEncryptionWarning.visibility =
+                if (isChecked) View.VISIBLE else View.GONE
+        }
     }
 
     // ==================== ViewModel Observation ====================
@@ -216,6 +236,7 @@ class TransmitRadioBottomSheetFragment : BottomSheetDialogFragment()
         binding.btnAction.isEnabled = viewModel.isEdenConnected.value
         binding.btnAction.text = getString(R.string.start_transmission)
         binding.btnClose.visibility = View.GONE
+        binding.cbDisableEncryption.isEnabled = true
     }
 
     private fun showPreparingState()
@@ -230,6 +251,7 @@ class TransmitRadioBottomSheetFragment : BottomSheetDialogFragment()
         binding.btnAction.isEnabled = true
         binding.btnAction.text = getString(R.string.stop_session)
         binding.btnClose.visibility = View.GONE
+        binding.cbDisableEncryption.isEnabled = false
     }
 
     private fun showWaitingForWindowState(state: TransmitSessionState.WaitingForWindow)
@@ -372,7 +394,7 @@ class TransmitRadioBottomSheetFragment : BottomSheetDialogFragment()
     {
         binding.btnAction.setOnClickListener {
             val freqKHz = currentFrequencyInput()
-            viewModel.startTransmission(freqKHz)
+            viewModel.startTransmission(freqKHz, currentEncryptionMode())
         }
     }
 

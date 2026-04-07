@@ -104,7 +104,7 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
 
             else -> {
                 // No Eden — start immediately, no frequency input needed
-                viewModel.startReceiveSession()
+                viewModel.startReceiveSession(currentEncryptionMode())
                 showFrequencyReadOnly()
             }
         }
@@ -112,6 +112,8 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
 
     private fun setupClickListeners()
     {
+        setupEncryptionToggle()
+
         // Hide button (keeps session running)
         binding.btnClose.setOnClickListener {
             dismissAllowingStateLoss()
@@ -146,6 +148,22 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
             val current = binding.etRxFrequency.text.toString().toIntOrNull()
                 ?: viewModel.getRxFrequencyKHz()
             binding.etRxFrequency.setText((current + 1).toString())
+        }
+    }
+
+    // ==================== Encryption Mode ====================
+
+    // Returns whether the current session should use encryption.
+    private fun currentEncryptionMode(): Boolean = !binding.cbDisableEncryption.isChecked
+
+    /**
+     * Wires the encryption checkbox to show/hide the warning icon.
+     */
+    private fun setupEncryptionToggle()
+    {
+        binding.cbDisableEncryption.setOnCheckedChangeListener { _, isChecked ->
+            binding.ivEncryptionWarning.visibility =
+                if (isChecked) View.VISIBLE else View.GONE
         }
     }
 
@@ -271,6 +289,8 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
                 // Station state observer will override icon/status once it emits
                 updateStateIcon(R.drawable.ic_radio, R.color.coolGrey, AnimationType.PULSE)
                 updateStatus(getString(R.string.listening_for_signals))
+
+                binding.cbDisableEncryption.isEnabled = false
             }
 
             is ReceiveSessionState.Stopped -> {
@@ -540,9 +560,11 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
                 ?: viewModel.getRxFrequencyKHz()
 
             viewModel.saveRxFrequencyKHz(freqKHz)
-            viewModel.startReceiveSession()
+            viewModel.startReceiveSession(currentEncryptionMode())
             showFrequencyReadOnly()
         }
+
+        binding.cbDisableEncryption.isEnabled = true
     }
 
     /**

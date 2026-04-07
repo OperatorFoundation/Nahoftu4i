@@ -353,6 +353,8 @@
     <string name="tx_cancelled_title">Transmission Cancelled</string>
     <!-- Shown when TX is cancelled — the hardware returns to passive receive mode -->
     <string name="tx_cancelled_detail">Eden has returned to receive mode</string>
+    <string name="send_without_encryption">Send without encryption</string>
+    <string name="encryption_warning">Message will be sent as plaintext</string>
 
 
     <!-- ════════════════════════════════════════════════════════

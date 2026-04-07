@@ -121,6 +121,49 @@
 
             </LinearLayout>
 
+            <!-- ── Encryption mode ────────────────────────────────────────────── -->
+            <!--
+                Checkbox defaults to unchecked (encrypted). Disabled once TX starts.
+                Warning icon appears only when encryption is disabled.
+                When this becomes a dropdown, only this section changes.
+            -->
+            <LinearLayout
+                android:id="@+id/encryption_section"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:background="@drawable/section_bkgd_dark_grey_8"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:padding="12dp">
+
+                <CheckBox
+                    android:id="@+id/cb_disable_encryption"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:buttonTint="@color/white"
+                    android:checked="false"
+                    android:text="@string/send_without_encryption"
+                    android:textColor="@color/white"
+                    android:textSize="14sp" />
+
+                <!--
+                    Warning icon — visible only when encryption is disabled.
+                    Communicates risk without being alarming when encrypted (default).
+                -->
+                <ImageView
+                    android:id="@+id/iv_encryption_warning"
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:layout_marginStart="8dp"
+                    android:contentDescription="@string/encryption_warning"
+                    android:src="@drawable/ic_warning"
+                    android:visibility="gone"
+                    app:tint="@color/tangerine" />
+
+            </LinearLayout>
+
             <!-- ── Message preview ───────────────────────────────────────── -->
             <!--
                 Plaintext is already in memory when the sheet opens.
