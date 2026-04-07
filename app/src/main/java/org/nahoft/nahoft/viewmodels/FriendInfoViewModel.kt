@@ -198,8 +198,13 @@ class FriendInfoViewModel(application: Application) : AndroidViewModel(applicati
 
     /**
      * Starts a receive session via the foreground service.
+     *
+     * @param isEncrypted Whether to expect encrypted or unencrypted WSPR payloads.
+     *                    Defaults to true. Note: public key is still required even
+     *                    in unencrypted mode since sessions are friend-scoped and
+     *                    verified friends always have a key.
      */
-    fun startReceiveSession()
+    fun startReceiveSession(isEncrypted: Boolean = true)
     {
         val currentFriend = _friend.value
         if (currentFriend == null)
@@ -245,7 +250,8 @@ class FriendInfoViewModel(application: Application) : AndroidViewModel(applicati
         val startIntent = ReceiveSessionService.createStartIntent(
             context = context,
             friendName = currentFriend.name,
-            friendPublicKey = publicKey
+            friendPublicKey = publicKey,
+            isEncrypted = isEncrypted
         )
 
         context.startForegroundService(startIntent)

@@ -27,6 +27,7 @@ import org.operatorfoundation.audiocoder.models.WSPRDecodeResult
 import org.operatorfoundation.audiocoder.models.WSPRStationConfiguration
 import org.operatorfoundation.audiocoder.models.WSPRStationState
 import org.operatorfoundation.codex.symbols.WSPRMessage
+import org.operatorfoundation.codex.tryDecodeUnencryptedPayload
 import org.operatorfoundation.signalbridge.SignalBridgeWSPRAudioSource
 import org.operatorfoundation.signalbridge.UsbAudioConnection
 import org.operatorfoundation.signalbridge.UsbAudioDeviceMonitor
@@ -62,6 +63,7 @@ class ReceiveSessionService : Service()
         // Intent extras
         const val EXTRA_FRIEND_NAME = "friend_name"
         const val EXTRA_FRIEND_PUBLIC_KEY = "friend_public_key"
+        const val EXTRA_IS_ENCRYPTED = "rx_is_encrypted"
 
         // Timing
         private const val SESSION_TIMEOUT_MS = 20 * 60 * 1000L  // 20 minutes
@@ -74,19 +76,18 @@ class ReceiveSessionService : Service()
         private const val NOTIFICATION_ID = 1001
         private const val WARNING_NOTIFICATION_ID = 1002
 
-        /**
-         * Creates an Intent to start a receive session.
-         */
         fun createStartIntent(
             context: Context,
             friendName: String,
-            friendPublicKey: ByteArray
+            friendPublicKey: ByteArray,
+            isEncrypted: Boolean = true
         ): Intent
         {
             return Intent(context, ReceiveSessionService::class.java).apply {
                 action = ACTION_START_SESSION
                 putExtra(EXTRA_FRIEND_NAME, friendName)
                 putExtra(EXTRA_FRIEND_PUBLIC_KEY, friendPublicKey)
+                putExtra(EXTRA_IS_ENCRYPTED, isEncrypted)
             }
         }
 
@@ -174,6 +175,10 @@ class ReceiveSessionService : Service()
     private var currentNahoftGroupId = 0
     private var decryptionAttempts = 0
 
+    // Whether the current session expects encrypted or unencrypted payloads.
+    // Reset to true between sessions so the default is always encrypted.
+    private var sessionIsEncrypted = true
+
     // Timing
     private var sessionStartTimeMs = 0L
     private var timeoutStartTimeMs = 0L  // When current timeout countdown began (0 if not running)
@@ -215,10 +220,11 @@ class ReceiveSessionService : Service()
             ACTION_START_SESSION -> {
                 val name = intent.getStringExtra(EXTRA_FRIEND_NAME)
                 val key = intent.getByteArrayExtra(EXTRA_FRIEND_PUBLIC_KEY)
+                val isEncrypted = intent.getBooleanExtra(EXTRA_IS_ENCRYPTED, true)
 
                 if (name != null && key != null)
                 {
-                    startSession(name, key)
+                    startSession(name, key, isEncrypted)
                 }
                 else
                 {
@@ -282,7 +288,7 @@ class ReceiveSessionService : Service()
 
     // ==================== Session Management ====================
 
-    private fun startSession(name: String, key: ByteArray)
+    private fun startSession(name: String, key: ByteArray, isEncrypted: Boolean)
     {
         // Check if session already active
         if (isSessionActive())
@@ -304,6 +310,7 @@ class ReceiveSessionService : Service()
         // Store friend context
         friendName = name
         friendPublicKey = key
+        sessionIsEncrypted = isEncrypted
         _currentFriendName.value = name
 
         // Reset session state
@@ -435,6 +442,7 @@ class ReceiveSessionService : Service()
         friendName = null
         friendPublicKey = null
         _currentFriendName.value = null
+        sessionIsEncrypted = true
     }
 
     fun resetSession()
@@ -447,6 +455,7 @@ class ReceiveSessionService : Service()
         decryptionAttempts = 0
         currentNahoftGroupId = 0
         sessionStartTimeMs = 0L
+        sessionIsEncrypted = true
     }
 
     fun isSessionActive(): Boolean
@@ -649,10 +658,19 @@ class ReceiveSessionService : Service()
 
         _receivedSpots.value = currentSpots
 
-        // Attempt decryption if we have at least 8 Nahoft messages
-        if (receivedMessages.size >= MIN_SPOTS_FOR_DECRYPTION)
+        if (sessionIsEncrypted)
         {
-            attemptDecryption()
+            // Encrypted: attempt decryption once we have enough spots to form a valid message
+            if (receivedMessages.size >= MIN_SPOTS_FOR_DECRYPTION)
+            {
+                attemptDecryption()
+            }
+        }
+        else
+        {
+            // Unencrypted: attempt decode after every new spot — tryDecodeUnencryptedPayload
+            // returns null until receivedMessages.size == N (extracted from spot 0 header)
+            attemptUnencryptedDecode()
         }
     }
 
@@ -714,7 +732,54 @@ class ReceiveSessionService : Service()
         }
     }
 
-    private fun saveReceivedMessage(encryptedBytes: ByteArray)
+    /**
+     * Attempts to decode accumulated spots as an unencrypted plaintext payload.
+     *
+     * Called after every new spot in unencrypted mode. Returns immediately
+     * (no-op) until receivedMessages.size equals the spot count N embedded
+     * in spot 0's header by the sender.
+     *
+     * On success: saves the message with isEncrypted=false, emits received
+     * signals, and clears the accumulation buffer for the next message.
+     */
+    private fun attemptUnencryptedDecode()
+    {
+        val plaintext = tryDecodeUnencryptedPayload(receivedMessages.toList())
+            ?: return  // Still accumulating — not enough spots yet
+
+        Timber.i("SUCCESS: Decoded unencrypted message from ${receivedMessages.size} WSPR spots")
+
+        val payloadBytes = plaintext.toByteArray(Charsets.UTF_8)
+
+        _messageJustReceived.value = true
+        markCurrentGroupAsDecrypted(receivedMessages.size)
+
+        saveReceivedMessage(payloadBytes, isEncrypted = false)
+
+        _decryptedMessageRecords.value = _decryptedMessageRecords.value +
+                DecryptedMessageRecord(
+                    timestamp = System.currentTimeMillis(),
+                    spotCount = receivedMessages.size
+                )
+
+        receivedMessages.clear()
+
+        serviceScope.launch {
+            _lastReceivedMessage.emit(payloadBytes)
+        }
+
+        updateNotification()
+    }
+
+    /**
+     * Saves a received message payload to persistent storage.
+     * Looks up the friend by name from [Persist.friendList].
+     *
+     * @param payloadBytes Cipher bytes if encrypted, raw UTF-8 bytes if unencrypted
+     * @param isEncrypted  Passed through to Message so the display layer knows
+     *                     whether to decrypt or read directly as UTF-8
+     */
+    private fun saveReceivedMessage(payloadBytes: ByteArray, isEncrypted: Boolean = true)
     {
         val name = friendName ?: return
 
@@ -726,10 +791,10 @@ class ReceiveSessionService : Service()
             return
         }
 
-        val message = Message(encryptedBytes, friend, false)
+        val message = Message(payloadBytes, friend, fromMe = false, isEncrypted = isEncrypted)
         message.save(applicationContext)
 
-        Timber.i("Saved received message for friend: $name")
+        Timber.i("Saved received message for friend: $name, encrypted=\$isEncrypted")
     }
 
     private fun bigIntegerToByteArray(value: BigInteger): ByteArray
