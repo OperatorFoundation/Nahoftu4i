@@ -162,8 +162,13 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
     private fun setupEncryptionToggle()
     {
         binding.cbDisableEncryption.setOnCheckedChangeListener { _, isChecked ->
+            // Warning icon visible only when encryption is disabled
             binding.ivEncryptionWarning.visibility =
                 if (isChecked) View.VISIBLE else View.GONE
+
+            // Push mode change to service — safe during WaitingForWindow,
+            // ignored by service if Running
+            viewModel.updateEncryptionMode(!isChecked)
         }
     }
 
@@ -274,6 +279,8 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
         {
             is ReceiveSessionState.Idle -> {
                 updateStatus(getString(R.string.status_waiting))
+                binding.cbDisableEncryption.isEnabled = true
+                binding.tvEncryptionSessionInfo.visibility = View.GONE
                 binding.vuMeter.reset()
             }
 
@@ -281,6 +288,8 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
                 showFrequencyReadOnly()
                 updateStatus(getString(R.string.waiting_for_next_window))
                 updateStateIcon(R.drawable.ic_access_time, R.color.coolGrey, AnimationType.NONE)
+                binding.cbDisableEncryption.isEnabled = true
+                binding.tvEncryptionSessionInfo.visibility = View.GONE
             }
 
             is ReceiveSessionState.Running -> {
@@ -290,19 +299,31 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
                 updateStateIcon(R.drawable.ic_radio, R.color.coolGrey, AnimationType.PULSE)
                 updateStatus(getString(R.string.listening_for_signals))
 
+                // Lock mode — spots are now accumulating
                 binding.cbDisableEncryption.isEnabled = false
+                binding.tvEncryptionSessionInfo.visibility = View.VISIBLE
+                binding.tvEncryptionSessionInfo.text = getString(
+                    if (currentEncryptionMode())
+                        R.string.session_started_encrypted
+                    else
+                        R.string.session_started_unencrypted
+                )
             }
 
             is ReceiveSessionState.Stopped -> {
                 updateStatus(getString(R.string.session_stopped))
                 updateStateIcon(R.drawable.ic_sync, R.color.coolGrey, AnimationType.NONE)
-                binding.vuMeter.reset()
                 showFrequencyInput() // resets button and shows frequency stepper
+                binding.cbDisableEncryption.isEnabled = true
+                binding.tvEncryptionSessionInfo.visibility = View.GONE
+                binding.vuMeter.reset()
             }
 
             is ReceiveSessionState.TimedOut -> {
                 updateStatus(getString(R.string.session_timed_out))
                 updateStateIcon(R.drawable.ic_access_time, R.color.tangerine, AnimationType.NONE)
+                binding.cbDisableEncryption.isEnabled = false
+                binding.tvEncryptionSessionInfo.visibility = View.GONE
             }
         }
     }

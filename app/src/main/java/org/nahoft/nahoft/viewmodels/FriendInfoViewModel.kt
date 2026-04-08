@@ -264,6 +264,11 @@ class FriendInfoViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
+    fun updateEncryptionMode(isEncrypted: Boolean)
+    {
+        receiveService?.updateEncryptionMode(isEncrypted)
+    }
+
     /**
      * Stops the current receive session.
      */

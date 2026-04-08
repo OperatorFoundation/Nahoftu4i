@@ -602,6 +602,18 @@ class ReceiveSessionService : Service()
 
     // ==================== Decode Processing ====================
 
+    fun updateEncryptionMode(isEncrypted: Boolean)
+    {
+        if (_receiveSessionState.value == ReceiveSessionState.Running)
+        {
+            Timber.w("Cannot change encryption mode during active decode — ignoring")
+            return
+        }
+
+        Timber.d("Encryption mode updated: encrypted=$isEncrypted")
+        sessionIsEncrypted = isEncrypted
+    }
+
     private fun processDecodeResults(results: List<WSPRDecodeResult>)
     {
         val currentSpots = _receivedSpots.value.toMutableList()
