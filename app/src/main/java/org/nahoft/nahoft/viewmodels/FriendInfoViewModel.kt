@@ -19,6 +19,7 @@ import org.nahoft.nahoft.models.DecryptedMessageRecord
 import org.nahoft.nahoft.models.Friend
 import org.nahoft.nahoft.models.FriendStatus
 import org.nahoft.nahoft.models.WSPRSpotItem
+import org.nahoft.nahoft.services.PacketRequirement
 import org.nahoft.nahoft.services.ReceiveSessionService
 import org.nahoft.nahoft.services.ReceiveSessionState
 import org.operatorfoundation.audiocoder.WSPRTimingCoordinator
@@ -100,6 +101,10 @@ class FriendInfoViewModel(application: Application) : AndroidViewModel(applicati
     private val _decryptedMessageRecords = MutableStateFlow<List<DecryptedMessageRecord>>(emptyList())
     val decryptedMessageRecords: StateFlow<List<DecryptedMessageRecord>> = _decryptedMessageRecords.asStateFlow()
 
+    private val _packetRequirement = MutableStateFlow<PacketRequirement>(
+        PacketRequirement.Fixed(ReceiveSessionService.MIN_SPOTS_FOR_DECRYPTION)
+    )
+    val packetRequirement: StateFlow<PacketRequirement> = _packetRequirement.asStateFlow()
 
     val receivedMessageCount: Int
         get() = receiveService?.receivedMessageCount ?: 0
@@ -362,6 +367,9 @@ class FriendInfoViewModel(application: Application) : AndroidViewModel(applicati
             }
             launch {
                 service.decryptedMessageRecords.collect { _decryptedMessageRecords.value = it }
+            }
+            launch {
+                service.packetRequirement.collect { _packetRequirement.value = it }
             }
         }
     }

@@ -26,6 +26,7 @@ import org.operatorfoundation.audiocoder.models.WSPRCycleInformation
 import org.operatorfoundation.audiocoder.models.WSPRDecodeResult
 import org.operatorfoundation.audiocoder.models.WSPRStationConfiguration
 import org.operatorfoundation.audiocoder.models.WSPRStationState
+import org.operatorfoundation.codex.extractUnencryptedSpotCount
 import org.operatorfoundation.codex.symbols.WSPRMessage
 import org.operatorfoundation.codex.tryDecodeUnencryptedPayload
 import org.operatorfoundation.signalbridge.SignalBridgeWSPRAudioSource
@@ -36,6 +37,25 @@ import org.operatorfoundation.signalbridge.models.AudioBufferConfiguration
 import org.operatorfoundation.signalbridge.models.AudioLevelInfo
 import timber.log.Timber
 import java.math.BigInteger
+
+
+/**
+ * Describes how many WSPR packets are required before a decode can be attempted.
+ *
+ * Collected by the UI to drive the packets card display.
+ *
+ * [Fixed]   — encrypted mode: a fixed minimum packet count is always required.
+ * [Unknown] — unencrypted mode: the first packet (spot 0) has not yet arrived,
+ *             so the required count is not yet known.
+ * [Known]   — unencrypted mode: spot 0 has been received and N has been extracted
+ *             from its header. N is the total packet count including spot 0.
+ */
+sealed class PacketRequirement
+{
+    data class Fixed(val count: Int) : PacketRequirement()
+    object Unknown : PacketRequirement()
+    data class Known(val count: Int) : PacketRequirement()
+}
 
 /**
  * Foreground service managing radio receive sessions.
@@ -152,6 +172,11 @@ class ReceiveSessionService : Service()
     private val _currentFriendName = MutableStateFlow<String?>(null)
     val currentFriendName: StateFlow<String?> = _currentFriendName.asStateFlow()
 
+    // Describes how many packets are required to attempt a decode.
+    // Updated as session mode and incoming spots change.
+    private val _packetRequirement = MutableStateFlow<PacketRequirement>(PacketRequirement.Fixed(MIN_SPOTS_FOR_DECRYPTION))
+    val packetRequirement: StateFlow<PacketRequirement> = _packetRequirement.asStateFlow()
+
     // ==================== Internal State ====================
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -175,9 +200,16 @@ class ReceiveSessionService : Service()
     private var currentNahoftGroupId = 0
     private var decryptionAttempts = 0
 
-    // Whether the current session expects encrypted or unencrypted payloads.
-    // Reset to true between sessions so the default is always encrypted.
-    private var sessionIsEncrypted = true
+    private var sessionIsEncrypted: Boolean
+        get() = _packetRequirement.value is PacketRequirement.Fixed
+        set(value)
+        {
+            _packetRequirement.value = if (value)
+                PacketRequirement.Fixed(MIN_SPOTS_FOR_DECRYPTION)
+            else
+                PacketRequirement.Unknown
+        }
+
 
     // Timing
     private var sessionStartTimeMs = 0L
@@ -641,6 +673,20 @@ class ReceiveSessionService : Service()
                     Timber.d("Added WSPR message #${receivedMessages.size}: ${message.toWSPRFields()}")
                 }
 
+
+                // In unencrypted mode, extract N from spot 0 as soon as it arrives so the UI
+                // can show the correct required packet count immediately.
+                if (!sessionIsEncrypted &&
+                    receivedMessages.size == 1 &&
+                    _packetRequirement.value is PacketRequirement.Unknown)
+                {
+                    val n = extractUnencryptedSpotCount(receivedMessages[0])
+                    if (n != null)
+                    {
+                        _packetRequirement.value = PacketRequirement.Known(n)
+                    }
+                }
+
                 val spot = WSPRSpotItem(
                     callsign = result.callsign,
                     gridSquare = result.gridSquare,
@@ -774,6 +820,11 @@ class ReceiveSessionService : Service()
                     spotCount = receivedMessages.size
                 )
 
+
+        // Return to Unknown so the next message in this session shows "x / ?"
+        // until spot 0 arrives and N is extracted.
+        _packetRequirement.value = PacketRequirement.Unknown
+
         receivedMessages.clear()
 
         serviceScope.launch {
@@ -806,7 +857,7 @@ class ReceiveSessionService : Service()
         val message = Message(payloadBytes, friend, fromMe = false, isEncrypted = isEncrypted)
         message.save(applicationContext)
 
-        Timber.i("Saved received message for friend: $name, encrypted=\$isEncrypted")
+        Timber.i("Saved received message for friend: $name, encrypted=$isEncrypted")
     }
 
     private fun bigIntegerToByteArray(value: BigInteger): ByteArray

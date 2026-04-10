@@ -189,18 +189,19 @@ class ReceivedMessagesDialogFragment : BottomSheetDialogFragment()
     private fun buildRowView(data: RowData): View
     {
         val ctx = requireContext()
-        val dp  = ctx.resources.displayMetrics.density
+        val vPad = ctx.resources.getDimensionPixelSize(R.dimen.padding_half)
+        val hPad = ctx.resources.getDimensionPixelSize(R.dimen.padding_row_horizontal)
 
         val row = LinearLayout(ctx).apply {
             orientation = LinearLayout.VERTICAL
-            val vPad = (R.dimen.padding_half * dp).toInt()
-            val hPad = (R.dimen.padding_row_horizontal * dp).toInt()
             setPadding(hPad, vPad, hPad, vPad)
             background = ContextCompat.getDrawable(ctx, R.drawable.btn_bkgd_light_grey_outline_8)
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply { bottomMargin = (R.dimen.activity_half_margin * dp).toInt() }
+            ).apply {
+                bottomMargin = ctx.resources.getDimensionPixelSize(R.dimen.activity_half_margin)
+            }
         }
 
         // Header: timestamp + spot count
@@ -211,7 +212,10 @@ class ReceivedMessagesDialogFragment : BottomSheetDialogFragment()
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply { bottomMargin = (6 * dp).toInt() }
+            ).apply {
+                // padding_quarter = 6dp, matching the original intent
+                bottomMargin = ctx.resources.getDimensionPixelSize(R.dimen.padding_quarter)
+            }
         })
 
         // Message content or locked placeholder

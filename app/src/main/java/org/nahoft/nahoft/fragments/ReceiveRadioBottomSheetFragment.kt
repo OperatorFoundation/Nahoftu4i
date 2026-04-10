@@ -25,6 +25,7 @@ import org.nahoft.nahoft.R
 import org.nahoft.nahoft.databinding.FragmentBottomSheetReceiveRadioBinding
 import org.nahoft.nahoft.models.DecryptedMessageRecord
 import org.nahoft.nahoft.models.WSPRSpotItem
+import org.nahoft.nahoft.services.PacketRequirement
 import org.nahoft.nahoft.services.ReceiveSessionService
 import org.nahoft.nahoft.services.ReceiveSessionState
 import org.nahoft.nahoft.viewmodels.FriendInfoViewModel
@@ -49,6 +50,11 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
 
     // Spots dialog reference
     private var spotsDialog: WSPRSpotsDialogFragment? = null
+
+    // Current packet requirement, relayed from the service via ViewModel.
+    // Drives the spots card denominator. Updated via its collector below.
+    private var packetRequirement: PacketRequirement =
+        PacketRequirement.Fixed(ReceiveSessionService.MIN_SPOTS_FOR_DECRYPTION)
 
     // Job for elapsed time updates
     private var elapsedTimeJob: Job? = null
@@ -264,6 +270,13 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
                 if (viewModel.receiveSessionState.value != ReceiveSessionState.Idle) return@collect
                 binding.rxFrequencySection.visibility =
                     if (edenConnected) View.VISIBLE else View.GONE
+            }
+        }
+
+        uiScope.launch {
+            viewModel.packetRequirement.collect { requirement ->
+                packetRequirement = requirement
+                updateSpotsUI(viewModel.receivedSpots.value)
             }
         }
     }
@@ -502,20 +515,41 @@ class ReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
         }
     }
 
+
+
     /**
-     * Updates the WSPR spots card with the current Nahoft candidate count
-     * toward the decryption threshold, and refreshes the spots dialog if open.
+     * Updates the spots card with progress toward the current decode requirement.
+     *
+     * [PacketRequirement.Fixed]   — encrypted mode, shows total spots toward the
+     *                               fixed minimum threshold.
+     * [PacketRequirement.Unknown] — unencrypted mode, spot 0 not yet received,
+     *                               shows Nahoft packet count with unknown denominator.
+     * [PacketRequirement.Known]   — unencrypted mode, shows Nahoft packet count
+     *                               toward N extracted from spot 0's header.
      */
     private fun updateSpotsUI(spots: List<WSPRSpotItem>)
     {
         if (_binding == null) return
 
-        val total = spots.size
-        val threshold = ReceiveSessionService.MIN_SPOTS_FOR_DECRYPTION
-        binding.tvSpotsCount.text = if (total >= threshold)
-            "$total / $threshold+"
-        else
-            "$total / $threshold"
+        binding.tvSpotsCount.text = when (val req = packetRequirement)
+        {
+            is PacketRequirement.Fixed ->
+            {
+                // Encrypted: "8+" indicates a minimum, not an exact target —
+                // decryption is attempted on every new spot once threshold is reached.
+                "${ spots.size} / ${req.count}+"
+            }
+            is PacketRequirement.Unknown ->
+            {
+                // Unencrypted: spot 0 not yet received, denominator unknown
+                "${viewModel.receivedMessageCount} / ?"
+            }
+            is PacketRequirement.Known ->
+            {
+                // Unencrypted: N known from spot 0 header
+                "${viewModel.receivedMessageCount} / ${req.count}"
+            }
+        }
 
         spotsDialog?.updateSpots(spots)
     }
