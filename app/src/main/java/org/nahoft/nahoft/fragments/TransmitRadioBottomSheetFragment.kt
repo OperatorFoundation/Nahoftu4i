@@ -11,6 +11,7 @@ import android.view.animation.LinearInterpolator
 import androidx.core.animation.ValueAnimator
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.activityViewModels
+import androidx.fragment.app.setFragmentResult
 import androidx.fragment.app.viewModels
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.bottomsheet.BottomSheetDialog
@@ -69,6 +70,7 @@ class TransmitRadioBottomSheetFragment : BottomSheetDialogFragment()
     private val uiScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private var currentAnimator: ObjectAnimator? = null
     private var countdownJob: Job? = null
+    private var transmissionCompleted = false
 
     /**
      * Tracks how many spot dots have been built into [binding.llSpotDots].
@@ -108,6 +110,16 @@ class TransmitRadioBottomSheetFragment : BottomSheetDialogFragment()
         setupStaticUI()
         setupClickListeners()
         observeViewModel()
+    }
+
+    override fun onDismiss(dialog: android.content.DialogInterface)
+    {
+        super.onDismiss(dialog)
+
+        if (transmissionCompleted)
+        {
+            setFragmentResult(RESULT_TX_COMPLETE, Bundle.EMPTY)
+        }
     }
 
     // ==================== Setup ====================
@@ -330,6 +342,8 @@ class TransmitRadioBottomSheetFragment : BottomSheetDialogFragment()
         updateStateIcon(R.drawable.ic_success, R.color.caribbeanGreen, AnimationType.NONE)
         updateStatus(getString(R.string.tx_complete_title))
         showProgressSection()
+
+        transmissionCompleted = true
 
         // All dots completed
         ensureSpotDots(state.totalSpots)
@@ -649,6 +663,8 @@ class TransmitRadioBottomSheetFragment : BottomSheetDialogFragment()
         private const val ARG_MESSAGE          = "arg_tx_message"
         private const val ARG_FRIEND_NAME      = "arg_tx_friend_name"
         private const val ARG_FRIEND_PUBLIC_KEY = "arg_tx_friend_public_key"
+
+        const val RESULT_TX_COMPLETE = "tx_complete"
 
         /**
          * Creates a new instance with the message and friend context required

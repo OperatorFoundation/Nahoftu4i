@@ -206,6 +206,15 @@ class FriendInfoActivity: AppCompatActivity()
         receivedSharedMessage()
         setupConnectionObservers()
 
+        // Refresh message list when a TX session completes and the sheet is dismissed.
+        supportFragmentManager.setFragmentResultListener(
+            TransmitRadioBottomSheetFragment.RESULT_TX_COMPLETE,
+            this
+        ) { _, _ ->
+            binding.messageEditText.text?.clear()
+            setupViewByStatus()
+        }
+
         // Start audio device discovery (doesn't require permission)
         viewModel.startAudioDeviceDiscovery()
 
