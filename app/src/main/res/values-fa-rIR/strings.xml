@@ -370,6 +370,7 @@
     <string name="encryption_warning_rx">Message will be received as plaintext</string>
     <string name="session_started_encrypted">Session started with encryption enabled. Stop to change.</string>
     <string name="session_started_unencrypted">Session started without encryption. Stop to change.</string>
+    <string name="alert_text_message_too_long_for_radio">Message is too long to transmit via radio. Please shorten your message.</string>
 
     <!-- ════════════════════════════════════════════════════════
          RADIO — VU Meter audio level indicators

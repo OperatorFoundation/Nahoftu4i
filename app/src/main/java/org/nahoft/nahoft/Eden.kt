@@ -49,6 +49,8 @@ class Eden(private val connection: SerialConnection)
         private const val CONTROL_TX  = 2   // Switch relay to TX chip, mute USB audio
         private const val CONTROL_RX  = 3   // Switch relay to RX chip, unmute USB audio
 
+        const val MAX_RADIO_MESSAGE_BYTES = 130
+
         /** Millis to wait for Eden to process a command and respond. */
         private const val ACK_TIMEOUT_MS = 3000L
 

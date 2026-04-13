@@ -527,7 +527,7 @@ class FriendInfoActivity: AppCompatActivity()
         binding.sendAsText.setOnClickListener {
             if (binding.messageEditText.text.isNotEmpty())
             {
-                if (binding.messageEditText.text.length > 5000)
+                if (binding.messageEditText.text.toString().toByteArray(Charsets.UTF_8).size > MAX_MESSAGE_BYTES)
                 {
                     showAlert(getString(R.string.alert_text_message_too_long))
                 }
@@ -546,18 +546,21 @@ class FriendInfoActivity: AppCompatActivity()
         }
 
         binding.sendViaSerial.setOnClickListener {
+
             if (viewModel.isSessionActive()) {
                 showAlert(getString(R.string.alert_transmit_blocked_by_receive))
                 return@setOnClickListener
             }
 
             val message = binding.messageEditText.text.toString()
+
             if (message.isEmpty()) {
                 showAlert(getString(R.string.alert_text_write_a_message_to_send))
                 return@setOnClickListener
             }
-            if (message.length > 5000) {
-                showAlert(getString(R.string.alert_text_message_too_long))
+
+            if (message.toByteArray(Charsets.UTF_8).size > Eden.MAX_RADIO_MESSAGE_BYTES) {
+                showAlert(getString(R.string.alert_text_message_too_long_for_radio))
                 return@setOnClickListener
             }
 
@@ -924,16 +927,12 @@ class FriendInfoActivity: AppCompatActivity()
         inputEditText.gravity = Gravity.TOP
         inputEditText.setTextColor(ContextCompat.getColor(this, R.color.royalBlueDark))
         builder.setView(inputEditText)
+
         builder.setPositiveButton(resources.getString(R.string.import_text))
         { _, _->
             if (inputEditText.text.isNotEmpty())
             {
-                if (inputEditText.text.length > 5000)
-                {
-                    showAlert(getString(R.string.alert_text_message_too_long))
-                } else {
-                    decodeStringMessage(inputEditText.text.toString())
-                }
+                decodeStringMessage(inputEditText.text.toString())
             }
         }
         builder.setNeutralButton(resources.getString(R.string.stop_button)) { dialog, _->
@@ -951,7 +950,7 @@ class FriendInfoActivity: AppCompatActivity()
             return
         }
 
-        if (message.length > 5000) {
+        if (message.toByteArray(Charsets.UTF_8).size > MAX_MESSAGE_BYTES) {
             showAlert(getString(R.string.alert_text_message_too_long))
             return
         }
