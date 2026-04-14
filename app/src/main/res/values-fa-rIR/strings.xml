@@ -219,6 +219,11 @@
     <string name="alert_text_image_saved">این تصویر در تلفن شما ذخیره شده است.</string>
     <string name="are_you_sure_to_delete">آیا از حذف پیام مطمئن هستید؟</string>
 
+    <!-- Byte counter labels shown below the message input field.
+     %1$d = current byte count, %2$d = limit -->
+    <string name="byte_counter_radio_format">radio: %1$d / %2$d</string>
+    <string name="byte_counter_message_format">message: %1$d / %2$d</string>
+
     <!-- ════════════════════════════════════════════════════════
      ONBOARDING & HELP — Slide content and user guides (SlideActivity)
      ════════════════════════════════════════════════════════ -->

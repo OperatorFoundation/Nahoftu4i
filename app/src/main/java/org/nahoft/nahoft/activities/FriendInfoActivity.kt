@@ -226,10 +226,12 @@ class FriendInfoActivity: AppCompatActivity()
         }
     }
 
-    override fun onResume() {
+    override fun onResume()
+    {
         super.onResume()
 
         setupViewByStatus()
+        updateByteCounters() // Syncs counter with any text already in the field
     }
 
     override fun onStart()
@@ -256,11 +258,15 @@ class FriendInfoActivity: AppCompatActivity()
         // Observer Eden connected state
         coroutineScope.launch {
             viewModel.isEdenConnected.collect { connected ->
-                if (!connected)
-                {
-                    binding.serialStatusContainer.visibility = View.GONE
-                }
+                // Show/hide the radio counter and separator
+                val radioVisibility = if (connected) View.VISIBLE else View.GONE
+                binding.tvRadioByteCounter.visibility = radioVisibility
+                binding.tvByteCounterSeparator.visibility = radioVisibility
 
+                if (!connected) binding.serialStatusContainer.visibility = View.GONE
+
+                // Refresh counters immediately
+                updateByteCounters()
             }
         }
 
@@ -619,6 +625,13 @@ class FriendInfoActivity: AppCompatActivity()
         binding.tvFriendName.setOnClickListener {
             showMenuFragment()
         }
+
+        // Update byte counters on every keystroke.
+        binding.messageEditText.addTextChangedListener(object : android.text.TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: android.text.Editable?) { updateByteCounters() }
+        })
     }
 
     private fun showConfirmationForImport()
@@ -1225,7 +1238,56 @@ class FriendInfoActivity: AppCompatActivity()
         }
     }
 
-    // Remove session stopping (service manages its own lifecycle):
+    /**
+     * Returns a color resource for the byte counter based on how
+     * close the current count is to the limit.
+     *   < 80%  → coolGrey (normal)
+     *   80–99% → amberWarning (approaching limit)
+     *   ≥ 100% → madderLake (at or over limit)
+     */
+    private fun counterColor(byteCount: Int, limit: Int): Int
+    {
+        val ratio = byteCount.toFloat() / limit
+
+        return when
+        {
+            ratio >= 1f   -> R.color.madderLake
+            ratio >= 0.8f -> R.color.amberWarning
+            else          -> R.color.coolGrey
+        }
+    }
+
+    /**
+     * Recomputes the UTF-8 byte length of the current message input and updates
+     * both counter TextViews with the current count and appropriate color.
+     * The radio counter is only updated when it's visible (Eden connected).
+     */
+    private fun updateByteCounters()
+    {
+        val byteCount = binding.messageEditText.text
+            .toString()
+            .toByteArray(Charsets.UTF_8)
+            .size
+
+        // Message counter is always visible
+        binding.tvMessageByteCounter.text = getString(
+            R.string.byte_counter_message_format, byteCount, MAX_MESSAGE_BYTES
+        )
+        binding.tvMessageByteCounter.setTextColor(
+            ContextCompat.getColor(this, counterColor(byteCount, MAX_MESSAGE_BYTES))
+        )
+
+        // Radio counter only needs updating when Eden is connected
+        if (binding.tvRadioByteCounter.isVisible)
+        {
+            binding.tvRadioByteCounter.text = getString(
+                R.string.byte_counter_radio_format, byteCount, Eden.MAX_RADIO_MESSAGE_BYTES
+            )
+            binding.tvRadioByteCounter.setTextColor(
+                ContextCompat.getColor(this, counterColor(byteCount, Eden.MAX_RADIO_MESSAGE_BYTES))
+            )
+        }
+    }
 
     override fun onDestroy()
     {

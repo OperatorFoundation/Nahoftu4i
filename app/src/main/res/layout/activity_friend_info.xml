@@ -155,7 +155,7 @@
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_alignBottom="@+id/header_section"
-        app:layout_constraintBottom_toTopOf="@id/send_message_container"
+        app:layout_constraintBottom_toTopOf="@id/byte_counter_container"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/header_section" />
@@ -170,7 +170,7 @@
         android:scaleType="fitCenter"
         android:src="@drawable/ic_nahoft_icons_share_image"
         app:layout_constraintStart_toStartOf="@+id/send_message_container"
-        app:layout_constraintTop_toBottomOf="@+id/frame_placeholder" />
+        app:layout_constraintTop_toTopOf="@+id/send_message_container" />
 
     <ImageButton
         android:id="@+id/save_as_image"
@@ -194,7 +194,7 @@
         android:orientation="horizontal"
         android:padding="12dp"
         android:visibility="gone"
-        app:layout_constraintBottom_toTopOf="@+id/send_message_container"
+        app:layout_constraintBottom_toTopOf="@+id/byte_counter_container"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent">
 
@@ -206,6 +206,51 @@
             android:text="Serial Device"
             android:textColor="@color/white"
             android:layout_gravity="center_vertical" />
+
+    </LinearLayout>
+
+    <!-- Byte counter row: end-aligned above the message bar.
+     Radio counter and separator are gone when Eden is not connected. -->
+    <LinearLayout
+        android:id="@+id/byte_counter_container"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="@dimen/activity_margin"
+        android:layout_marginBottom="@dimen/activity_half_margin"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintBottom_toTopOf="@+id/send_message_container">
+
+        <!-- Visible only when Eden hardware is connected -->
+        <TextView
+            android:id="@+id/tv_radio_byte_counter"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="@dimen/byte_counter_text_size"
+            android:textColor="@color/coolGrey"
+            android:visibility="gone"
+            tools:text="radio: 87 / 130" />
+
+        <!-- Separator — visibility always matches tv_radio_byte_counter -->
+        <TextView
+            android:id="@+id/tv_byte_counter_separator"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text=" · "
+            android:textSize="@dimen/byte_counter_seperator_size"
+            android:textColor="@color/black"
+            android:textStyle="bold"
+            android:visibility="gone" />
+
+        <!-- Always visible while on this screen -->
+        <TextView
+            android:id="@+id/tv_message_byte_counter"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="@dimen/byte_counter_text_size"
+            android:textColor="@color/coolGrey"
+            tools:text="text: 0 / 5000" />
 
     </LinearLayout>
 
