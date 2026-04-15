@@ -37,6 +37,19 @@
     <string name="minimize_sheet">Minimize — session keeps running</string>
 
     <!-- ════════════════════════════════════════════════════════
+         App appearance / identity switcher
+         ════════════════════════════════════════════════════════ -->
+
+    <string name="app_appearance">App Appearance</string>
+    <string name="dialog_title_app_appearance">Choose App Appearance</string>
+    <string name="app_identity_label_nahoft">نهفت</string>
+    <string name="app_identity_label_bloom">شکوفا</string>
+    <string name="app_identity_label_sleeply">خوابالو</string>
+    <string name="app_identity_label_rooten">ریشه</string>
+    <string name="app_identity_label_xo">دوز</string>
+    <string name="app_identity_label_deco">دکور</string>
+
+    <!-- ════════════════════════════════════════════════════════
          AUTHENTICATION — Login screen (LogInActivity)
          ════════════════════════════════════════════════════════ -->
 

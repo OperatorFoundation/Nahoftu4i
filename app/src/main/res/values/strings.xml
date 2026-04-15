@@ -35,6 +35,19 @@
     <string name="user_guide_button_description">This button will take you to the user guides.</string>
     <string name="minimize_sheet">Minimize — session keeps running</string>
 
+    <!-- ════════════════════════════════════════════════════════
+         App appearance / identity switcher
+         ════════════════════════════════════════════════════════ -->
+
+    <string name="app_appearance">App Appearance</string>
+    <string name="dialog_title_app_appearance">Choose App Appearance</string>
+    <string name="app_identity_label_nahoft">Nahoft</string>
+    <string name="app_identity_label_bloom">Bloom</string>
+    <string name="app_identity_label_sleeply">Sleeply</string>
+    <string name="app_identity_label_rooten">Rooten</string>
+    <string name="app_identity_label_xo">XO</string>
+    <string name="app_identity_label_deco">Deco</string>
+
 
     <!-- ════════════════════════════════════════════════════════
          AUTHENTICATION — Login screen (LogInActivity)

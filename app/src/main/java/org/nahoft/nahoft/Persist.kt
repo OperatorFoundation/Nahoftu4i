@@ -37,6 +37,7 @@ class Persist
         val sharedPrefPasscodeKey = "NahoftPasscode"
         val sharedPrefSecondaryPasscodeKey = "NahoftSecondaryPasscode"
         val sharedPrefFailedLoginAttemptsKey = "NahoftFailedLogins"
+        const val sharedPrefActiveIdentityKey = "NahoftActiveIdentity"
 
         // Expiry-based lockout keys
         val sharedPrefLockoutExpiryKey = "NahoftLockoutExpiry"
