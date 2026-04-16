@@ -7,7 +7,9 @@ import android.content.IntentFilter
 import android.os.Bundle
 import android.provider.Settings
 import android.view.WindowManager
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.view.ContextThemeWrapper
 import androidx.biometric.BiometricManager
 import androidx.core.view.isGone
 import com.google.android.material.snackbar.Snackbar
@@ -21,6 +23,8 @@ import org.nahoft.nahoft.Persist
 import org.nahoft.nahoft.R
 import org.nahoft.nahoft.databinding.ActivitySettingPasscodeBinding
 import org.nahoft.nahoft.models.slideNameSetting
+import org.nahoft.util.AppIconManager
+import org.nahoft.util.AppIdentity
 import org.nahoft.util.applySecureFlag
 import org.nahoft.util.showAlert
 
@@ -88,10 +92,6 @@ class SettingPasscodeActivity : AppCompatActivity()
             handleDestructionCodeRequirementChange(isChecked)
         }
 
-//        use_sms_as_default_switch.setOnCheckedChangeListener { _, isChecked ->
-//            Persist.saveBooleanKey(Persist.sharedPrefUseSmsAsDefaultKey, isChecked)
-//        }
-
         binding.passcodeSubmitButton.setOnClickListener {
             savePasscode()
         }
@@ -115,12 +115,15 @@ class SettingPasscodeActivity : AppCompatActivity()
             clipboardManager.setPrimaryClip(ClipData.newPlainText("", binding.userPublicKeyEdittext.text))
             this.showAlert(getString(R.string.copied))
         }
+
+        binding.appAppearanceButton.setOnClickListener {
+            showAppearanceDialog()
+        }
     }
 
     private fun setDefaultView()
     {
         binding.destructionCodeEntryLayout.isGone = true
-//        use_sms_as_default_switch.isChecked = Persist.loadBooleanKey(Persist.sharedPrefUseSmsAsDefaultKey)
         if (Persist.status == LoginStatus.LoggedIn)
         {
             updateViewPasscodeOn(true)
@@ -129,6 +132,34 @@ class SettingPasscodeActivity : AppCompatActivity()
         {
             updateViewPasscodeOff()
         }
+    }
+
+    /**
+     * Shows a single-choice dialog listing all available app identities.
+     * The current identity is pre-selected. Confirming calls AppIconManager
+     * to switch the active alias. The launcher icon will update shortly after.
+     */
+    private fun showAppearanceDialog()
+    {
+        val identities = AppIdentity.values()
+        val currentIdentity = AppIconManager.getActiveIdentity(this)
+        val currentIndex = identities.indexOf(currentIdentity)
+
+        val displayNames = identities.map { getString(it.labelRes) }.toTypedArray()
+        var selectedIndex = currentIndex
+
+        AlertDialog.Builder(ContextThemeWrapper(this, R.style.AppTheme))
+            .setTitle(getString(R.string.dialog_title_app_appearance))
+            .setSingleChoiceItems(displayNames, currentIndex) { _, which ->
+                selectedIndex = which
+            }
+            .setPositiveButton(android.R.string.ok) { _, _ ->
+                AppIconManager.setActiveIdentity(this, identities[selectedIndex])
+            }
+            .setNegativeButton(R.string.button_label_cancel) { dialog, _ ->
+                dialog.cancel()
+            }
+            .show()
     }
 
     private fun updateViewPasscodeOn (entryHidden: Boolean)

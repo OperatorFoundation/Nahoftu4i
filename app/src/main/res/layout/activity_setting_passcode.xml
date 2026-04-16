@@ -313,6 +313,20 @@
                     android:textColor="@color/button_text_color_light"
                     android:textSize="18sp" />
 
+                <Button
+                    android:id="@+id/app_appearance_button"
+                    android:layout_width="wrap_content"
+                    android:layout_height="40dp"
+                    android:layout_gravity="center"
+                    android:layout_marginVertical="@dimen/padding_standard"
+                    android:background="@drawable/btn_bkgd_blue_56"
+                    android:fontFamily="@font/open_sans"
+                    android:foreground="?android:attr/selectableItemBackground"
+                    android:text="@string/app_appearance"
+                    android:textAllCaps="false"
+                    android:textColor="@color/button_text_color_light"
+                    android:textSize="18sp" />
+
             </LinearLayout>
 
         </RelativeLayout>
