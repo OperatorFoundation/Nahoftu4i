@@ -47,6 +47,8 @@
     <string name="app_identity_label_rooten">Rooten</string>
     <string name="app_identity_label_xo">XO</string>
     <string name="app_identity_label_deco">Deco</string>
+    <string name="app_appearance_change">Change Appearance</string>
+    <string name="app_appearance_current">Current: %1$s</string>
 
 
     <!-- ════════════════════════════════════════════════════════

@@ -9,6 +9,7 @@ import android.provider.Settings
 import android.view.WindowManager
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.content.res.AppCompatResources
 import androidx.appcompat.view.ContextThemeWrapper
 import androidx.biometric.BiometricManager
 import androidx.core.view.isGone
@@ -57,6 +58,7 @@ class SettingPasscodeActivity : AppCompatActivity()
 
         setupButtons()
         setDefaultView()
+        updateAppearanceLabel()
     }
 
     @Deprecated("Deprecated in Java")
@@ -155,11 +157,28 @@ class SettingPasscodeActivity : AppCompatActivity()
             }
             .setPositiveButton(android.R.string.ok) { _, _ ->
                 AppIconManager.setActiveIdentity(this, identities[selectedIndex])
+                updateAppearanceLabel()
             }
             .setNegativeButton(R.string.button_label_cancel) { dialog, _ ->
                 dialog.cancel()
             }
             .show()
+    }
+
+    /** Populates the current appearance subtitle with the active identity's display name. */
+    private fun updateAppearanceLabel() {
+        val current = AppIconManager.getActiveIdentity(this)
+
+        // Show the current identity's icon next to the heading
+        val sizePx = resources.getDimensionPixelSize(R.dimen.app_icon_preview_size)
+        val icon = AppCompatResources.getDrawable(this, current.dialogIconRes)
+        icon?.setBounds(0, 0, sizePx, sizePx)
+        binding.appAppearanceHeading.setCompoundDrawablesRelative(icon, null, null, null)
+
+        binding.appAppearanceCurrent.text = getString(
+            R.string.app_appearance_current,
+            getString(current.labelRes)
+        )
     }
 
     private fun updateViewPasscodeOn (entryHidden: Boolean)

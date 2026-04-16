@@ -1,5 +1,6 @@
 package org.nahoft.util
 
+import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
 import org.nahoft.nahoft.R
 
@@ -9,6 +10,7 @@ import org.nahoft.nahoft.R
  *
  * [componentName] must match the alias's android:name exactly.
  * [labelRes]      is the localized display name shown under the icon.
+ * [iconRes]       the alias icon
  *
  * To add a new identity:
  *   1. Add an entry here
@@ -18,30 +20,44 @@ import org.nahoft.nahoft.R
  */
 enum class AppIdentity(
     val componentName: String,
-    @StringRes val labelRes: Int
+    @StringRes val labelRes: Int,
+    @DrawableRes val iconRes: Int,
+    @DrawableRes val dialogIconRes: Int
 ) {
     NAHOFT(
         componentName = "org.nahoft.nahoft.activities.NahoftAlias",
-        labelRes = R.string.app_identity_label_nahoft
+        labelRes = R.string.app_identity_label_nahoft,
+        iconRes = R.mipmap.ic_launcher,
+        dialogIconRes = R.mipmap.ic_launcher
     ),
     BLOOM(
         componentName = "org.nahoft.nahoft.activities.BloomAlias",
-        labelRes = R.string.app_identity_label_bloom
+        labelRes = R.string.app_identity_label_bloom,
+        iconRes = R.mipmap.ic_launcher_bloom,
+        dialogIconRes = R.drawable.ic_identity_bloom
     ),
     SLEEPLY(
         componentName = "org.nahoft.nahoft.activities.SleeplyAlias",
-        labelRes = R.string.app_identity_label_sleeply
+        labelRes = R.string.app_identity_label_sleeply,
+        iconRes = R.mipmap.ic_launcher_sleeply,
+        dialogIconRes = R.drawable.ic_identity_sleeply
     ),
     ROOTEN(
         componentName = "org.nahoft.nahoft.activities.RootenAlias",
-        labelRes = R.string.app_identity_label_rooten
+        labelRes = R.string.app_identity_label_rooten,
+        iconRes = R.mipmap.ic_launcher_rooten,
+        dialogIconRes = R.drawable.ic_identity_rooten
     ),
     XO(
         componentName = "org.nahoft.nahoft.activities.XOAlias",
-        labelRes = R.string.app_identity_label_xo
+        labelRes = R.string.app_identity_label_xo,
+        iconRes = R.mipmap.ic_launcher_xo,
+        dialogIconRes = R.drawable.ic_identity_xo
     ),
     DECO(
         componentName = "org.nahoft.nahoft.activities.DecoAlias",
-        labelRes = R.string.app_identity_label_deco
+        labelRes = R.string.app_identity_label_deco,
+        iconRes = R.mipmap.ic_launcher_deco,
+        dialogIconRes = R.drawable.ic_identity_deco
     )
 }

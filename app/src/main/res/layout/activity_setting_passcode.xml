@@ -313,16 +313,42 @@
                     android:textColor="@color/button_text_color_light"
                     android:textSize="18sp" />
 
+                <!-- Divider separating security settings from appearance settings -->
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginVertical="@dimen/padding_standard"
+                    android:background="@color/coolGrey" />
+
+                <TextView
+                    android:id="@+id/app_appearance_heading"
+                    android:layout_width="match_parent"
+                    android:layout_height="56dp"
+                    android:drawableStart="@drawable/ic_nahoft_icons_setting"
+                    android:drawablePadding="5dp"
+                    android:fontFamily="@font/open_sans"
+                    android:text="@string/app_appearance"
+                    android:textSize="22sp"
+                    android:gravity="center_vertical" />
+
+                <TextView
+                    android:id="@+id/app_appearance_current"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="@font/open_sans_italic"
+                    android:textSize="16sp"
+                    android:layout_marginBottom="@dimen/padding_half" />
+
                 <Button
                     android:id="@+id/app_appearance_button"
-                    android:layout_width="wrap_content"
+                    android:layout_width="match_parent"
                     android:layout_height="40dp"
                     android:layout_gravity="center"
                     android:layout_marginVertical="@dimen/padding_standard"
                     android:background="@drawable/btn_bkgd_blue_56"
                     android:fontFamily="@font/open_sans"
                     android:foreground="?android:attr/selectableItemBackground"
-                    android:text="@string/app_appearance"
+                    android:text="@string/app_appearance_change"
                     android:textAllCaps="false"
                     android:textColor="@color/button_text_color_light"
                     android:textSize="18sp" />
