@@ -4,14 +4,15 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Intent
 import android.content.IntentFilter
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.os.Bundle
 import android.provider.Settings
-import android.view.WindowManager
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
-import androidx.appcompat.content.res.AppCompatResources
 import androidx.appcompat.view.ContextThemeWrapper
 import androidx.biometric.BiometricManager
+import androidx.core.graphics.drawable.RoundedBitmapDrawableFactory
 import androidx.core.view.isGone
 import com.google.android.material.snackbar.Snackbar
 import org.nahoft.nahoft.utils.registerReceiverCompat
@@ -168,13 +169,17 @@ class SettingPasscodeActivity : AppCompatActivity()
     /** Populates the current appearance subtitle with the active identity's display name. */
     private fun updateAppearanceLabel() {
         val current = AppIconManager.getActiveIdentity(this)
-
-        // Show the current identity's icon next to the heading
         val sizePx = resources.getDimensionPixelSize(R.dimen.app_icon_preview_size)
-        val icon = AppCompatResources.getDrawable(this, current.dialogIconRes)
-        icon?.setBounds(0, 0, sizePx, sizePx)
-        binding.appAppearanceHeading.setCompoundDrawablesRelative(icon, null, null, null)
 
+        // Load the icon as a bitmap and clip it to a circle
+        val bitmap = BitmapFactory.decodeResource(resources, current.dialogIconRes)
+        val scaledBitmap = Bitmap.createScaledBitmap(bitmap, sizePx, sizePx, true)
+        val circularIcon = RoundedBitmapDrawableFactory.create(resources, scaledBitmap).apply {
+            isCircular = true
+            setBounds(0, 0, sizePx, sizePx)
+        }
+
+        binding.appAppearanceHeading.setCompoundDrawablesRelative(circularIcon, null, null, null)
         binding.appAppearanceCurrent.text = getString(
             R.string.app_appearance_current,
             getString(current.labelRes)
