@@ -8,9 +8,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.os.Bundle
 import android.provider.Settings
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
-import androidx.appcompat.view.ContextThemeWrapper
 import androidx.biometric.BiometricManager
 import androidx.core.graphics.drawable.RoundedBitmapDrawableFactory
 import androidx.core.view.isGone
@@ -25,8 +23,8 @@ import org.nahoft.nahoft.Persist
 import org.nahoft.nahoft.R
 import org.nahoft.nahoft.databinding.ActivitySettingsBinding
 import org.nahoft.nahoft.models.slideNameSetting
+import org.nahoft.nahoft.fragments.AppearanceDialogFragment
 import org.nahoft.util.AppIconManager
-import org.nahoft.util.AppIdentity
 import org.nahoft.util.applySecureFlag
 import org.nahoft.util.showAlert
 
@@ -133,6 +131,13 @@ class SettingsActivity : AppCompatActivity()
         binding.appAppearanceRow.setOnClickListener {
             showAppearanceDialog()
         }
+
+        // Tint the destruction code icon to signal its destructive nature
+        binding.destructionCodeSwitch.setCompoundDrawableTintList(
+            android.content.res.ColorStateList.valueOf(
+                androidx.core.content.ContextCompat.getColor(this, R.color.madderLake)
+            )
+        )
     }
 
     private fun setDefaultView()
@@ -150,26 +155,13 @@ class SettingsActivity : AppCompatActivity()
 
     private fun showAppearanceDialog()
     {
-        val identities = AppIdentity.values()
-        val currentIdentity = AppIconManager.getActiveIdentity(this)
-        val currentIndex = identities.indexOf(currentIdentity)
-
-        val displayNames = identities.map { getString(it.labelRes) }.toTypedArray()
-        var selectedIndex = currentIndex
-
-        AlertDialog.Builder(ContextThemeWrapper(this, R.style.AppTheme))
-            .setTitle(getString(R.string.dialog_title_app_appearance))
-            .setSingleChoiceItems(displayNames, currentIndex) { _, which ->
-                selectedIndex = which
-            }
-            .setPositiveButton(android.R.string.ok) { _, _ ->
-                AppIconManager.setActiveIdentity(this, identities[selectedIndex])
+        val current = AppIconManager.getActiveIdentity(this)
+        AppearanceDialogFragment.newInstance(current).apply {
+            onIdentitySelected = { identity ->
+                AppIconManager.setActiveIdentity(this@SettingsActivity, identity)
                 updateAppearanceLabel()
             }
-            .setNegativeButton(R.string.button_label_cancel) { dialog, _ ->
-                dialog.cancel()
-            }
-            .show()
+        }.show(supportFragmentManager, "appearance")
     }
 
     private fun updateAppearanceLabel()
