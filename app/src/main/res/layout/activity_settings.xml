@@ -81,6 +81,7 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/header_section">
 
+        <!-- settingsActivityLayoutContainer is used as the Snackbar anchor -->
         <LinearLayout
             android:id="@+id/settingsActivityLayoutContainer"
             android:layout_width="match_parent"
@@ -89,6 +90,7 @@
             android:paddingVertical="@dimen/padding_standard"
             android:paddingHorizontal="@dimen/padding_three_quarters">
 
+            <!-- Authentication: passcode and destruction code -->
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -116,6 +118,7 @@
                         app:switchPadding="@dimen/padding_standard"
                         app:trackTint="@color/coolGrey" />
 
+                    <!-- Passcode entry fields — hidden until switch is enabled -->
                     <LinearLayout
                         android:id="@+id/passcode_entry_layout"
                         android:layout_width="match_parent"
@@ -220,6 +223,7 @@
                         app:switchPadding="@dimen/padding_standard"
                         app:trackTint="@color/coolGrey" />
 
+                    <!-- Destruction code entry fields — hidden until switch is enabled -->
                     <LinearLayout
                         android:id="@+id/destruction_code_entry_layout"
                         android:layout_width="match_parent"
@@ -302,6 +306,7 @@
 
             </com.google.android.material.card.MaterialCardView>
 
+            <!-- Your public key: read-only display with copy action -->
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -351,6 +356,7 @@
 
             </com.google.android.material.card.MaterialCardView>
 
+            <!-- App appearance: launcher icon and display name switcher -->
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
