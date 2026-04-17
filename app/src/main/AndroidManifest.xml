@@ -183,7 +183,7 @@
             </intent-filter>
         </activity>
         <activity
-            android:name=".activities.SettingPasscodeActivity"
+            android:name=".activities.SettingsActivity"
             android:excludeFromRecents="true"
             android:screenOrientation="portrait"
             tools:ignore="LockedOrientationActivity" />

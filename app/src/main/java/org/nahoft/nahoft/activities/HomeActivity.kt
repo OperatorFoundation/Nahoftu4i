@@ -471,7 +471,7 @@ class HomeActivity : AppCompatActivity()
         }
 
         binding.settingsButton.setOnClickListener {
-            val settingsIntent = Intent(this, SettingPasscodeActivity::class.java)
+            val settingsIntent = Intent(this, SettingsActivity::class.java)
             startActivity(settingsIntent)
         }
     }

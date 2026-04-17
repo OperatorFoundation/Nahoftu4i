@@ -9,7 +9,6 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.nahoft.nahoft.R
-import kotlin.text.matches
 
 //Ensure emulator is open to the Settings Activity Screen before pressing play for SettingsActivityTest
 @RunWith(AndroidJUnit4ClassRunner::class)
@@ -17,7 +16,7 @@ import kotlin.text.matches
 class SettingsActivityTest{
 
     @get: Rule
-    val activityRule = ActivityScenarioRule(SettingPasscodeActivity::class.java)
+    val activityRule = ActivityScenarioRule(SettingsActivity::class.java)
 
     @Test
     fun testIsSettingsActivityInView() {

@@ -23,7 +23,7 @@ import org.nahoft.codex.LogoutTimerBroadcastReceiver
 import org.nahoft.nahoft.models.LoginStatus
 import org.nahoft.nahoft.Persist
 import org.nahoft.nahoft.R
-import org.nahoft.nahoft.databinding.ActivitySettingPasscodeBinding
+import org.nahoft.nahoft.databinding.ActivitySettingsBinding
 import org.nahoft.nahoft.models.slideNameSetting
 import org.nahoft.util.AppIconManager
 import org.nahoft.util.AppIdentity
@@ -31,9 +31,9 @@ import org.nahoft.util.applySecureFlag
 import org.nahoft.util.showAlert
 
 
-class SettingPasscodeActivity : AppCompatActivity()
+class SettingsActivity : AppCompatActivity()
 {
-    private lateinit var binding: ActivitySettingPasscodeBinding
+    private lateinit var binding: ActivitySettingsBinding
     private val receiver by lazy {
         LogoutTimerBroadcastReceiver {
             cleanup()
@@ -44,7 +44,7 @@ class SettingPasscodeActivity : AppCompatActivity()
     {
         super.onCreate(savedInstanceState)
 
-        binding = ActivitySettingPasscodeBinding.inflate(layoutInflater)
+        binding = ActivitySettingsBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
         window.applySecureFlag()

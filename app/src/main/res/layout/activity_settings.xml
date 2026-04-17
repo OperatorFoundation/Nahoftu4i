@@ -9,7 +9,7 @@
     android:layoutDirection="ltr"
     android:background="@color/background"
     android:filterTouchesWhenObscured="true"
-    tools:context=".activities.SettingPasscodeActivity">
+    tools:context=".activities.SettingsActivity">
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/header_section"
