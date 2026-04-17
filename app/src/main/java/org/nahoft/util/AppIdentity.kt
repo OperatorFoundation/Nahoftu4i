@@ -28,7 +28,7 @@ enum class AppIdentity(
         componentName = "org.nahoft.nahoft.activities.NahoftAlias",
         labelRes = R.string.app_identity_label_nahoft,
         iconRes = R.mipmap.ic_launcher,
-        dialogIconRes = R.mipmap.ic_launcher
+        dialogIconRes = R.drawable.ic_identity_nahoft
     ),
     BLOOM(
         componentName = "org.nahoft.nahoft.activities.BloomAlias",

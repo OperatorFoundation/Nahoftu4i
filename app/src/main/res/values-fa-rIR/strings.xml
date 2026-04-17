@@ -81,7 +81,7 @@
     <string name="alert_text_passcode_required_to_proceed">برای ادامه، رمز عبور لازم است.</string>
 
     <!-- ════════════════════════════════════════════════════════
-     AUTHENTICATION — Passcode & Destruction Code setup (SettingPasscodeActivity)
+     AUTHENTICATION — Passcode & Destruction Code setup (SettingsActivity)
      ════════════════════════════════════════════════════════ -->
 
     <string name="settings_activity_label">تنظیمات</string>

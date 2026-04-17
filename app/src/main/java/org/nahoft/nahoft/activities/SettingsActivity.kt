@@ -170,16 +170,17 @@ class SettingsActivity : AppCompatActivity()
     private fun updateAppearanceLabel() {
         val current = AppIconManager.getActiveIdentity(this)
         val sizePx = resources.getDimensionPixelSize(R.dimen.app_icon_preview_size)
-
-        // Load the icon as a bitmap and clip it to a circle
         val bitmap = BitmapFactory.decodeResource(resources, current.dialogIconRes)
-        val scaledBitmap = Bitmap.createScaledBitmap(bitmap, sizePx, sizePx, true)
-        val circularIcon = RoundedBitmapDrawableFactory.create(resources, scaledBitmap).apply {
-            isCircular = true
-            setBounds(0, 0, sizePx, sizePx)
+
+        if (bitmap != null) {
+            val scaledBitmap = Bitmap.createScaledBitmap(bitmap, sizePx, sizePx, true)
+            val circularIcon = RoundedBitmapDrawableFactory.create(resources, scaledBitmap).apply {
+                isCircular = true
+                setBounds(0, 0, sizePx, sizePx)
+            }
+            binding.appAppearanceHeading.setCompoundDrawablesRelative(circularIcon, null, null, null)
         }
 
-        binding.appAppearanceHeading.setCompoundDrawablesRelative(circularIcon, null, null, null)
         binding.appAppearanceCurrent.text = getString(
             R.string.app_appearance_current,
             getString(current.labelRes)
