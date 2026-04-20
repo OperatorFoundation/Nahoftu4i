@@ -55,9 +55,9 @@ class SettingsActivity : AppCompatActivity()
         val userCode = codex.encodeKey(Encryption().ensureKeysExist().toBytes())
         binding.tvPublicKey.text = userCode
 
-        setupButtons()
         setDefaultView()
         updateAppearanceLabel()
+        setupButtons()
     }
 
     @Deprecated("Deprecated in Java")
@@ -97,7 +97,10 @@ class SettingsActivity : AppCompatActivity()
         }
 
         binding.destructionCodeRow.setOnClickListener {
-            binding.destructionCodeSwitch.toggle()
+            if (binding.destructionCodeSwitch.isEnabled)
+            {
+                binding.destructionCodeSwitch.toggle()
+            }
         }
 
         binding.destructionCodeSwitch.setOnCheckedChangeListener { _, isChecked ->
@@ -131,13 +134,6 @@ class SettingsActivity : AppCompatActivity()
         binding.appAppearanceRow.setOnClickListener {
             showAppearanceDialog()
         }
-
-        // Tint the destruction code icon to signal its destructive nature
-        binding.destructionCodeSwitch.setCompoundDrawableTintList(
-            android.content.res.ColorStateList.valueOf(
-                androidx.core.content.ContextCompat.getColor(this, R.color.madderLake)
-            )
-        )
     }
 
     private fun setDefaultView()
@@ -248,6 +244,7 @@ class SettingsActivity : AppCompatActivity()
             binding.verifyDestructionCodeInput.setText(maybeDestructionCode)
         }
 
+        binding.destructionCodeSwitch.isEnabled = true
         binding.destructionCodeSwitch.isChecked = true
 
         binding.destructionCodeInput.isEnabled = true

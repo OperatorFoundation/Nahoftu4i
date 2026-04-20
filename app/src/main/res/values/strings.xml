@@ -58,7 +58,6 @@
     <!-- Submit button on the login screen.
          Note to translator: the string key is named "Login" but the displayed value is "Submit". -->
     <string name="Login">Submit</string>
-    <string name="enter_passcode">Enter Your Passcode</string>
 
     <!-- Title for the biometric / device credential system prompt -->
     <string name="login_using_device_credentials">Login using device credentials</string>
@@ -86,9 +85,10 @@
     <string name="settings_activity_label">Settings</string>
     <string name="passcode">Passcode</string>
     <string name="destructionCode">Destruction Code</string>
-    <string name="passcodeTwice">Re-enter Your Passcode</string>
-    <string name="enter_destruction_code">Enter Your Destruction Code</string>
-    <string name="reenter_destruction_code">Re-enter Your Destruction Code</string>
+    <string name="enter_passcode">Type Passcode</string>
+    <string name="passcodeTwice">Verify Passcode</string>
+    <string name="enter_destruction_code">Type Destruction Code</string>
+    <string name="reenter_destruction_code">Verify Destruction Code</string>
 
     <!-- Shown when a device lock screen has not been set up -->
     <string name="you_have_to_set_a_lock_screen">You have to set a lock screen before using this app</string>

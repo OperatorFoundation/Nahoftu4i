@@ -141,59 +141,43 @@
                         android:layout_height="wrap_content"
                         android:orientation="vertical">
 
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="24dp"
-                            android:fontFamily="@font/open_sans_italic"
-                            android:text="@string/enter_passcode"
-                            android:textSize="16sp" />
-
                         <com.google.android.material.textfield.TextInputLayout
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
+                            android:hint="@string/enter_passcode"
                             app:endIconMode="password_toggle">
 
                             <com.google.android.material.textfield.TextInputEditText
                                 android:id="@+id/enter_passcode_input"
                                 android:layout_width="match_parent"
-                                android:layout_height="40dp"
-                                android:background="@drawable/btn_bkgd_white_8"
-                                android:hint="@string/enter_passcode"
+                                android:layout_height="wrap_content"
                                 android:imeOptions="actionNext"
                                 android:importantForAutofill="no"
                                 android:inputType="number|numberPassword"
                                 android:maxLength="6"
                                 android:maxLines="1"
                                 android:textAlignment="center"
-                                android:textSize="22sp" />
-
+                                android:textSize="@dimen/input_field_text_size" />
                         </com.google.android.material.textfield.TextInputLayout>
 
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="24dp"
-                            android:fontFamily="@font/open_sans_italic"
-                            android:text="@string/passcodeTwice"
-                            android:textSize="16sp" />
 
                         <com.google.android.material.textfield.TextInputLayout
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
+                            android:hint="@string/passcodeTwice"
                             app:endIconMode="password_toggle">
 
                             <com.google.android.material.textfield.TextInputEditText
                                 android:id="@+id/verify_passcode_input"
                                 android:layout_width="match_parent"
-                                android:layout_height="40dp"
-                                android:background="@drawable/btn_bkgd_white_8"
-                                android:hint="@string/passcodeTwice"
+                                android:layout_height="wrap_content"
                                 android:imeOptions="actionDone"
                                 android:importantForAutofill="no"
                                 android:inputType="number|numberPassword"
                                 android:maxLength="6"
                                 android:maxLines="1"
                                 android:textAlignment="center"
-                                android:textSize="22sp" />
+                                android:textSize="@dimen/input_field_text_size" />
 
                         </com.google.android.material.textfield.TextInputLayout>
 
@@ -246,7 +230,7 @@
                             android:drawablePadding="5dp"
                             android:fontFamily="@font/open_sans"
                             android:text="@string/destructionCode"
-                            android:textSize="22sp"
+                            android:textSize="@dimen/input_field_text_size"
                             app:switchPadding="@dimen/padding_standard"
                             app:trackTint="@color/coolGrey" />
 
@@ -259,59 +243,42 @@
                         android:layout_height="wrap_content"
                         android:orientation="vertical">
 
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="24dp"
-                            android:fontFamily="@font/open_sans_italic"
-                            android:text="@string/enter_destruction_code"
-                            android:textSize="16sp" />
-
                         <com.google.android.material.textfield.TextInputLayout
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
+                            android:hint="@string/enter_destruction_code"
                             app:endIconMode="password_toggle">
 
                             <com.google.android.material.textfield.TextInputEditText
                                 android:id="@+id/destruction_code_input"
                                 android:layout_width="match_parent"
-                                android:layout_height="40dp"
-                                android:background="@drawable/btn_bkgd_white_8"
-                                android:hint="@string/enter_destruction_code"
+                                android:layout_height="wrap_content"
                                 android:imeOptions="actionDone"
                                 android:importantForAutofill="no"
                                 android:inputType="number|numberPassword"
                                 android:maxLength="6"
                                 android:maxLines="1"
                                 android:textAlignment="center"
-                                android:textSize="22sp" />
-
+                                android:textSize="@dimen/input_field_text_size" />
                         </com.google.android.material.textfield.TextInputLayout>
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="24dp"
-                            android:fontFamily="@font/open_sans_italic"
-                            android:text="@string/reenter_destruction_code"
-                            android:textSize="16sp" />
 
                         <com.google.android.material.textfield.TextInputLayout
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
+                            android:hint="@string/reenter_destruction_code"
                             app:endIconMode="password_toggle">
 
                             <com.google.android.material.textfield.TextInputEditText
                                 android:id="@+id/verify_destruction_code_input"
                                 android:layout_width="match_parent"
-                                android:layout_height="40dp"
-                                android:background="@drawable/btn_bkgd_white_8"
-                                android:hint="@string/reenter_destruction_code"
+                                android:layout_height="wrap_content"
                                 android:imeOptions="actionDone"
                                 android:importantForAutofill="no"
                                 android:inputType="number|numberPassword"
                                 android:maxLength="6"
                                 android:maxLines="1"
                                 android:textAlignment="center"
-                                android:textSize="22sp" />
+                                android:textSize="@dimen/input_field_text_size" />
 
                         </com.google.android.material.textfield.TextInputLayout>
 
