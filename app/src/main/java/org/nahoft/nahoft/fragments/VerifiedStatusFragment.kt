@@ -12,12 +12,16 @@ import androidx.appcompat.app.AlertDialog
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.isVisible
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
+import org.libsodium.jni.keys.PublicKey
+import org.nahoft.codex.Encryption
 import org.nahoft.nahoft.*
 import org.nahoft.nahoft.adapters.MessagesRecyclerAdapter
 import org.nahoft.nahoft.databinding.FragmentVerifiedStatusBinding
 import org.nahoft.nahoft.models.Friend
 import org.nahoft.nahoft.models.Message
+import timber.log.Timber
 
 // the fragment initialization parameters
 private const val FRIEND = "friend"
@@ -51,8 +55,7 @@ class VerifiedStatusFragment : Fragment()
 
     override fun onResume() {
         super.onResume()
-
-        binding.messagesRecyclerView.adapter?.notifyDataSetChanged()
+        refreshMessages()
     }
 
     companion object {
@@ -96,13 +99,24 @@ class VerifiedStatusFragment : Fragment()
         }
         ViewCompat.requestApplyInsets(view)
 
+        adapter = MessagesRecyclerAdapter(
+            scope = viewLifecycleOwner.lifecycleScope,
+            resolveContent = ::resolveMessageContent
+        )
 
-        adapter = MessagesRecyclerAdapter(filteredMessages)
         binding.messagesRecyclerView.layoutManager = linearLayoutManager
         binding.messagesRecyclerView.adapter = adapter
-        binding.messagesRecyclerView.scrollToPosition(adapter.itemCount - 1)
         adapter.onItemLongClick = { message ->
             showDeleteConfirmationDialog(message)
+        }
+
+        // Submit the initial list, then scroll to the newest message once the diff commits.
+        // With async diffing, itemCount is 0 immediately after submitList, so the scroll
+        // must run in the commit callback rather than inline.
+        adapter.submitList(filteredMessages.toList()) {
+            if (adapter.itemCount > 0) {
+                binding.messagesRecyclerView.scrollToPosition(adapter.itemCount - 1)
+            }
         }
     }
 
@@ -137,8 +151,54 @@ class VerifiedStatusFragment : Fragment()
     {
         context?.let {
             Persist.deleteMessage(it, message)
-            filteredMessages.removeIf { msg -> msg == message && msg.timestamp == message.timestamp }
-            adapter.notifyDataSetChanged()
+            refreshMessages()
+        }
+    }
+
+    /**
+     * Re-reads this friend's messages from the store and submits a fresh list.
+     * A new list instance is required for ListAdapter to diff against the old one,
+     * so we never mutate the list already held by the adapter.
+     */
+    private fun refreshMessages()
+    {
+        if (_binding == null) return
+
+        filteredMessages = Persist.messageList.filter { it.sender == friend } as ArrayList<Message>
+        adapter.submitList(filteredMessages.toList())
+
+        // Let the window-insets listener recompute empty-state visibility — it reads
+        // filteredMessages live and accounts for keyboard (IME) state.
+        ViewCompat.requestApplyInsets(binding.root)
+    }
+
+    /**
+     * Produces the display text for a message row. The adapter invokes this on
+     * Dispatchers.IO, so the blocking decrypt (key load + forced GC/finalization)
+     * never runs on the UI thread. Returns null when content can't be produced —
+     * app locked, missing sender key, or decrypt failure — and the adapter renders
+     * a fallback in that case.
+     */
+    private suspend fun resolveMessageContent(message: Message): String?
+    {
+        // Unencrypted messages are stored as raw UTF-8 — no key needed.
+        if (!message.isEncrypted) return String(message.cipherText, Charsets.UTF_8)
+
+        val senderKeyBytes = message.sender?.publicKeyEncoded ?: return null
+
+        return try
+        {
+            Encryption().decrypt(PublicKey(senderKeyBytes), message.cipherText)
+        }
+        catch (_: SecurityException)
+        {
+            // App is locked — content stays redacted.
+            null
+        }
+        catch (e: Exception)
+        {
+            Timber.w(e, "Decryption failed for message row")
+            null
         }
     }
 
