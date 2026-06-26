@@ -31,8 +31,8 @@ android {
         minSdkVersion 33
         targetSdkVersion 36
 
-        versionCode 11
-        versionName "2.1.0"
+        versionCode 12
+        versionName "3.0.0"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -57,21 +57,21 @@ android {
 }
 
 // Pin AudioCoderAndroid to a commit
-configurations.all {
-    resolutionStrategy {
-        force("com.github.OperatorFoundation:AudioCoderAndroid:a369d16581")
-    }
-}
+//configurations.all {
+//    resolutionStrategy {
+//        force("com.github.OperatorFoundation:AudioCoderAndroid:872ed22b90")
+//    }
+//}
 
 dependencies {
     implementation fileTree(dir: "libs", include: ["*.jar"])
 
     // Operator Libraries
-    implementation("com.github.OperatorFoundation:AudioCoderAndroid:a369d16581") // Radio codec (WSPR) Library
+    implementation("com.github.OperatorFoundation:AudioCoderAndroid:1.3.10") // Radio codec (WSPR, MFSK) Library
     implementation("com.github.OperatorFoundation:TransmissionAndroid:1.5.1") // Serial communications
     implementation("com.github.OperatorFoundation:ion-android:v1.2.1") // Communication protocol
     implementation("com.github.OperatorFoundation:CodexKotlin:v1.2.1") // Message Encoding
-    implementation ("com.github.OperatorFoundation:SignalBridge:v1.2.7") // USBAudio Management
+    implementation ("com.github.OperatorFoundation:SignalBridge:v1.2.8") // USBAudio Management
 
     // 3rd party
     implementation 'com.github.mik3y:usb-serial-for-android:3.9.0'
