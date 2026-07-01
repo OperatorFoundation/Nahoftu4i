@@ -23,7 +23,6 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import org.nahoft.nahoft.BuildConfig
 import org.nahoft.nahoft.R
 import org.nahoft.nahoft.databinding.FragmentBottomSheetMfskTransmitRadioBinding
 import org.nahoft.nahoft.services.MFSKTransmitSessionState
@@ -72,8 +71,6 @@ class MFSKTransmitRadioBottomSheetFragment : BottomSheetDialogFragment()
     private var totalDurationMs = 0L
 
     private enum class AnimationType { NONE, PULSE, ROTATE }
-
-    private fun currentUseFldigiEngine(): Boolean = binding.cbUseFldigiEngine.isChecked
 
     // ==================== Lifecycle ====================
 
@@ -129,7 +126,6 @@ class MFSKTransmitRadioBottomSheetFragment : BottomSheetDialogFragment()
         binding.tvMessagePreview.text = requireArguments().getString(ARG_MESSAGE)
         binding.etMfskFrequency.setText(viewModel.getMfskBaseFrequencyHz().toString())
         binding.progressTransmission.max = PROGRESS_MAX
-        binding.cbUseFldigiEngine.isChecked = viewModel.getMfskUseFldigiEngine()
     }
 
     private fun setupClickListeners()
@@ -143,15 +139,6 @@ class MFSKTransmitRadioBottomSheetFragment : BottomSheetDialogFragment()
         }
 
         binding.btnClose.setOnClickListener { dismissAllowingStateLoss() }
-
-        // Debug-only test message button. Hidden in release builds.
-        if (BuildConfig.DEBUG)
-        {
-            binding.btnDebugSendTest.visibility = View.VISIBLE
-            binding.btnDebugSendTest.setOnClickListener {
-                viewModel.startDebugTransmission(currentFrequencyInput(), currentUseFldigiEngine())
-            }
-        }
 
         // Initial click listener for Idle state
         setStartClickListener()
@@ -206,7 +193,6 @@ class MFSKTransmitRadioBottomSheetFragment : BottomSheetDialogFragment()
         binding.btnAction.isEnabled = viewModel.isEdenConnected.value
         binding.btnAction.text = getString(R.string.start_transmission)
         binding.btnClose.visibility = View.GONE
-        binding.cbUseFldigiEngine.isEnabled = true
     }
 
     private fun showPreparingState()
@@ -221,8 +207,6 @@ class MFSKTransmitRadioBottomSheetFragment : BottomSheetDialogFragment()
         binding.btnAction.isEnabled = true
         binding.btnAction.text = getString(R.string.stop_session)
         binding.btnClose.visibility = View.GONE
-        binding.btnDebugSendTest.visibility = View.GONE
-        binding.cbUseFldigiEngine.isEnabled = false
     }
 
     private fun showTransmittingState(state: MFSKTransmitSessionState.Transmitting)
@@ -236,8 +220,6 @@ class MFSKTransmitRadioBottomSheetFragment : BottomSheetDialogFragment()
         binding.btnAction.isEnabled = true
         binding.btnAction.text = getString(R.string.stop_session)
         binding.btnClose.visibility = View.GONE
-        binding.btnDebugSendTest.visibility = View.GONE
-        binding.cbUseFldigiEngine.isEnabled = false
 
         // Start progress only on first emission — Transmitting is emitted exactly once
         if (transmitStartMs == 0L)
@@ -271,8 +253,6 @@ class MFSKTransmitRadioBottomSheetFragment : BottomSheetDialogFragment()
         binding.btnAction.text = getString(R.string.dismiss)
         binding.btnAction.setOnClickListener { dismissAllowingStateLoss() }
         binding.btnClose.visibility = View.VISIBLE
-        binding.btnDebugSendTest.visibility = View.GONE
-        binding.cbUseFldigiEngine.isEnabled = false
     }
 
     private fun showFailedState(state: MFSKTransmitSessionState.Failed)
@@ -291,8 +271,6 @@ class MFSKTransmitRadioBottomSheetFragment : BottomSheetDialogFragment()
         binding.btnAction.text = getString(R.string.dismiss)
         binding.btnAction.setOnClickListener { dismissAllowingStateLoss() }
         binding.btnClose.visibility = View.VISIBLE
-        binding.btnDebugSendTest.visibility = View.GONE
-        binding.cbUseFldigiEngine.isEnabled = false
     }
 
     private fun showCancelledState()
@@ -311,8 +289,6 @@ class MFSKTransmitRadioBottomSheetFragment : BottomSheetDialogFragment()
         binding.btnAction.text = getString(R.string.dismiss)
         binding.btnAction.setOnClickListener { dismissAllowingStateLoss() }
         binding.btnClose.visibility = View.VISIBLE
-        binding.btnDebugSendTest.visibility = View.GONE
-        binding.cbUseFldigiEngine.isEnabled = false
     }
 
     // ==================== Progress ====================
@@ -365,7 +341,7 @@ class MFSKTransmitRadioBottomSheetFragment : BottomSheetDialogFragment()
     private fun setStartClickListener()
     {
         binding.btnAction.setOnClickListener {
-            viewModel.startTransmission(currentFrequencyInput(), currentUseFldigiEngine())
+            viewModel.startTransmission(currentFrequencyInput())
         }
     }
 

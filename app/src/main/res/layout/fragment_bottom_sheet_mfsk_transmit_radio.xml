@@ -121,29 +121,6 @@
 
             </LinearLayout>
 
-            <!-- ── Engine selection ───────────────────────────────────────────── -->
-            <!--
-                Selects between the fldigi C++ engine and the pure Kotlin encoder.
-                Editable before TX starts, disabled once transmission begins.
-            -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:background="@drawable/section_bkgd_dark_grey_8"
-                android:orientation="vertical"
-                android:padding="12dp">
-
-                <CheckBox
-                    android:id="@+id/cb_use_fldigi_engine"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/mfsk_use_fldigi_engine"
-                    android:textColor="@color/white"
-                    android:textSize="14sp" />
-
-            </LinearLayout>
-
             <!-- ── Message preview ───────────────────────────────────────── -->
             <!--
                 Plaintext is already in memory when the sheet opens.
@@ -174,22 +151,7 @@
                     android:maxLines="2"
                     android:textColor="@color/white"
                     android:textSize="15sp" />
-
             </LinearLayout>
-
-            <!-- ── DEBUG ONLY: hard-coded test message ─────────────────────────────
-             Sends a fixed plaintext through MFSKEncoder, bypassing encryption
-             and Base64. Used to verify TX pipeline correctness against fldigi.
-             Visibility set in code based on BuildConfig.DEBUG. -->
-            <Button
-                android:id="@+id/btn_debug_send_test"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:background="@drawable/btn_bkgd_transparent_56"
-                android:text="@string/mfsk_debug_send_test"
-                android:textColor="@color/white"
-                android:visibility="gone" />
 
             <!-- ── State icon + status text ──────────────────────────────── -->
             <ImageView
