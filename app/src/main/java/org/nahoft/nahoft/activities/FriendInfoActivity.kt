@@ -1040,32 +1040,6 @@ class FriendInfoActivity: AppCompatActivity()
         val keyBytes = userPublicKey.toBytes()
         ShareUtil.shareKey(this, keyBytes)
 
-        // Share the key
-//        if (Persist.loadBooleanKey(Persist.sharedPrefUseSmsAsDefaultKey)) { // && (thisFriend.phone?.isNotEmpty() == true)) {
-//            try {
-//                val codex = Codex()
-//                val encodedKey = codex.encodeKey(keyBytes)
-//                val smsManager: SmsManager = if (Build.VERSION.SDK_INT >= 31) {
-//                    this.getSystemService(SmsManager::class.java)
-//                } else {
-//                    SmsManager.getDefault()
-//                }
-//                val parts = smsManager.divideMessage(encodedKey)
-//                smsManager.sendMultipartTextMessage(
-//                    thisFriend.phone,
-//                    null,
-//                    parts,
-//                    null,
-//                    null
-//                )
-//            } catch (e: Exception) {
-//                this.showAlert(getString(R.string.unable_to_send_sms))
-//                return
-//            }
-//        } else {
-//          ShareUtil.shareKey(this, keyBytes)
-//        }
-
         if (thisFriend.status == FriendStatus.Requested)
         {
             // We have already received an invitation from this friend.

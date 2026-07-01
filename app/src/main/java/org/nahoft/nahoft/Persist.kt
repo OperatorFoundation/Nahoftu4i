@@ -66,7 +66,6 @@ class Persist
         lateinit var friendsFile: File
         lateinit var messagesFile: File
         lateinit var app: Application
-//        var sendWithSms by Delegates.notNull<Boolean>()
 
         var friendList = ArrayList<Friend>()
         var messageList = ArrayList<Message>()
