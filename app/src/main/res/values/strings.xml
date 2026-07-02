@@ -449,6 +449,10 @@
     <string name="mfsk_tx_base_frequency_hz">Base Frequency (Hz)</string>
     <string name="mfsk_tx_complete_detail">Message sent successfully</string>
 
+    <!-- Shown in place of the encryption checkbox when the message contains characters
+         MFSK cannot transmit unencrypted (IZ8BLY Varicode supports ISO-8859-1 only) -->
+    <string name="mfsk_unencrypted_unavailable_charset">Unencrypted mode isn\'t available for this message (it contains characters that are not supported by MFSK).</string>
+
     <!-- %1$d = elapsed seconds, %2$d = total seconds -->
     <string name="mfsk_tx_time_elapsed_format">%1$ds / %2$ds</string>
 

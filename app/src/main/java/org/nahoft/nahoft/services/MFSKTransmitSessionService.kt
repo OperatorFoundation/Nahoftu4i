@@ -35,8 +35,10 @@ import timber.log.Timber
  * Unlike [WSPRTransmitSessionService], there is no window-waiting step — MFSK
  * transmission begins immediately after encoding.
  *
- * Note: MFSK transmission is encrypted only. Unencrypted MFSK TX is not
- * currently supported.
+ * Supports both encrypted and unencrypted transmission, matching the WSPR TX
+ * service's pattern. Unencrypted mode sends the raw message through MFSK's
+ * standard Varicode encoding with no Base64 step, producing a transmission
+ * decodable by any standard-compliant MFSK client.
  *
  * Serial communication is entirely delegated to [Eden]. This service calls
  * Eden methods and trusts their boolean return values.
@@ -58,6 +60,7 @@ class MFSKTransmitSessionService : Service()
         const val EXTRA_FRIEND_PUBLIC_KEY = "mfsk_tx_friend_public_key"
         const val EXTRA_MODE_LABEL        = "mfsk_tx_mode_label"
         const val EXTRA_BASE_FREQUENCY_HZ = "mfsk_tx_base_frequency_hz"
+        const val EXTRA_IS_ENCRYPTED      = "mfsk_tx_is_encrypted"
 
         private const val NOTIFICATION_CHANNEL_ID = "nahoft_mfsk_transmit_session"
         private const val NOTIFICATION_ID = 1004
@@ -68,7 +71,8 @@ class MFSKTransmitSessionService : Service()
             friendName: String,
             friendPublicKey: ByteArray,
             mode: MFSKMode,
-            baseFrequencyHz: Int
+            baseFrequencyHz: Int,
+            isEncrypted: Boolean = true
         ): Intent = Intent(context, MFSKTransmitSessionService::class.java).apply {
             action = ACTION_START_SESSION
             putExtra(EXTRA_MESSAGE, message)
@@ -76,6 +80,7 @@ class MFSKTransmitSessionService : Service()
             putExtra(EXTRA_FRIEND_PUBLIC_KEY, friendPublicKey)
             putExtra(EXTRA_MODE_LABEL, mode.label)
             putExtra(EXTRA_BASE_FREQUENCY_HZ, baseFrequencyHz)
+            putExtra(EXTRA_IS_ENCRYPTED, isEncrypted)
         }
 
         fun createStopIntent(context: Context): Intent =
@@ -131,6 +136,7 @@ class MFSKTransmitSessionService : Service()
                 val publicKey     = intent.getByteArrayExtra(EXTRA_FRIEND_PUBLIC_KEY)
                 val modeLabel     = intent.getStringExtra(EXTRA_MODE_LABEL)
                 val baseFreqHz    = intent.getIntExtra(EXTRA_BASE_FREQUENCY_HZ, 1500)
+                val isEncrypted   = intent.getBooleanExtra(EXTRA_IS_ENCRYPTED, true)
 
                 if (message == null || name == null || publicKey == null || modeLabel == null)
                 {
@@ -147,7 +153,7 @@ class MFSKTransmitSessionService : Service()
                     return START_NOT_STICKY
                 }
 
-                startSession(message, name, publicKey, mode, baseFreqHz)
+                startSession(message, name, publicKey, mode, baseFreqHz, isEncrypted)
             }
 
             ACTION_STOP_SESSION -> cancelTransmission()
@@ -173,7 +179,8 @@ class MFSKTransmitSessionService : Service()
         name: String,
         publicKey: ByteArray,
         mode: MFSKMode,
-        baseFrequencyHz: Int
+        baseFrequencyHz: Int,
+        isEncrypted: Boolean
     )
     {
         if (sessionJob?.isActive == true)
@@ -192,7 +199,7 @@ class MFSKTransmitSessionService : Service()
         sessionJob = serviceScope.launch {
             try
             {
-                runTxPipeline(message, name, publicKey, mode, baseFrequencyHz)
+                runTxPipeline(message, name, publicKey, mode, baseFrequencyHz, isEncrypted)
             }
             finally
             {
@@ -228,7 +235,7 @@ class MFSKTransmitSessionService : Service()
      *
      * Steps:
      * 1. Validate Eden is available
-     * 2. Encrypt the message (Preparing)
+     * 2. Encrypt (if isEncrypted) or leave as plaintext, then encode to symbol indices (Preparing)
      * 3. Frame and encode to symbol indices
      * 4. Convert symbol indices to centihertz frequencies
      * 5. Emit Transmitting(totalDurationMs) and call Eden.transmitMFSK()
@@ -242,7 +249,8 @@ class MFSKTransmitSessionService : Service()
         friendName: String,
         publicKey: ByteArray,
         mode: MFSKMode,
-        baseFrequencyHz: Int
+        baseFrequencyHz: Int,
+        isEncrypted: Boolean
     )
     {
         // ── 1. Validate Eden ──────────────────────────────────────────────────
@@ -269,7 +277,10 @@ class MFSKTransmitSessionService : Service()
         try
         {
             val result = withContext(Dispatchers.Default) {
-                encryptAndEncode(message, publicKey, mode, baseFrequencyHz)
+                if (isEncrypted)
+                    encryptAndEncode(message, publicKey, mode, baseFrequencyHz)
+                else
+                    encodeUnencrypted(message, mode, baseFrequencyHz)
             }
             payloadBytes         = result.first
             symbolFrequenciesCHz = result.second
@@ -280,8 +291,13 @@ class MFSKTransmitSessionService : Service()
         catch (e: Exception)
         {
             Timber.e(e, "MFSKTransmitSessionService: encrypt/encode failed")
-            _transmitSessionState.value =
-                MFSKTransmitSessionState.Failed("Failed to encode message. It may be too large.")
+
+            val failureReason = if (isEncrypted)
+                "Failed to encode message. It may be too large."
+            else
+                "Failed to encode message. It may contain characters not supported by MFSK."
+
+            _transmitSessionState.value = MFSKTransmitSessionState.Failed(failureReason)
             return
         }
 
@@ -305,7 +321,7 @@ class MFSKTransmitSessionService : Service()
             return
         }
 
-        saveMessage(payloadBytes, friendName)
+        saveMessage(payloadBytes, friendName, isEncrypted)
 
         _transmitSessionState.value = MFSKTransmitSessionState.Complete
         updateNotification()
@@ -345,17 +361,59 @@ class MFSKTransmitSessionService : Service()
         )
 
         val symbolIndices = MFSKEncoder.encodeToSymbols(base64Ciphertext, mode)
-
-        // Convert tone indices to centihertz frequencies for Eden.
-        val symbolFrequenciesCHz = symbolIndices.map { toneIndex ->
-            ((baseFrequencyHz + toneIndex * mode.toneSpacingHz) * 100).toLong()
-        }.toLongArray()
+        val symbolFrequenciesCHz = symbolIndicesToFrequenciesCHz(symbolIndices, mode, baseFrequencyHz)
 
         Timber.d("MFSKTransmitSessionService: encoded ${base64Ciphertext.length} base64 chars → ${symbolIndices.size} symbols")
         Timber.d("MFSKTransmitSessionService: payload = \"$base64Ciphertext\"")
 
         return Pair(encryptedBytes, symbolFrequenciesCHz)
     }
+
+    /**
+     * Encodes [message] for unencrypted MFSK transmission.
+     *
+     * No encryption or Base64 step — the raw UTF-8 message is passed directly to
+     * [MFSKEncoder.encodeToSymbols], producing a plain MFSK-16 transmission decodable
+     * by any standard-compliant MFSK client (e.g. fldigi). This is a deliberate
+     * on-air-interoperability choice, not an oversight — Base64 would defeat the
+     * purpose of an "unencrypted, plain MFSK" mode.
+     *
+     * [MFSKEncoder.encodeToSymbols] throws if [message] contains characters outside
+     * IZ8BLY Varicode's supported range (ISO-8859-1). The fragment already prevents
+     * unencrypted mode from being selected for such messages, so this should be
+     * unreachable in normal use — the caller's catch block is a defensive backstop.
+     *
+     * Returns a pair of (plaintextBytes, symbolFrequenciesCHz). Throws on any failure.
+     */
+    private fun encodeUnencrypted(
+        message: String,
+        mode: MFSKMode,
+        baseFrequencyHz: Int
+    ): Pair<ByteArray, LongArray>
+    {
+        val plaintextBytes = message.toByteArray(Charsets.UTF_8)
+
+        val symbolIndices = MFSKEncoder.encodeToSymbols(message, mode)
+        val symbolFrequenciesCHz = symbolIndicesToFrequenciesCHz(symbolIndices, mode, baseFrequencyHz)
+
+        Timber.d("MFSKTransmitSessionService: encoded unencrypted message (${message.length} chars) → ${symbolIndices.size} symbols")
+
+        return Pair(plaintextBytes, symbolFrequenciesCHz)
+    }
+
+    /**
+     * Converts MFSK tone indices to centihertz frequencies for Eden.
+     *   `(baseFrequencyHz + toneIndex × mode.toneSpacingHz) × 100` cHz
+     * Shared by both the encrypted and unencrypted encode paths.
+     */
+    private fun symbolIndicesToFrequenciesCHz(
+        symbolIndices: IntArray,
+        mode: MFSKMode,
+        baseFrequencyHz: Int
+    ): LongArray = symbolIndices.map { toneIndex ->
+        ((baseFrequencyHz + toneIndex * mode.toneSpacingHz) * 100).toLong()
+    }.toLongArray()
+
 
     // ==================== Save Message ======================================
 
@@ -364,7 +422,7 @@ class MFSKTransmitSessionService : Service()
      * Looks up the friend by name from [Persist.friendList].
      * Non-fatal if it fails — transmission already succeeded.
      */
-    private fun saveMessage(encryptedBytes: ByteArray, friendName: String)
+    private fun saveMessage(payloadBytes: ByteArray, friendName: String, isEncrypted: Boolean)
     {
         try
         {
@@ -376,7 +434,7 @@ class MFSKTransmitSessionService : Service()
                 return
             }
 
-            val savedMessage = Message(encryptedBytes, friend, fromMe = true, isEncrypted = true)
+            val savedMessage = Message(payloadBytes, friend, fromMe = true, isEncrypted = isEncrypted)
             savedMessage.save(applicationContext)
             Timber.i("MFSKTransmitSessionService.saveMessage: saved for '$friendName'")
         }

@@ -113,8 +113,10 @@ class MFSKTransmitRadioViewModel(
      * supported, mode selection will be exposed here and passed through.
      *
      * @param baseFrequencyHz Audio base frequency in Hz (e.g. 1500).
+     * @param isEncrypted Whether to encrypt the message before encoding.
+     *                    Defaults to true. Pass false for unencrypted MFSK transmission.
      */
-    fun startTransmission(baseFrequencyHz: Int)
+    fun startTransmission(baseFrequencyHz: Int, isEncrypted: Boolean = true)
     {
         saveMfskBaseFrequencyHz(baseFrequencyHz)
 
@@ -127,7 +129,8 @@ class MFSKTransmitRadioViewModel(
             friendName       = friendName,
             friendPublicKey  = friendPublicKey,
             mode             = mode,
-            baseFrequencyHz  = baseFrequencyHz
+            baseFrequencyHz  = baseFrequencyHz,
+            isEncrypted      = isEncrypted
         )
         context.startForegroundService(startIntent)
 

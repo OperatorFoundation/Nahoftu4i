@@ -65,6 +65,10 @@ class MFSKTransmitRadioBottomSheetFragment : BottomSheetDialogFragment()
     private var progressJob: Job? = null
     private var transmissionCompleted = false
 
+    // Computed once in setupStaticUI() — whether the fixed message can be sent
+    // unencrypted at all (MFSK's Varicode supports ISO-8859-1 only).
+    private var isUnencryptedEligible = false
+
     // Recorded once when Transmitting state first arrives — drives the progress bar.
     // transmitStartMs == 0L means no transmission has started yet.
     private var transmitStartMs = 0L
@@ -126,10 +130,26 @@ class MFSKTransmitRadioBottomSheetFragment : BottomSheetDialogFragment()
         binding.tvMessagePreview.text = requireArguments().getString(ARG_MESSAGE)
         binding.etMfskFrequency.setText(viewModel.getMfskBaseFrequencyHz().toString())
         binding.progressTransmission.max = PROGRESS_MAX
+
+        // MFSK's IZ8BLY Varicode only covers ISO-8859-1 (code points 0–255) — the
+        // same range fldigi and every standard-compliant MFSK-16 client support.
+        // If the message contains characters outside that range (e.g. Farsi),
+        // unencrypted mode cannot represent it, so the option is disabled outright
+        // rather than left selectable and failing at transmit time. The message is
+        // fixed for the lifetime of this sheet, so this is computed once here.
+        isUnencryptedEligible = Charsets.ISO_8859_1.newEncoder().canEncode(viewModel.message)
+        binding.tvUnencryptedUnavailable.visibility =
+            if (isUnencryptedEligible) View.GONE else View.VISIBLE
+        if (!isUnencryptedEligible)
+        {
+            binding.cbDisableEncryption.isChecked = false
+        }
     }
 
     private fun setupClickListeners()
     {
+        setupEncryptionToggle()
+
         binding.btnMfskFreqMinus.setOnClickListener {
             binding.etMfskFrequency.setText((currentFrequencyInput() - 1).toString())
         }
@@ -142,6 +162,22 @@ class MFSKTransmitRadioBottomSheetFragment : BottomSheetDialogFragment()
 
         // Initial click listener for Idle state
         setStartClickListener()
+    }
+
+    // ==================== Encryption Mode ====================
+
+    // Returns whether the current session should use encryption.
+    private fun currentEncryptionMode(): Boolean = !binding.cbDisableEncryption.isChecked
+
+    /**
+     * Wires the encryption checkbox to show/hide the warning icon.
+     */
+    private fun setupEncryptionToggle()
+    {
+        binding.cbDisableEncryption.setOnCheckedChangeListener { _, isChecked ->
+            binding.ivEncryptionWarning.visibility =
+                if (isChecked) View.VISIBLE else View.GONE
+        }
     }
 
     // ==================== ViewModel Observation ====================
@@ -193,6 +229,7 @@ class MFSKTransmitRadioBottomSheetFragment : BottomSheetDialogFragment()
         binding.btnAction.isEnabled = viewModel.isEdenConnected.value
         binding.btnAction.text = getString(R.string.start_transmission)
         binding.btnClose.visibility = View.GONE
+        binding.cbDisableEncryption.isEnabled = isUnencryptedEligible
     }
 
     private fun showPreparingState()
@@ -207,6 +244,7 @@ class MFSKTransmitRadioBottomSheetFragment : BottomSheetDialogFragment()
         binding.btnAction.isEnabled = true
         binding.btnAction.text = getString(R.string.stop_session)
         binding.btnClose.visibility = View.GONE
+        binding.cbDisableEncryption.isEnabled = false
     }
 
     private fun showTransmittingState(state: MFSKTransmitSessionState.Transmitting)
@@ -341,7 +379,7 @@ class MFSKTransmitRadioBottomSheetFragment : BottomSheetDialogFragment()
     private fun setStartClickListener()
     {
         binding.btnAction.setOnClickListener {
-            viewModel.startTransmission(currentFrequencyInput())
+            viewModel.startTransmission(currentFrequencyInput(), currentEncryptionMode())
         }
     }
 

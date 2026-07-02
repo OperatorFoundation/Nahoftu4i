@@ -121,6 +121,67 @@
 
             </LinearLayout>
 
+            <!-- ── Encryption mode ────────────────────────────────────────────── -->
+            <!--
+                Checkbox defaults to unchecked (encrypted). Disabled once TX starts.
+                Also disabled — and replaced by tv_unencrypted_unavailable — when the
+                message contains characters MFSK's IZ8BLY Varicode can't represent
+                (ISO-8859-1 only). Warning icon appears only when encryption is disabled.
+            -->
+            <LinearLayout
+                android:id="@+id/encryption_section"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:background="@drawable/section_bkgd_dark_grey_8"
+                android:orientation="vertical"
+                android:padding="12dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <CheckBox
+                        android:id="@+id/cb_disable_encryption"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:buttonTint="@color/white"
+                        android:checked="false"
+                        android:text="@string/send_without_encryption"
+                        android:textColor="@color/white"
+                        android:textSize="14sp" />
+
+                    <ImageView
+                        android:id="@+id/iv_encryption_warning"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:layout_marginStart="8dp"
+                        android:contentDescription="@string/encryption_warning"
+                        android:src="@drawable/ic_warning"
+                        android:visibility="gone"
+                        app:tint="@color/tangerine" />
+
+                </LinearLayout>
+
+                <!--
+                    Shown instead of an interactive checkbox when the message contains
+                    characters unsupported by MFSK. Hidden otherwise.
+                -->
+                <TextView
+                    android:id="@+id/tv_unencrypted_unavailable"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="@string/mfsk_unencrypted_unavailable_charset"
+                    android:textColor="@color/coolGrey"
+                    android:textSize="12sp"
+                    android:visibility="gone" />
+
+            </LinearLayout>
+
             <!-- ── Message preview ───────────────────────────────────────── -->
             <!--
                 Plaintext is already in memory when the sheet opens.
