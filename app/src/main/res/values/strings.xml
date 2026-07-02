@@ -271,6 +271,9 @@
     <string name="byte_counter_radio_format">Radio: %1$d / %2$d</string>
     <string name="byte_counter_message_format">Message: %1$d / %2$d</string>
 
+    <!-- Shown next to unencrypted radio messages to visually distinguish them from encrypted ones -->
+    <string name="label_unencrypted_message">Unencrypted</string>
+
     <!-- ════════════════════════════════════════════════════════
          ONBOARDING & HELP — Slide content and user guides (SlideActivity)
          ════════════════════════════════════════════════════════ -->

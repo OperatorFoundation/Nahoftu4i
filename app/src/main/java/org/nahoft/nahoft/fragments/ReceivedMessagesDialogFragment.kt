@@ -158,7 +158,8 @@ class ReceivedMessagesDialogFragment : BottomSheetDialogFragment()
     private data class RowData(
         val timeString: String,
         val spotCount: Int,
-        val plaintext: String?  // null = locked or not found
+        val plaintext: String?,  // null = locked or not found
+        val isEncrypted: Boolean  // defaults to true when the source message can't be located
     )
 
     private fun buildRowData(
@@ -182,7 +183,7 @@ class ReceivedMessagesDialogFragment : BottomSheetDialogFragment()
             else -> null
         }
 
-        return RowData(timeString, record.spotCount, plaintext)
+        return RowData(timeString, record.spotCount, plaintext, message?.isEncrypted ?: true)
     }
 
     // ── View construction ─────────────────────────────────────────────────────
@@ -209,19 +210,49 @@ class ReceivedMessagesDialogFragment : BottomSheetDialogFragment()
             }
         }
 
-        // Header: timestamp + spot count
-        row.addView(TextView(ctx).apply {
-            text = getString(R.string.message_row_header, data.timeString, data.spotCount)
-            textSize = 12f
-            setTextColor(ContextCompat.getColor(ctx, R.color.coolGrey))
+        // Header row: encryption indicator (unencrypted messages only) + timestamp + spot count
+        val headerRow = LinearLayout(ctx).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER_VERTICAL
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
             ).apply {
-                // padding_quarter = 6dp, matching the original intent
                 bottomMargin = ctx.resources.getDimensionPixelSize(R.dimen.padding_quarter)
             }
+        }
+
+        if (!data.isEncrypted)
+        {
+            headerRow.addView(android.widget.ImageView(ctx).apply {
+                layoutParams = LinearLayout.LayoutParams(
+                    ctx.resources.getDimensionPixelSize(R.dimen.padding_half),
+                    ctx.resources.getDimensionPixelSize(R.dimen.padding_half)
+                ).apply { marginEnd = ctx.resources.getDimensionPixelSize(R.dimen.padding_quarter) }
+                setImageResource(R.drawable.ic_lock_open_24)
+                setColorFilter(ContextCompat.getColor(ctx, R.color.madderLake))
+                contentDescription = getString(R.string.label_unencrypted_message)
+            })
+
+            headerRow.addView(TextView(ctx).apply {
+                text = getString(R.string.label_unencrypted_message)
+                textSize = 12f
+                setTextColor(ContextCompat.getColor(ctx, R.color.madderLake))
+                setTypeface(typeface, android.graphics.Typeface.BOLD)
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply { marginEnd = ctx.resources.getDimensionPixelSize(R.dimen.padding_quarter) }
+            })
+        }
+
+        headerRow.addView(TextView(ctx).apply {
+            text = getString(R.string.message_row_header, data.timeString, data.spotCount)
+            textSize = 12f
+            setTextColor(ContextCompat.getColor(ctx, R.color.coolGrey))
         })
+
+        row.addView(headerRow)
 
         // Message content or locked placeholder
         row.addView(TextView(ctx).apply {

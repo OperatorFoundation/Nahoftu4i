@@ -99,6 +99,10 @@ class MessagesRecyclerAdapter(
                 )
             }
 
+            val encryptionIndicatorVisibility = if (message.isEncrypted) View.GONE else View.VISIBLE
+            binding.ivEncryptionStatus.visibility = encryptionIndicatorVisibility
+            binding.tvEncryptionLabel.visibility = encryptionIndicatorVisibility
+
             // Clear stale text so a recycled row does not flash the previous
             // message's content while this row's content is being resolved.
             binding.messageTextView.text = ""

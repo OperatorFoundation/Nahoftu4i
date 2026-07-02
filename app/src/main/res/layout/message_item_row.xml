@@ -7,17 +7,6 @@
     android:layout_height="wrap_content"
     android:layout_marginVertical="@dimen/activity_margin">
 
-<!--    <ImageView-->
-<!--        android:id="@+id/status_image_view"-->
-<!--        android:layout_width="wrap_content"-->
-<!--        android:layout_height="wrap_content"-->
-<!--        android:layout_marginEnd="@dimen/padding_quarter"-->
-<!--        android:src="@drawable/ic_nahoft_icons_profile_picture"-->
-<!--        android:textColor="@color/colorPrimaryDark"-->
-<!--        app:layout_constraintStart_toStartOf="parent"-->
-<!--        app:layout_constraintTop_toTopOf="parent"-->
-<!--        tools:ignore="ContentDescription" />-->
-
     <TextView
         android:id="@+id/status_image_view"
         android:layout_width="wrap_content"
@@ -48,15 +37,45 @@
         app:layout_constraintStart_toEndOf="@id/status_image_view"
         app:layout_constraintTop_toTopOf="@id/status_image_view" />
 
-    <TextView
-        android:id="@+id/date_text_view"
+    <LinearLayout
+        android:id="@+id/message_metadata_row"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:textColor="@android:color/darker_gray"
-        android:textSize="12sp"
-        android:text="@string/sample_date_time"
         android:layout_marginTop="5dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
         app:layout_constraintStart_toStartOf="@id/message_text_view"
-        app:layout_constraintTop_toBottomOf="@id/message_text_view" />
+        app:layout_constraintTop_toBottomOf="@id/message_text_view">
+
+        <ImageView
+            android:id="@+id/iv_encryption_status"
+            android:layout_width="12dp"
+            android:layout_height="12dp"
+            android:layout_marginEnd="3dp"
+            android:contentDescription="@string/label_unencrypted_message"
+            android:src="@drawable/ic_lock_open_24"
+            android:visibility="gone"
+            app:tint="@color/madderLake" />
+
+        <TextView
+            android:id="@+id/tv_encryption_label"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="6dp"
+            android:text="@string/label_unencrypted_message"
+            android:textColor="@color/madderLake"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/date_text_view"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="@android:color/darker_gray"
+            android:textSize="12sp"
+            android:text="@string/sample_date_time" />
+
+    </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>
