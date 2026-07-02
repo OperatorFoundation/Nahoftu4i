@@ -122,6 +122,64 @@
 
             </LinearLayout>
 
+            <!-- ── Encryption mode ────────────────────────────────────────────── -->
+            <!--
+                Checkbox defaults to unchecked (encrypted). Locked once a session
+                starts.
+            -->
+            <LinearLayout
+                android:id="@+id/encryption_section"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:background="@drawable/section_bkgd_dark_grey_8"
+                android:orientation="vertical"
+                android:padding="12dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <CheckBox
+                        android:id="@+id/cb_disable_encryption"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:buttonTint="@color/white"
+                        android:checked="false"
+                        android:text="@string/receive_without_encryption"
+                        android:textColor="@color/white"
+                        android:textSize="14sp" />
+
+                    <ImageView
+                        android:id="@+id/iv_encryption_warning"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:layout_marginStart="8dp"
+                        android:contentDescription="@string/encryption_warning_rx"
+                        android:src="@drawable/ic_warning"
+                        android:visibility="gone"
+                        app:tint="@color/tangerine" />
+
+                </LinearLayout>
+
+                <!--
+                    Shown only during Running state — informs the user that encryption
+                    mode is locked for this session. Hidden otherwise.
+                -->
+                <TextView
+                    android:id="@+id/tv_encryption_session_info"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:textColor="@color/coolGrey"
+                    android:textSize="12sp"
+                    android:visibility="gone" />
+
+            </LinearLayout>
+
             <!-- ── State icon + status ───────────────────────────────────── -->
             <ImageView
                 android:id="@+id/iv_state_icon"

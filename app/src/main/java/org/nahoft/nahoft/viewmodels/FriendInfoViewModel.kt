@@ -402,8 +402,10 @@ class   FriendInfoViewModel(application: Application) : AndroidViewModel(applica
      *
      * Refuses to start if a WSPR session is already active.
      * Mode is fixed to [MFSKMode.MFSK16] until multi-mode selection is added.
+     *
+     * @param isEncrypted Whether to expect encrypted or unencrypted MFSK payloads.
      */
-    fun startMfskReceiveSession()
+    fun startMfskReceiveSession(isEncrypted: Boolean = true)
     {
         if (isWsprSessionActive())
         {
@@ -436,7 +438,8 @@ class   FriendInfoViewModel(application: Application) : AndroidViewModel(applica
                 friendName      = currentFriend.name,
                 friendPublicKey = publicKey,
                 mode            = mode,
-                baseFrequencyHz = getMfskBaseFrequencyHz()
+                baseFrequencyHz = getMfskBaseFrequencyHz(),
+                isEncrypted     = isEncrypted
             )
         )
 

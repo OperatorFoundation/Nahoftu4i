@@ -39,11 +39,16 @@ import timber.log.Timber
  * with session progress.
  *
  * Receive pipeline per decoded message:
- *   MFSKStation.messages → decrypt with friend public key → save → emit
+ *   Encrypted:   MFSKStation.messages → Base64-decode → decrypt → save → emit
+ *   Unencrypted: MFSKStation.messages → save as plaintext UTF-8 → emit
  *
- * Decryption failures (corrupted audio, noise) are logged and silently skipped —
- * [MFSKStation] only emits when its framing is complete, so a decryption failure
- * means the payload is not a valid Nahoft ciphertext rather than a partial receive.
+ * Decryption failures (corrupted audio, noise) are logged and silently skipped in
+ * encrypted mode — [MFSKStation] only emits when its framing is complete, so a
+ * decryption failure means the payload is not a valid Nahoft ciphertext rather
+ * than a partial receive. Unencrypted mode has no equivalent authentication gate:
+ * any complete-but-spurious STX/EOT frame from noise would be displayed as a
+ * received message. This is a deliberate, accepted tradeoff for keeping
+ * unencrypted MFSK identical to plain, standard-compliant MFSK traffic.
  *
  * The session-level timeout ([SESSION_TIMEOUT_MS]) is distinct from [MFSKConfiguration.timeoutMs],
  * which controls per-message decode timeouts inside [MFSKStation]. The session timeout
@@ -66,6 +71,7 @@ class MFSKReceiveSessionService : Service()
         const val EXTRA_FRIEND_PUBLIC_KEY = "mfsk_rx_friend_public_key"
         const val EXTRA_MODE_LABEL        = "mfsk_rx_mode_label"
         const val EXTRA_BASE_FREQUENCY_HZ = "mfsk_rx_base_frequency_hz"
+        const val EXTRA_IS_ENCRYPTED = "mfsk_rx_is_encrypted"
 
         /**
          * How long the service runs while backgrounded before auto-stopping.
@@ -86,13 +92,15 @@ class MFSKReceiveSessionService : Service()
             friendName: String,
             friendPublicKey: ByteArray,
             mode: MFSKMode,
-            baseFrequencyHz: Int
+            baseFrequencyHz: Int,
+            isEncrypted: Boolean = true
         ): Intent = Intent(context, MFSKReceiveSessionService::class.java).apply {
             action = ACTION_START_SESSION
             putExtra(EXTRA_FRIEND_NAME, friendName)
             putExtra(EXTRA_FRIEND_PUBLIC_KEY, friendPublicKey)
             putExtra(EXTRA_MODE_LABEL, mode.label)
             putExtra(EXTRA_BASE_FREQUENCY_HZ, baseFrequencyHz)
+            putExtra(EXTRA_IS_ENCRYPTED, isEncrypted)
         }
 
         fun createStopIntent(context: Context): Intent =
@@ -192,6 +200,7 @@ class MFSKReceiveSessionService : Service()
                 val key        = intent.getByteArrayExtra(EXTRA_FRIEND_PUBLIC_KEY)
                 val modeLabel  = intent.getStringExtra(EXTRA_MODE_LABEL)
                 val baseFreqHz = intent.getIntExtra(EXTRA_BASE_FREQUENCY_HZ, 1500)
+                val isEncrypted = intent.getBooleanExtra(EXTRA_IS_ENCRYPTED, true)
 
                 if (name == null || key == null || modeLabel == null)
                 {
@@ -208,7 +217,7 @@ class MFSKReceiveSessionService : Service()
                     return START_NOT_STICKY
                 }
 
-                startSession(name, key, mode, baseFreqHz)
+                startSession(name, key, mode, baseFreqHz, isEncrypted)
             }
 
             ACTION_STOP_SESSION ->
@@ -257,7 +266,8 @@ class MFSKReceiveSessionService : Service()
         name: String,
         key: ByteArray,
         mode: MFSKMode,
-        baseFrequencyHz: Int
+        baseFrequencyHz: Int,
+        isEncrypted: Boolean
     )
     {
         if (isSessionActive())
@@ -287,7 +297,7 @@ class MFSKReceiveSessionService : Service()
         sessionJob = serviceScope.launch {
             try
             {
-                runReceivePipeline(name, key, mode, baseFrequencyHz)
+                runReceivePipeline(name, key, mode, baseFrequencyHz, isEncrypted)
             }
             catch (e: CancellationException)
             {
@@ -354,7 +364,8 @@ class MFSKReceiveSessionService : Service()
         name: String,
         key: ByteArray,
         mode: MFSKMode,
-        baseFrequencyHz: Int
+        baseFrequencyHz: Int,
+        isEncrypted: Boolean
     )
     {
         // ── 1. Connect to USB audio ───────────────────────────────────────────
@@ -416,24 +427,55 @@ class MFSKReceiveSessionService : Service()
         // ── 4. Collect and decrypt messages ───────────────────────────────────
 
         mfskStation!!.receivedMessages.collect { mfskMessage ->
-            processReceivedMessage(mfskMessage.text, name, key)
+            processReceivedMessage(mfskMessage.text, name, key, isEncrypted)
             updateNotification()
         }
     }
 
     /**
-     * Base64-decodes and decrypts a received MFSK text payload.
+     * Processes a received MFSK text payload — encrypted or unencrypted.
      *
-     * A Base64 decode failure or decryption failure is expected when noise causes
-     * [MFSKStation] to emit a complete-but-garbage frame. Log and continue.
+     * Encrypted: Base64-decodes then decrypts. A Base64 decode failure or
+     * decryption failure is expected when noise causes [MFSKStation] to emit a
+     * complete-but-garbage frame
      *
-     * @param receivedText  The text string from [MFSKMessage.text], containing
-     *                      Base64 ciphertext with surrounding CR characters.
+     * Unencrypted: no decode/decrypt step. [receivedText] is treated directly as
+     * the plaintext message.
+     *
+     * @param receivedText  The text string from [MFSKMessage.text].
      * @param name          Friend's display name, for saving the message.
-     * @param key           Friend's public key bytes, for decryption.
+     * @param key           Friend's public key bytes. Unused when [isEncrypted] is false.
+     * @param isEncrypted   Whether this session expects encrypted or plaintext payloads.
      */
-    private fun processReceivedMessage(receivedText: String, name: String, key: ByteArray)
+    private fun processReceivedMessage(
+        receivedText: String,
+        name: String,
+        key: ByteArray,
+        isEncrypted: Boolean
+    )
     {
+        if (!isEncrypted)
+        {
+            val plaintextBytes = receivedText.trim().toByteArray(Charsets.UTF_8)
+
+            Timber.i("MFSKReceiveSessionService: received unencrypted message from '$name'")
+
+            saveReceivedMessage(plaintextBytes, name, isEncrypted = false)
+
+            _messageJustReceived.value = true
+
+            _decryptedMessageRecords.value += DecryptedMessageRecord(
+                timestamp = System.currentTimeMillis(),
+                spotCount = 1
+            )
+
+            serviceScope.launch {
+                _lastReceivedMessage.emit(plaintextBytes)
+            }
+
+            return
+        }
+
         try
         {
             val ciphertextBytes = android.util.Base64.decode(
@@ -448,14 +490,14 @@ class MFSKReceiveSessionService : Service()
 
             Timber.i("MFSKReceiveSessionService: successfully decrypted message from '$name'")
 
-            saveReceivedMessage(ciphertextBytes, name)
+            saveReceivedMessage(ciphertextBytes, name, isEncrypted = true)
 
             _messageJustReceived.value = true
 
             _decryptedMessageRecords.value += DecryptedMessageRecord(
-                                    timestamp = System.currentTimeMillis(),
-                                    spotCount = 1
-                                )
+                timestamp = System.currentTimeMillis(),
+                spotCount = 1
+            )
 
             serviceScope.launch {
                 _lastReceivedMessage.emit(ciphertextBytes)
@@ -463,7 +505,7 @@ class MFSKReceiveSessionService : Service()
         }
         catch (e: SecurityException)
         {
-            // Invalid ciphertext — most likely noise or a spurious frame decode.
+            // Invalid ciphertext — possibly noise.
             // Continue listening.
             Timber.d("MFSKReceiveSessionService: decryption failed (likely noise) — " +
                     "${receivedText.length} chars received, continuing")
@@ -474,8 +516,7 @@ class MFSKReceiveSessionService : Service()
         }
     }
 
-
-    private fun saveReceivedMessage(ciphertextBytes: ByteArray, name: String)
+    private fun saveReceivedMessage(payloadBytes: ByteArray, name: String, isEncrypted: Boolean)
     {
         try
         {
@@ -487,10 +528,10 @@ class MFSKReceiveSessionService : Service()
                 return
             }
 
-            Message(ciphertextBytes, friend, fromMe = false, isEncrypted = true)
+            Message(payloadBytes, friend, fromMe = false, isEncrypted = isEncrypted)
                 .save(applicationContext)
 
-            Timber.i("MFSKReceiveSessionService: saved received message for '$name'")
+            Timber.d("MFSKReceiveSessionService: saved received message for '$name', encrypted=$isEncrypted")
         }
         catch (e: Exception)
         {

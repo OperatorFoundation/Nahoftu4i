@@ -59,6 +59,22 @@ class MFSKReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
 
     private enum class AnimationType { NONE, PULSE, ROTATE }
 
+    // ==================== Encryption Mode ====================
+
+    // Returns whether the current session should use encryption.
+    private fun currentEncryptionMode(): Boolean = !binding.cbDisableEncryption.isChecked
+
+    /**
+     * Wires the encryption checkbox to show/hide the warning icon.
+     */
+    private fun setupEncryptionToggle()
+    {
+        binding.cbDisableEncryption.setOnCheckedChangeListener { _, isChecked ->
+            binding.ivEncryptionWarning.visibility =
+                if (isChecked) View.VISIBLE else View.GONE
+        }
+    }
+
     // ==================== Lifecycle ====================
 
     override fun onCreateView(
@@ -107,6 +123,8 @@ class MFSKReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
 
     private fun setupClickListeners()
     {
+        setupEncryptionToggle()
+
         // Minimize — keeps session running
         binding.btnClose.setOnClickListener { dismissAllowingStateLoss() }
 
@@ -191,6 +209,7 @@ class MFSKReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
                 updateStatus(getString(R.string.tap_start_to_listen))
                 showFrequencyInput()
                 binding.audioLevelSection.visibility = View.GONE
+                binding.tvEncryptionSessionInfo.visibility = View.GONE
                 binding.vuMeter.reset()
             }
 
@@ -207,6 +226,13 @@ class MFSKReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
                 updateStatus(getString(R.string.mfsk_listening_for_signals))
                 showFrequencyReadOnly()
                 binding.audioLevelSection.visibility = View.VISIBLE
+                binding.tvEncryptionSessionInfo.visibility = View.VISIBLE
+                binding.tvEncryptionSessionInfo.text = getString(
+                    if (currentEncryptionMode())
+                        R.string.session_started_encrypted
+                    else
+                        R.string.session_started_unencrypted
+                )
             }
 
             is MFSKReceiveSessionState.Stopped ->
@@ -215,6 +241,7 @@ class MFSKReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
                 updateStatus(getString(R.string.session_stopped))
                 showFrequencyInput()
                 binding.audioLevelSection.visibility = View.GONE
+                binding.tvEncryptionSessionInfo.visibility = View.GONE
                 binding.vuMeter.reset()
             }
 
@@ -226,6 +253,7 @@ class MFSKReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
                 binding.tvError.visibility = View.VISIBLE
                 showFrequencyInput()
                 binding.audioLevelSection.visibility = View.GONE
+                binding.tvEncryptionSessionInfo.visibility = View.GONE
                 binding.vuMeter.reset()
             }
         }
@@ -250,6 +278,7 @@ class MFSKReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
         binding.etMfskRxFrequency.isEnabled    = true
         binding.btnMfskRxFreqMinus.isEnabled   = true
         binding.btnMfskRxFreqPlus.isEnabled    = true
+        binding.cbDisableEncryption.isEnabled  = true
 
         binding.btnClose.visibility = View.GONE
         binding.btnStop.text = getString(R.string.start_session)
@@ -264,7 +293,7 @@ class MFSKReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
         binding.btnStop.setOnClickListener {
             val freqHz = currentFrequencyInput()
             viewModel.saveMfskBaseFrequencyHz(freqHz)
-            viewModel.startMfskReceiveSession()
+            viewModel.startMfskReceiveSession(currentEncryptionMode())
             showFrequencyReadOnly()
         }
     }
@@ -278,6 +307,7 @@ class MFSKReceiveRadioBottomSheetFragment : BottomSheetDialogFragment()
         binding.etMfskRxFrequency.isEnabled    = false
         binding.btnMfskRxFreqMinus.isEnabled   = false
         binding.btnMfskRxFreqPlus.isEnabled    = false
+        binding.cbDisableEncryption.isEnabled  = false
 
         binding.btnClose.visibility = View.VISIBLE
         binding.btnStop.isEnabled   = true
