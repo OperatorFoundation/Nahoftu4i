@@ -739,6 +739,9 @@ class FriendInfoActivity: AppCompatActivity()
 
             Timber.d("saveAsImage tapped")
 
+            // Collapse the share/save action tray as soon as an action is chosen.
+            if (isShareImageButtonShow) showHideShareImageButtons()
+
             // Show consent dialog before proceeding with image save
             if (hasImageSaveConsentBeenShown())
             {
@@ -755,6 +758,8 @@ class FriendInfoActivity: AppCompatActivity()
 
         binding.shareAsImage.setOnClickListener {
             Timber.d("shareAsImage tapped")
+            // Collapse the share/save action tray as soon as an action is chosen.
+            if (isShareImageButtonShow) showHideShareImageButtons()
             trySendingOrSavingMessage(isImage = true, saveImage = false)
         }
 
