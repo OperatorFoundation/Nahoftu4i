@@ -87,6 +87,10 @@
     <string name="enter_destruction_code">Type Destruction Code</string>
     <string name="reenter_destruction_code">Verify Destruction Code</string>
 
+    <!-- Shown when a device lock screen has not been set up -->
+    <string name="you_have_to_set_a_lock_screen">You have to set a lock screen before using this app.</string>
+
+
     <!-- Passcode validation errors -->
     <string name="alert_text_passcode_field_empty">The passcode field is empty.</string>
     <string name="alert_text_verify_passcode_field_empty">Please verify your passcode.</string>

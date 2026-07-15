@@ -45,6 +45,8 @@
     <string name="enter_destruction_code">کد نابودی را وارد کنید</string>
     <string name="reenter_destruction_code">کد نابودی را مجدداً وارد کنید</string>
 
+    <string name="you_have_to_set_a_lock_screen">قبل از استفاده از این برنامه باید برای موبایل خود یک قفل صفحه تنظیم کنید</string>
+
     <string name="alert_text_passcode_field_empty">قسمت رمز عبور خالی است.</string>
     <string name="alert_text_verify_passcode_field_empty">لطفاً رمز خود را تأیید کنید.</string>
     <string name="alert_text_passcode_entries_do_not_match">ورودی‌های رمز عبور با هم مطابقت ندارند.</string>
