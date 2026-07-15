@@ -1,5 +1,6 @@
 package org.nahoft.util
 
+import android.content.ClipData
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -11,10 +12,13 @@ object ShareUtil
 {
     fun shareImage(context: Context, imageUri: Uri)
     {
-        val sendIntent = Intent(Intent.ACTION_SEND)
-        sendIntent.putExtra(Intent.EXTRA_STREAM, imageUri)
-        sendIntent.type = "*/*"
-        sendIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        // Declare the payload as a named PNG attachment.
+        val sendIntent = Intent(Intent.ACTION_SEND).apply {
+            type = SaveUtil.PNG_MIME_TYPE
+            putExtra(Intent.EXTRA_STREAM, imageUri)
+            clipData = ClipData.newUri(context.contentResolver, "image.png", imageUri)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
 
         val shareIntent = Intent.createChooser(sendIntent, null)
         shareIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
