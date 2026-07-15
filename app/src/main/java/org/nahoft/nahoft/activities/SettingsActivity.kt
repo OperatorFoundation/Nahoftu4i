@@ -279,26 +279,6 @@ class SettingsActivity : AppCompatActivity()
     {
         if (required)
         {
-            if (!isBiometricAvailable())
-            {
-                val snack = Snackbar.make(
-                    findViewById(R.id.settingsActivityLayoutContainer),
-                    getString(R.string.you_have_to_set_a_lock_screen),
-                    Snackbar.LENGTH_LONG
-                )
-                snack.setAction(getString(R.string.click_to_set)) {
-                    val enrollIntent = Intent(Settings.ACTION_BIOMETRIC_ENROLL).apply {
-                        putExtra(
-                            Settings.EXTRA_BIOMETRIC_AUTHENTICATORS_ALLOWED,
-                            BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.DEVICE_CREDENTIAL
-                        )
-                    }
-                    startActivity(enrollIntent)
-                }
-                snack.show()
-                binding.passcodeSwitch.isChecked = false
-                return
-            }
             updateViewPasscodeOn(false)
         }
         else
@@ -456,16 +436,6 @@ class SettingsActivity : AppCompatActivity()
 
         showAlert(getString(R.string.alert_text_passcode_is_a_repeated_digit))
         return false
-    }
-
-    private fun isBiometricAvailable(): Boolean
-    {
-        val biometricManager = BiometricManager.from(this)
-        return when (biometricManager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.DEVICE_CREDENTIAL))
-        {
-            BiometricManager.BIOMETRIC_SUCCESS -> true
-            else -> false
-        }
     }
 
     private fun cleanup()

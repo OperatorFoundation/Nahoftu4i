@@ -60,12 +60,8 @@
          Note to translator: the string key is named "Login" but the displayed value is "Submit". -->
     <string name="Login">Submit</string>
 
-    <!-- Title for the biometric / device credential system prompt -->
-    <string name="login_using_device_credentials">Login using device credentials</string>
-    <!-- Subtitle listing available authentication methods for the system prompt -->
-    <string name="biometrics_pin_password_pattern">(Biometrics, PIN, Password, Pattern)</string>
     <!-- Explains two-step login behavior once a passcode has been set -->
-    <string name="two_step_login_description">When you set a passcode for Nahoft, the app automatically enables two-step login. The first step asks for the passcode you set above. The second step asks for your phone\'s lock - your fingerprint, face, PIN, password, or pattern.</string>
+    <string name="two_step_login_description">When you set a passcode for Nahoft, you\'ll need to enter it each time you open the app.</string>
 
     <!-- Failed login attempt alerts — shown progressively as attempt count increases -->
     <string name="alert_text_zero_to_five_login_attempts">The passcode entered is incorrect. Please try again.</string>
@@ -90,11 +86,6 @@
     <string name="passcodeTwice">Verify Passcode</string>
     <string name="enter_destruction_code">Type Destruction Code</string>
     <string name="reenter_destruction_code">Verify Destruction Code</string>
-
-    <!-- Shown when a device lock screen has not been set up -->
-    <string name="you_have_to_set_a_lock_screen">You have to set a lock screen before using this app.</string>
-    <!-- Label for the Snackbar action button that opens device security settings -->
-    <string name="click_to_set">Click to set</string>
 
     <!-- Passcode validation errors -->
     <string name="alert_text_passcode_field_empty">The passcode field is empty.</string>

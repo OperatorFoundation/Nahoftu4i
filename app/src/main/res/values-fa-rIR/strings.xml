@@ -29,10 +29,6 @@
     <string name="Login">ورود</string>
     <string name="enter_passcode">رمز عبور خود را وارد کنید</string>
 
-    <string name="login_using_device_credentials">ورود با استفاده از احراز هویت سیستم عامل</string>
-
-    <string name="biometrics_pin_password_pattern">(اثر انگشت, تشخیص چهر, رمز و …)</string>
-
     <string name="alert_text_zero_to_five_login_attempts">رمز عبور واردشده نادرست است. لطفاً دوباره امتحان کنید.</string>
     <string name="alert_text_sixth_login_attempt">رمز عبور واردشده نادرست است. می‌توانید بعد از ۶۰ ثانیه دوباره وارد سیستم شوید.</string>
     <string name="alert_text_seventh_login_attempt">رمز عبور واردشده نادرست است. می‌توانید بعد از ۵ دقیقه دوباره وارد سیستم شوید.</string>
@@ -48,9 +44,6 @@
     <string name="passcodeTwice">رمز عبور خود را مجدداً وارد کنید</string>
     <string name="enter_destruction_code">کد نابودی را وارد کنید</string>
     <string name="reenter_destruction_code">کد نابودی را مجدداً وارد کنید</string>
-
-    <string name="you_have_to_set_a_lock_screen">قبل از استفاده از این برنامه باید برای موبایل خود یک قفل صفحه تنظیم کنید</string>
-    <string name="click_to_set">تنظیم کنید</string>
 
     <string name="alert_text_passcode_field_empty">قسمت رمز عبور خالی است.</string>
     <string name="alert_text_verify_passcode_field_empty">لطفاً رمز خود را تأیید کنید.</string>
