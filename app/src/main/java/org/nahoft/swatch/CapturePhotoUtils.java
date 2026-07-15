@@ -1,4 +1,4 @@
-package org.nahoft.stencil;
+package org.nahoft.swatch;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -21,29 +21,16 @@ import static androidx.core.content.FileProvider.getUriForFile;
  */
 public class CapturePhotoUtils
 {
-    /**
-     * A copy of the Android internals  insertImage method, this method populates the
-     * meta data with DATE_ADDED and DATE_TAKEN. This fixes a common problem where media
-     * that is inserted manually gets saved at the end of the gallery (because date is not populated).
-     * @see Images.Media#insertImage(ContentResolver, Bitmap, String, String)
-     */
-    public static Uri insertImage(Context context,
-                                  Bitmap source,
-                                  String title,
-                                  String description) {
-        ContentValues values = new ContentValues();
-        values.put(Images.Media.TITLE, title);
-        values.put(Images.Media.DISPLAY_NAME, title);
-        values.put(Images.Media.DESCRIPTION, description);
-        values.put(Images.Media.MIME_TYPE, "image/jpg");
-
-        // Add the date meta data to ensure the image is added at the front of the gallery
-        values.put(Images.Media.DATE_ADDED, System.currentTimeMillis() / 1000);
-        values.put(Images.Media.DATE_TAKEN, System.currentTimeMillis());
-
+    public static Uri insertImage(Context context, Bitmap source)
+    {
         try
         {
-            File tempFile = File.createTempFile("image", ".png", context.getCacheDir());
+            File encodedCacheDir = new File(context.getCacheDir(), "encoded_saves");
+            if (!encodedCacheDir.exists()) {
+                encodedCacheDir.mkdirs();
+            }
+
+            File tempFile = File.createTempFile("image", ".png", encodedCacheDir);
 
             try (FileOutputStream outputStream = new FileOutputStream(tempFile))
             {

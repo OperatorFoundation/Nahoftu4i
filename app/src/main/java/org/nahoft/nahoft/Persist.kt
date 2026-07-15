@@ -18,10 +18,10 @@ import org.nahoft.nahoft.models.LoginStatus
 import org.nahoft.nahoft.models.Message
 import org.nahoft.nahoft.models.Messages
 import org.nahoft.util.LockoutLogic
-import timber.log.Timber
+import org.nahoft.util.SaveUtil
+import org.nahoft.util.SecureDelete
 import java.security.SecureRandom
 import java.util.Calendar as JavaCalendar
-import java.io.RandomAccessFile
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import kotlin.random.Random
@@ -30,8 +30,6 @@ class Persist
 {
     companion object
     {
-        const val sharedPrefImageSaveConsentShownKey = "NahoftImageSaveConsentShown"
-
         val publicKeyPreferencesKey = "NahoftPublicKey"
         val sharedPrefLoginStatusKey = "NahoftLoginStatus"
         val sharedPrefPasscodeKey = "NahoftPasscode"
@@ -311,49 +309,15 @@ class Persist
             saveMessagesToFile(context)
         }
 
-        fun secureDelete(file: File)
-        {
-            if (!file.exists()) return
-
-            try
-            {
-                val length = file.length()
-                val random = SecureRandom()
-
-                // Overwrite with random data multiple times
-                repeat(3)
-                {
-                    RandomAccessFile(file, "rws").use { raf ->
-                        val buffer = ByteArray(4096)
-
-                        var remaining = length
-
-                        while (remaining > 0)
-                        {
-                            val toWrite = minOf(remaining, buffer.size.toLong()).toInt()
-                            random.nextBytes(buffer)
-                            raf.write(buffer, 0, toWrite)
-                            remaining -= toWrite
-                        }
-
-                        raf.fd.sync()
-                    }
-                }
-
-                // Delete the file
-                file.delete()
-            }
-            catch (e: kotlin.Exception)
-            {
-                Timber.d("Error deleting a file: ${e.printStackTrace()}")
-            }
-        }
-
         @OptIn(ExperimentalStdlibApi::class)
-        fun clearAllData(secondaryCode: Boolean)
+        fun clearAllData(context: Context, secondaryCode: Boolean)
         {
-            secureDelete(friendsFile)
-            secureDelete(messagesFile)
+            // Purge encoded images from cache first. The destruction-code and failed-attempt
+            // wipe paths must leave no recoverable plaintext-cover images behind.
+            SaveUtil.sweepEncodedCache(context, exceptPath = null)
+
+            SecureDelete.secureDelete(friendsFile)
+            SecureDelete.secureDelete(messagesFile)
 
             for (friend in friendList)
             {

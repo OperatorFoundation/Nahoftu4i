@@ -45,3 +45,5 @@ class Swatch
     }
 }
 
+data class ImageSize(val height: Double, val width: Double, val colorDepthBytes: Double)
+

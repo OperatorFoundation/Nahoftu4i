@@ -99,7 +99,6 @@
     <string name="send_encrypted_text_messages_using_this_button">از این دکمه برای ارسال پیام‌ متنی رمزنگاری شده استفاده کنید.</string>
     <string name="send_encrypted_image_messages_using_this_button">از این دکمه برای ارسال پیام‌ تصویری رمزنگاری شده استفاده کنید.</string>
     <string name="import_image_hint">تصویری را از حافظه دستگاه خود وارد کنید.</string>
-    <string name="saved_images">تصاویر ذخیره‌شده</string>
     <string name="sample_date_time">دیروز ساعت ۱۴:۲۶</string>
     <string name="confirmation_for_import">متنی که قصد ارسال آن را دارید، قبلاً رمزگذاری شده است. آیا می‌خواهید به جای ارسال، آن را رمزگشایی کنید؟</string>
     <string name="alert_text_write_a_message_to_send">پیامی را برای ارسال بنویسید.</string>

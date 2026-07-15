@@ -26,7 +26,6 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.view.ContextThemeWrapper
 import android.content.ClipboardManager
-import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
@@ -60,9 +59,11 @@ import org.nahoft.nahoft.models.slideNameChat
 import org.nahoft.nahoft.services.MFSKReceiveSessionState
 import org.nahoft.nahoft.services.WSPRReceiveSessionState
 import org.nahoft.nahoft.viewmodels.FriendInfoViewModel
+import org.nahoft.util.SaveUtil
 import org.nahoft.util.applySecureFlag
 
 import timber.log.Timber
+import java.io.File
 
 class FriendInfoActivity: AppCompatActivity()
 {
@@ -80,14 +81,24 @@ class FriendInfoActivity: AppCompatActivity()
     private var isShareImageButtonShow: Boolean = false
     private var indicatorAnimator: ObjectAnimator? = null
 
+    // Absolute path of the encoded PNG staged in cache while the Save As
+    // destination picker is open. Null when no save is in flight.
+    private var pendingSaveTempPath: String? = null
+
+    // Destination picker for "Save As". The encoded PNG is already staged in
+    // cache by the time this launches; the chosen URI is where we copy it.
+    private val createDocumentForSavingLauncher: ActivityResultLauncher<String> = registerForActivityResult(
+        ActivityResultContracts.CreateDocument(SaveUtil.PNG_MIME_TYPE)) { destUri ->
+            handleSaveDestinationChosen(destUri)
+        }
+
     // True when the user has tapped "receive via radio" and we're waiting for the
     // system permission dialog. The launcher callback uses this to decide whether
     // to continue the receive flow on grant.
     private var pendingReceiveRequest = false
 
     private val audioPermissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { isGranted ->
+        ActivityResultContracts.RequestPermission()) { isGranted ->
         val wasPendingRequest = pendingReceiveRequest
         pendingReceiveRequest = false
 
@@ -182,6 +193,14 @@ class FriendInfoActivity: AppCompatActivity()
 
         binding = ActivityFriendInfoBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        savedInstanceState?.getString(STATE_PENDING_SAVE_TEMP_PATH)?.let {
+            pendingSaveTempPath = it
+        }
+
+        // Clear encoded images left in cache by earlier sessions, preserving any
+        // Save As temp still awaiting a destination pick.
+        SaveUtil.sweepEncodedCache(applicationContext, pendingSaveTempPath)
 
         ViewCompat.setOnApplyWindowInsetsListener(binding.relativeLayout) { view, insets ->
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
@@ -302,6 +321,12 @@ class FriendInfoActivity: AppCompatActivity()
         // Unbind from service (service continues running)
         viewModel.unbindFromWsprService()
         viewModel.unbindFromMfskService()
+    }
+
+    override fun onSaveInstanceState(outState: Bundle)
+    {
+        super.onSaveInstanceState(outState)
+        pendingSaveTempPath?.let { outState.putString(STATE_PENDING_SAVE_TEMP_PATH, it) }
     }
 
     /**
@@ -736,24 +761,10 @@ class FriendInfoActivity: AppCompatActivity()
         }
 
         binding.saveAsImage.setOnClickListener {
-
             Timber.d("saveAsImage tapped")
-
             // Collapse the share/save action tray as soon as an action is chosen.
             if (isShareImageButtonShow) showHideShareImageButtons()
-
-            // Show consent dialog before proceeding with image save
-            if (hasImageSaveConsentBeenShown())
-            {
-                trySendingOrSavingMessage(isImage = true, saveImage = true)
-            }
-            else
-            {
-                // Only show if the user hasn't opted out
-                showImageSaveConsentDialog {
-                    trySendingOrSavingMessage(isImage = true, saveImage = true)
-                }
-            }
+            trySendingOrSavingMessage(isImage = true, saveImage = true)
         }
 
         binding.shareAsImage.setOnClickListener {
@@ -836,85 +847,6 @@ class FriendInfoActivity: AppCompatActivity()
         }
             .create()
             .show()
-    }
-
-    /**
-     * Shows an informed consent dialog before saving an encoded image to shared storage.
-     * Explains that the image will be visible in the gallery and accessible to other apps.
-     * Includes a "Don't show again" option.
-     */
-    private fun showImageSaveConsentDialog(onConsent: () -> Unit)
-    {
-        val builder = AlertDialog.Builder(ContextThemeWrapper(this, R.style.AppTheme_AddFriendAlertDialog))
-        val title = SpannableString("Save to Gallery?")
-
-        title.setSpan(
-            AlignmentSpan.Standard(Layout.Alignment.ALIGN_CENTER),
-            0,
-            title.length,
-            0
-        )
-        builder.setTitle(title)
-
-        // Create container for message and checkbox
-        val container = LinearLayout(this)
-        container.orientation = LinearLayout.VERTICAL
-        container.setPadding(50, 40, 50, 20)
-
-        // Message text
-        val message = """
-        The encoded image will be saved to your device's Pictures folder where:
-        
-        • It will appear in your gallery app
-        • Other apps can access it
-        • It remains visible after uninstalling Nahoft
-        
-        The hidden message is encrypted and can only be decoded with your keys.
-        """.trimIndent()
-
-        val textView = TextView(this)
-        textView.text = message
-        textView.setTextColor(ContextCompat.getColor(this, R.color.royalBlueDark))
-        container.addView(textView)
-
-        // "Don't show again" checkbox
-        val checkBox = android.widget.CheckBox(this)
-        checkBox.text = "Don't show this again"
-        checkBox.setTextColor(ContextCompat.getColor(this, R.color.royalBlueDark))
-        checkBox.setPadding(0, 30, 0, 0)
-        container.addView(checkBox)
-
-        builder.setView(container)
-
-        builder.setPositiveButton("Save to Gallery") { _, _ ->
-            // Save preference if checkbox is checked
-            if (checkBox.isChecked) {
-                markImageSaveConsentShown()
-            }
-            onConsent()
-        }
-
-        builder.setNegativeButton("Cancel") { dialog, _ ->
-            dialog.cancel()
-        }
-
-        builder.create().show()
-    }
-
-    /**
-     * Checks if the user has already seen and accepted the image save consent dialog.
-     */
-    private fun hasImageSaveConsentBeenShown(): Boolean
-    {
-        return Persist.loadBooleanKey(Persist.sharedPrefImageSaveConsentShownKey)
-    }
-
-    /**
-     * Marks that the user has seen the image save consent dialog.
-     */
-    private fun markImageSaveConsentShown()
-    {
-        Persist.saveBooleanKey(Persist.sharedPrefImageSaveConsentShownKey, true)
     }
 
     private fun showHideShareImageButtons()
@@ -1154,12 +1086,6 @@ class FriendInfoActivity: AppCompatActivity()
 
         if (isImage)
         {
-            // If the message is sent as an image
-            ActivityCompat.requestPermissions(
-                this@FriendInfoActivity,
-                arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE, Manifest.permission.READ_EXTERNAL_STORAGE),
-                1
-            )
             pickImageFromGallery(saveImage)
         }
         else
@@ -1197,74 +1123,129 @@ class FriendInfoActivity: AppCompatActivity()
     @ExperimentalUnsignedTypes
     private fun handlePickedImageForEncoding(imageUri: Uri, saveImage: Boolean)
     {
-        // We can only share/save an image if a recipient with a public key has been selected
+        // We can only share/save an image if a recipient with a public key has been selected.
         thisFriend.publicKeyEncoded?.let { publicKey ->
             val message = binding.messageEditText.text.toString()
-            binding.imageImportProgressBar.visibility = View.VISIBLE
-            shareOrSaveAsImage(imageUri, message, publicKey, saveImage)
+            if (saveImage) encodeThenPromptSaveAs(imageUri, message, publicKey)
+            else           encodeThenShare(imageUri, message, publicKey)
             binding.messageEditText.text?.clear()
         }
     }
 
     @ExperimentalUnsignedTypes
-    private fun shareOrSaveAsImage(imageUri: Uri, message: String, encodedFriendPublicKey: ByteArray, saveImage: Boolean)
+    private fun encodeThenShare(coverUri: Uri, message: String, encodedFriendPublicKey: ByteArray)
     {
-        try
+        val encryptedMessage = try
         {
-            // Encrypt the message
-            val encryptedMessage = Encryption().encrypt(encodedFriendPublicKey, message)
-            makeWait()
-
-            // Encode the image off the main thread
-            val newUri: Deferred<Uri?> =
-                coroutineScope.async(Dispatchers.IO) {
-                    val swatch = Encoder()
-                    swatch.encode(
-                        applicationContext,
-                        encryptedMessage,
-                        imageUri,
-                        saveImage
-                    )
-                }
-
-            coroutineScope.launch(Dispatchers.Main) {
-                try
-                {
-                    val maybeUri = newUri.await()
-                    noMoreWaiting()
-
-                    if (maybeUri != null)
-                    {
-                        if (saveImage)
-                        {
-                            showAlert(getString(R.string.alert_text_image_saved))
-                        }
-                        else
-                        {
-                            ShareUtil.shareImage(applicationContext, maybeUri)
-                        }
-
-                        saveMessage(encryptedMessage, thisFriend, true)
-                    }
-                    else
-                    {
-                        showAlert(getString(R.string.alert_text_unable_to_process_request))
-                    }
-                }
-                catch (e: Exception)
-                {
-                    Timber.e(e, "shareOrSaveAsImage: encode coroutine failed")
-                    noMoreWaiting()
-                    showAlert(getString(R.string.alert_text_unable_to_process_request))
-                }
-            }
-
+            Encryption().encrypt(encodedFriendPublicKey, message)
         }
         catch (e: SecurityException)
         {
-            Timber.e(e, "shareOrSaveAsImage: encrypt failed")
-            noMoreWaiting()
+            Timber.e(e, "encodeThenShare: encrypt failed")
             showAlert(getString(R.string.alert_text_unable_to_process_request))
+            return
+        }
+
+        makeWait()
+
+        coroutineScope.launch {
+            val shareUri = withContext(Dispatchers.IO) {
+                Encoder().encodeToSharedFile(applicationContext, encryptedMessage, coverUri)
+            }
+
+            noMoreWaiting()
+
+            if (shareUri != null)
+            {
+                ShareUtil.shareImage(applicationContext, shareUri)
+                saveMessage(encryptedMessage, thisFriend, true)
+            }
+            else
+            {
+                showAlert(getString(R.string.alert_text_unable_to_process_request))
+            }
+        }
+    }
+
+    @ExperimentalUnsignedTypes
+    private fun encodeThenPromptSaveAs(coverUri: Uri, message: String, encodedFriendPublicKey: ByteArray)
+    {
+        val encryptedMessage = try
+        {
+            Encryption().encrypt(encodedFriendPublicKey, message)
+        }
+        catch (e: SecurityException)
+        {
+            Timber.e(e, "encodeThenPromptSaveAs: encrypt failed")
+            showAlert(getString(R.string.alert_text_unable_to_process_request))
+            return
+        }
+
+        makeWait()
+
+        // Suggested filename is derived from the cover image so it looks like an
+        // ordinary copy rather than anything Nahoft-specific.
+        val suggestedName = SaveUtil.suggestedPngName(applicationContext, coverUri)
+
+        coroutineScope.launch {
+            val tempFile = withContext(Dispatchers.IO) {
+                val encoded = Encoder().encodeToBitmap(applicationContext, encryptedMessage, coverUri)
+                    ?: return@withContext null
+                SaveUtil.stageEncodedPng(applicationContext, encoded)
+            }
+
+            noMoreWaiting()
+
+            if (tempFile == null)
+            {
+                showAlert(getString(R.string.alert_text_unable_to_process_request))
+                return@launch
+            }
+
+            // Hold the staged file across the destination picker round-trip.
+            pendingSaveTempPath = tempFile.absolutePath
+
+            // Persist the outgoing message now, matching the share path, which also
+            // records the message once encoding succeeds and before the user completes
+            // the follow-on system dialog.
+            saveMessage(encryptedMessage, thisFriend, true)
+
+            createDocumentForSavingLauncher.launch(suggestedName)
+        }
+    }
+
+    private fun handleSaveDestinationChosen(destUri: Uri?)
+    {
+        val tempPath = pendingSaveTempPath
+        pendingSaveTempPath = null
+
+        // User backed out of the destination picker: discard the staged encode.
+        if (destUri == null)
+        {
+            tempPath?.let { File(it).delete() }
+            return
+        }
+
+        if (tempPath == null)
+        {
+            // Nothing staged (e.g. the cached file was lost to process death).
+            showAlert(getString(R.string.alert_text_unable_to_process_request))
+            return
+        }
+
+        coroutineScope.launch {
+            val success = withContext(Dispatchers.IO) {
+                SaveUtil.writePngToUri(applicationContext, File(tempPath), destUri)
+            }
+
+            withContext(Dispatchers.IO) { File(tempPath).delete() }
+
+            showAlert(
+                getString(
+                    if (success) R.string.alert_text_image_saved
+                    else R.string.alert_text_unable_to_process_request
+                )
+            )
         }
     }
 
@@ -1527,4 +1508,12 @@ class FriendInfoActivity: AppCompatActivity()
         stopButtonAnimation()
         parentJob.cancel()
     }
+
+    companion object
+    {
+        // Key for holding the staged encoded PNG path across the Save As
+        // destination picker, so it survives activity recreation.
+        private const val STATE_PENDING_SAVE_TEMP_PATH = "pendingSaveTempPath"
+    }
+
 }

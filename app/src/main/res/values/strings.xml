@@ -245,8 +245,7 @@
 
     <!-- Image import / export -->
     <string name="import_image_hint">Import an image from your device.</string>
-    <!-- Folder name shown when an encoded image is saved to device storage -->
-    <string name="saved_images">Saved Images</string>
+
     <string name="sample_date_time" translatable="false">Yesterday 14:26</string>
 
     <!-- Confirmation dialog when pasted text is already encrypted —

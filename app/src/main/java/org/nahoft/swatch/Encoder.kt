@@ -5,11 +5,10 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.media.ExifInterface
 import android.net.Uri
-import org.nahoft.stencil.CapturePhotoUtils
-import org.nahoft.stencil.ImageSize
+import org.nahoft.swatch.CapturePhotoUtils
+import org.nahoft.swatch.ImageSize
 import org.nahoft.swatch.Swatch
 import org.nahoft.swatch.payloadMessageKey
-import org.nahoft.util.SaveUtil
 import kotlin.math.roundToInt
 import kotlin.math.sqrt
 
@@ -17,41 +16,33 @@ import kotlin.math.sqrt
 class Encoder
 {
     @ExperimentalUnsignedTypes
-    fun encode(context: Context, encrypted: ByteArray, coverUri: Uri, saveToGallery: Boolean): Uri?
+    fun encodeToBitmap(context: Context, encrypted: ByteArray, coverUri: Uri): Bitmap?
     {
-        var inputStream = context.contentResolver.openInputStream(coverUri)
-        if (inputStream == null)
-        {
-            return null
+        // Read EXIF orientation from its own stream. ExifInterface consumes part of
+        // the stream, so it can't be reused for bitmap decoding.
+        val exifStream = context.contentResolver.openInputStream(coverUri) ?: return null
+        val orientation = exifStream.use { stream ->
+            ExifInterface(stream).getAttributeInt(
+                ExifInterface.TAG_ORIENTATION,
+                ExifInterface.ORIENTATION_NORMAL
+            )
         }
 
-        val exifInterface = ExifInterface(inputStream)
-        val orientation = exifInterface.getAttributeInt(ExifInterface.TAG_ORIENTATION,
-            ExifInterface.ORIENTATION_NORMAL)
+        // Fresh stream for decoding the actual pixels.
+        val decodeStream = context.contentResolver.openInputStream(coverUri) ?: return null
+        val rawCover = decodeStream.use { BitmapFactory.decodeStream(it) } ?: return null
 
-        // Close the EXIF stream and open a fresh one for bitmap decoding.
-        // ExifInterface consumes part of the stream, so it can't be reused.
-        inputStream = context.contentResolver.openInputStream(coverUri)
-        val rawCover = BitmapFactory.decodeStream(inputStream) ?: return null
-
-        // Apply EXIF orientation. Without this, photos taken in portrait mode
-        // (stored as landscape pixels + a "rotate 90" EXIF flag)
-        // will appear sideways in the saved/shared output.
+        // Apply EXIF orientation so portrait photos aren't saved/shared sideways.
         val cover = applyExifOrientation(rawCover, orientation)
 
-        val result = encode(encrypted, cover) ?: return null
+        return encode(encrypted, cover)
+    }
 
-        val title = ""
-        val description = ""
-
-        return if (saveToGallery)
-        {
-            if (SaveUtil.saveImageToGallery(context, result)) coverUri else null
-        }
-        else
-        {
-            CapturePhotoUtils.insertImage(context, result, title, description)
-        }
+    @ExperimentalUnsignedTypes
+    fun encodeToSharedFile(context: Context, encrypted: ByteArray, coverUri: Uri): Uri?
+    {
+        val encoded = encodeToBitmap(context, encrypted, coverUri) ?: return null
+        return CapturePhotoUtils.insertImage(context, encoded)
     }
 
     /**
