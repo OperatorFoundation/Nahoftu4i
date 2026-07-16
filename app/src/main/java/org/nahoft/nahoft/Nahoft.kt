@@ -112,6 +112,25 @@ class Nahoft: Application(), LifecycleObserver
                 Persist.messageList.addAll(it)
             }
         }
+
+        // If a passcode is set, force re-authentication rather than trusting a persisted LoggedIn
+        // status left behind when the process was killed.
+        requireLoginOnColdStartIfPasscodeSet()
+    }
+
+    private fun requireLoginOnColdStartIfPasscodeSet()
+    {
+        // Populate `status` from persisted prefs before reading it.
+        Persist.getStatus()
+
+        val passcodeIsSet = Persist.encryptedSharedPreferences
+            .getString(Persist.sharedPrefPasscodeKey, null) != null
+
+        if (passcodeIsSet && status == LoginStatus.LoggedIn)
+        {
+            status = LoginStatus.LoggedOut
+            Persist.saveLoginStatus()
+        }
     }
 
     @OnLifecycleEvent(Lifecycle.Event.ON_RESUME)
