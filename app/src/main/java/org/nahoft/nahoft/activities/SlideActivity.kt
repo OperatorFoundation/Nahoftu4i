@@ -3,6 +3,9 @@ package org.nahoft.nahoft.activities
 import android.content.Intent
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.updatePadding
 import androidx.viewpager.widget.ViewPager
 import org.nahoft.nahoft.*
 import org.nahoft.nahoft.adapters.SlideViewPagerAdapter
@@ -31,36 +34,52 @@ class SlideActivity : AppCompatActivity() {
             finish()
     }
 
-    override fun onCreate(savedInstanceState: Bundle?) {
+    override fun onCreate(savedInstanceState: Bundle?)
+    {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_slide)
         val dataTypeExtra = intent.getStringExtra(Intent.EXTRA_TEXT)
+
         viewPager = findViewById(R.id.view_pager)
-        pagerAdapter = when (dataTypeExtra) {
+
+        // Pad for the bottom system bar so the slide action buttons aren't drawn under the navigation bar.
+        viewPager?.let { pager ->
+            ViewCompat.setOnApplyWindowInsetsListener(pager) { view, insets ->
+                val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+                view.updatePadding(bottom = systemBars.bottom)
+                insets
+            }
+        }
+
+        pagerAdapter = when (dataTypeExtra)
+        {
             slideNameIntro -> {
                 isExitWithBack = false
                 SlideViewPagerAdapter(this, getIntroSlides(applicationContext))
             }
+
             slideNameSetting -> {
                 SlideViewPagerAdapter(this, getSettingSlides(applicationContext))
             }
+
             slideNameAboutAndFriends -> {
                 SlideViewPagerAdapter(this, getAboutAndFriendsSlides(applicationContext))
             }
-//            slideNameContactList -> {
-//                SlideViewPagerAdapter(this, getContactSlides(applicationContext))
-//            }
+
             slideNameChat -> {
                 SlideViewPagerAdapter(this, getChatSlides(applicationContext))
             }
+
             slideNameAbout -> {
                 SlideViewPagerAdapter(this, getAboutSlides(applicationContext))
             }
+
             else -> {
                 isExitWithBack = false
                 SlideViewPagerAdapter(this, getIntroSlides(applicationContext))
             }
         }
+
         viewPager?.adapter = pagerAdapter
     }
 }
