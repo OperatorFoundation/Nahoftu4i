@@ -104,7 +104,52 @@
         android:padding="10dp"
         android:scrollbars="vertical"
         app:layout_constraintBottom_toTopOf="@id/logout_button"
-        app:layout_constraintTop_toBottomOf="@+id/header_section" />
+        app:layout_constraintTop_toBottomOf="@+id/add_new_contact_row" />
+
+    <!-- Shown only in select-sender mode (share sheet gave us a key/message and the
+         user must pick the sender). Lets the user create a new contact for a sender
+         they don't have yet. -->
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/add_new_contact_row"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_marginHorizontal="10dp"
+        android:layout_marginTop="@dimen/padding_half"
+        android:background="?android:attr/selectableItemBackground"
+        android:clickable="true"
+        android:focusable="true"
+        android:visibility="gone"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/header_section">
+
+        <TextView
+            android:id="@+id/add_new_contact_icon"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="+"
+            android:gravity="center"
+            android:textSize="20sp"
+            android:background="@drawable/bkgd_circle_white_56"
+            android:contentDescription="@null"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+
+        <TextView
+            android:id="@+id/add_new_contact_label"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="10dp"
+            android:gravity="start"
+            android:text="@string/add_new_friend"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toEndOf="@+id/add_new_contact_icon"
+            app:layout_constraintTop_toTopOf="parent" />
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
 
     <TextView
         android:id="@+id/help_textview"

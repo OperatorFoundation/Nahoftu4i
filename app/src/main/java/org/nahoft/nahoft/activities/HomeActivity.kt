@@ -474,9 +474,13 @@ class HomeActivity : AppCompatActivity()
             val settingsIntent = Intent(this, SettingsActivity::class.java)
             startActivity(settingsIntent)
         }
+
+        binding.addNewContactRow.setOnClickListener {
+            showAddContactForSharedPayload()
+        }
     }
 
-    private fun showAddFriendDialog()
+    private fun showAddFriendDialog(onFriendCreated: (Friend) -> Unit = ::openFriendInfo)
     {
         val builder: AlertDialog.Builder = AlertDialog.Builder(ContextThemeWrapper(this, R.style.AppTheme_AddFriendAlertDialog))
         val title = SpannableString(getString(R.string.add_new_friend))
@@ -514,11 +518,9 @@ class HomeActivity : AppCompatActivity()
             if (inputEditText.text.isNotEmpty())
             {
                 val friendName = inputEditText.text.toString()
-                val newFriend = saveFriend(friendName)//, phoneNumber)
+                val newFriend = saveFriend(friendName)
                 if (newFriend != null) {
-                    val friendInfoActivityIntent = Intent(this, FriendInfoActivity::class.java)
-                    friendInfoActivityIntent.putExtra(RequestCodes.friendExtraTaskDescription, newFriend)
-                    startActivity(friendInfoActivityIntent)
+                    onFriendCreated(newFriend)
                 }
             }
         }
@@ -529,6 +531,27 @@ class HomeActivity : AppCompatActivity()
         }
             .create()
             .show()
+    }
+
+    /**
+     * Default post-create behavior: open the new contact's chat with no shared payload.
+     */
+    private fun openFriendInfo(friend: Friend)
+    {
+        val friendInfoActivityIntent = Intent(this, FriendInfoActivity::class.java)
+        friendInfoActivityIntent.putExtra(RequestCodes.friendExtraTaskDescription, friend)
+        startActivity(friendInfoActivityIntent)
+    }
+
+    /**
+     * Entry point from the "add new contact" row shown in select-sender mode.
+     * Creates a contact via the standard dialog.
+     */
+    private fun showAddContactForSharedPayload()
+    {
+        showAddFriendDialog(onFriendCreated = { newFriend ->
+            showInfoActivity(newFriend)
+        })
     }
 
     private fun saveFriend(friendName: String) : Friend? { //, phoneNumber: String
@@ -625,6 +648,7 @@ class HomeActivity : AppCompatActivity()
         binding.userGuideButton.isVisible = false
         binding.tvMessages.text = getString(R.string.select_sender)
         binding.tvMessages.isAllCaps = false
+        binding.addNewContactRow.isVisible = true
     }
 
     private fun normalViewSetup()
@@ -633,5 +657,6 @@ class HomeActivity : AppCompatActivity()
         binding.userGuideButton.isVisible = true
         binding.tvMessages.text = getString(R.string.friends_list)
         binding.tvMessages.isAllCaps = true
+        binding.addNewContactRow.isVisible = false
     }
 }
