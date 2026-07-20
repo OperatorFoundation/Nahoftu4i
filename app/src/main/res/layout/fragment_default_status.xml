@@ -71,20 +71,67 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/your_name" />
 
+    <!-- Two equal actions in the Default state: share your own code (left) or
+         import the friend's code if you already have it (right).  -->
+
     <ImageButton
         android:id="@+id/invite_button"
         android:layout_width="70dp"
         android:layout_height="70dp"
-        android:layout_marginBottom="40dp"
         android:background="@drawable/btn_bkgd_blue_circle"
         android:contentDescription="@string/send_encrypted_messages"
         android:elevation="10dp"
         android:padding="15dp"
         android:scaleType="fitCenter"
         android:src="@drawable/ic_nahoft_icons_share"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.5"
+        app:layout_constraintBottom_toTopOf="@+id/share_action_label"
+        app:layout_constraintEnd_toStartOf="@+id/import_key_button"
+        app:layout_constraintHorizontal_chainStyle="spread"
         app:layout_constraintStart_toStartOf="parent" />
+
+    <TextView
+        android:id="@+id/share_action_label"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="40dp"
+        android:gravity="center"
+        android:paddingHorizontal="4dp"
+        android:text="@string/default_action_share_label"
+        android:textSize="14sp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="@+id/invite_button"
+        app:layout_constraintStart_toStartOf="@+id/invite_button"
+        app:layout_constraintTop_toBottomOf="@+id/invite_button" />
+
+    <ImageButton
+        android:id="@+id/import_key_button"
+        android:layout_width="70dp"
+        android:layout_height="70dp"
+        android:background="@drawable/btn_bkgd_blue_circle"
+        android:contentDescription="@string/import_invitation_button"
+        android:elevation="10dp"
+        android:padding="15dp"
+        android:scaleType="fitCenter"
+        android:src="@drawable/ic_nahoft_icons_import_text"
+        app:layout_constraintBottom_toTopOf="@+id/import_action_label"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toEndOf="@+id/invite_button"
+        app:layout_constraintTop_toTopOf="@+id/invite_button" />
+
+    <TextView
+        android:id="@+id/import_action_label"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="40dp"
+        android:gravity="center"
+        android:paddingHorizontal="4dp"
+        android:text="@string/default_action_import_label"
+        android:textSize="14sp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="@+id/import_key_button"
+        app:layout_constraintStart_toStartOf="@+id/import_key_button"
+        app:layout_constraintTop_toBottomOf="@+id/import_key_button" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

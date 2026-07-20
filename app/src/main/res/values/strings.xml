@@ -157,7 +157,11 @@
 
     <!-- Friend status screen body text — shown in the chat area depending on connection state -->
     <!-- %s = friend's name -->
-    <string name="default_fragment_text">%s needs your security code to exchange encrypted messages with you.\n\nNahoft is offline, so nothing is sent automatically. Tap the button below to share your security code with %s using any messaging app, then ask them to send theirs back to you.</string>
+    <string name="default_fragment_text">You and %s each need the other\'s security code to exchange encrypted messages.\n\nNahoft is offline, so nothing is sent automatically. Share your code with %s using any messaging app — or, if they\'ve already sent you theirs, import it.</string>
+    <!-- Labels under the two Default-state action buttons -->
+    <string name="default_action_share_label">Share my code</string>
+    <string name="default_action_import_label">Import their code</string>
+
     <!-- %s = friend's name -->
     <string name="invited_fragment_text">To exchange encrypted messages with %s, you need their security code.\n\nWhen %s sends you their security code you can share it directly to Nahoft from your messaging app, or you can tap the button below to paste it from your clipboard.\n\n Tap the share button above if you need to share your code again.</string>
     <!--  %s = friend's name-->

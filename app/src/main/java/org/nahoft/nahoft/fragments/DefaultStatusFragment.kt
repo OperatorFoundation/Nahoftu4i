@@ -4,14 +4,12 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.view.ViewTreeObserver
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import org.nahoft.nahoft.models.Friend
 import org.nahoft.nahoft.R
 import org.nahoft.nahoft.activities.FriendInfoActivity
 import org.nahoft.nahoft.databinding.FragmentDefaultStatusBinding
-import timber.log.Timber
 
 private const val FRIEND = "friend"
 
@@ -71,6 +69,10 @@ class DefaultStatusFragment : Fragment()
             }.withEndAction {
                 (activity as FriendInfoActivity?)?.inviteClicked()
             }
+        }
+
+        binding.importKeyButton.setOnClickListener {
+            (activity as FriendInfoActivity?)?.importInvitationClicked(FriendInfoActivity.ImportPurpose.IMPORT_KEY)
         }
     }
 
